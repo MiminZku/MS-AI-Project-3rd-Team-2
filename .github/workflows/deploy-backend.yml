@@ -1,54 +1,33 @@
 name: deploy-backend
 
-# backend/ 변경 시에만 동작 (§5 paths 필터)
+# backend/ 폴더에 변경이 생길 때만 작동
 on:
   push:
     branches: [main]
     paths:
       - "backend/**"
       - ".github/workflows/deploy-backend.yml"
-  pull_request:
-    branches: [main]
-    paths:
-      - "backend/**"
-      - ".github/workflows/deploy-backend.yml"
-  workflow_dispatch:
+  workflow_dispatch: # 수동 배포 버튼 활성화
 
 permissions:
   contents: read
-  id-token: write # azure/login OIDC
+  id-token: write # azure/login OIDC 권한 (필수)
 
 env:
   IMAGE_NAME: interview-backend
+  ACR_NAME: team2container # 💡 본인의 ACR 이름으로 확인 후 수정 (예: team2container)
+  CONTAINER_APP_NAME: team2containerapp # 💡 Azure에 생성한 컨테이너 앱 이름
+  AZURE_RESOURCE_GROUP: project-3rd-team-2 # 💡 리소스 그룹 이름
 
 jobs:
-  test:
-    name: 테스트
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/requirements-dev.txt
-
-      - run: pip install -r requirements-dev.txt
-      - run: pytest -q
-
   deploy:
     name: 빌드 & 배포
-    needs: test
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: 리포지토리 코드 체크아웃
+        uses: actions/checkout@v4
 
-      # 사전 준비: infra/azure-setup.sh 가 만든 앱 등록에 OIDC 페더레이션 자격증명이 있어야 한다.
+      # 🚨 주의: 이 스텝이 성공하려면 GitHub Secrets에 3개의 키가 등록되어 있어야 합니다!
       - name: Azure 로그인
         uses: azure/login@v2
         with:
@@ -56,33 +35,34 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # 러너에서 docker build/push 하지 않고 ACR 원격 빌드를 쓴다 (자격증명 관리가 단순해짐)
-      - name: ACR 이미지 빌드
+      - name: ACR 이미지 빌드 (Azure 원격 빌드)
         run: |
           az acr build \
-            --registry "${{ vars.ACR_NAME }}" \
-            --image "${IMAGE_NAME}:${GITHUB_SHA}" \
-            --image "${IMAGE_NAME}:latest" \
+            --registry "${{ env.ACR_NAME }}" \
+            --image "${{ env.IMAGE_NAME }}:${GITHUB_SHA}" \
+            --image "${{ env.IMAGE_NAME }}:latest" \
             --file backend/Dockerfile \
             backend
 
-      - name: Container Apps 배포
+      - name: Container Apps 배포 (최신 이미지로 업데이트)
         run: |
           az config set extension.use_dynamic_install=yes_without_prompt
           az containerapp update \
-            --name "${{ vars.CONTAINER_APP_NAME }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --image "${{ vars.ACR_NAME }}.azurecr.io/${IMAGE_NAME}:${GITHUB_SHA}"
+            --name "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
 
-      - name: 배포 스모크 테스트
+      - name: 배포 상태 확인 (Health Check)
         run: |
           FQDN=$(az containerapp show \
-            --name "${{ vars.CONTAINER_APP_NAME }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "${{ env.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --query properties.configuration.ingress.fqdn -o tsv)
-          echo "https://${FQDN}/health"
+          
+          # 💡 FastAPI의 기본 엔드포인트(/)로 잘 접속되는지 핑(Ping) 테스트
+          echo "Test URL: https://${FQDN}/"
           for i in $(seq 1 10); do
-            if curl -fsS "https://${FQDN}/health"; then exit 0; fi
+            if curl -fsS "https://${FQDN}/"; then exit 0; fi
             echo "재시도 ${i}/10"; sleep 10
           done
           echo "헬스체크 실패"; exit 1

@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     environment: str = "local"
     log_level: str = "INFO"
 
-    cors_origins: str = "http://localhost:5173,http://localhost:5174"
+    cors_origins: str = "http://localhost:5173,http://localhost:5174,https://victorious-pond-0765baa0f.7.azurestaticapps.net,https://orange-sand-0bb92740f.7.azurestaticapps.net"
 
     # 참관자가 세션을 만들면 발급되는 응답자용 링크의 base URL
     interviewee_base_url: str = "http://localhost:5173"
