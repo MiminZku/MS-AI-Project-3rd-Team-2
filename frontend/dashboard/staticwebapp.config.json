@@ -1,0 +1,10 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/assets/*"]
+  },
+  "globalHeaders": {
+    "cache-control": "no-store",
+    "X-Robots-Tag": "noindex, nofollow"
+  }
+}

@@ -1,0 +1,130 @@
+:root {
+  color-scheme: dark;
+  --bg: #0f1115;
+  --panel: #171a21;
+  --line: #262b36;
+  --text: #e8eaf0;
+  --muted: #9aa3b2;
+  --accent: #6c8cff;
+  font-family: system-ui, "Segoe UI", "Malgun Gothic", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.shell {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.badge {
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.badge.connected {
+  color: #6ee7a8;
+  border-color: #245c40;
+}
+
+.badge.error,
+.badge.closed {
+  color: #ff8f8f;
+  border-color: #5c2424;
+}
+
+.stage {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 32px 24px;
+  text-align: center;
+}
+
+/* TTS Avatar 폴백용 오브 (C6) */
+.orb {
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, #9db4ff, var(--accent));
+  box-shadow: 0 0 40px rgba(108, 140, 255, 0.35);
+}
+
+.question {
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.composer {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+textarea {
+  flex: 1;
+  resize: vertical;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+}
+
+button {
+  padding: 0 20px;
+  border-radius: 10px;
+  border: none;
+  background: var(--accent);
+  color: #0b1020;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.history p {
+  margin: 0 0 10px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.history p.assistant strong {
+  color: var(--accent);
+}

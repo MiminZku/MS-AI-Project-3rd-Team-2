@@ -1,0 +1,17 @@
+# 런타임 의존성 (backend/)
+# 상한을 느슨하게 둔 이유: 데모 기간 중 Azure SDK/모델 클라이언트 업데이트를 흡수하기 위함.
+# 배포가 안정화되면 `pip freeze > requirements.lock.txt`로 고정할 것.
+
+fastapi>=0.115,<1.0
+uvicorn[standard]>=0.30,<1.0
+pydantic>=2.7,<3.0
+pydantic-settings>=2.3,<3.0
+
+# 세션 상태 + 참관자 지시 큐 (D4). REDIS_URL 미설정 시 인메모리 폴백으로 동작.
+redis>=5.0
+
+# Azure OpenAI (GPT-4o 질문 생성 / gpt-4o-mini 타임키퍼)
+openai>=1.40
+
+# STT/TTS 등 외부 HTTP 호출용
+httpx>=0.27

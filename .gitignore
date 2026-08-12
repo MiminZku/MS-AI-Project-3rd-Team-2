@@ -216,3 +216,20 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# ---------------------------------------------------------------------------
+# 프로젝트 추가 (frontend / Azure)
+# ---------------------------------------------------------------------------
+node_modules/
+frontend/*/dist/
+*.local
+.env.local
+.env.*.local
+npm-debug.log*
+
+# Python 템플릿의 lib/ 규칙이 프론트 소스를 삼키지 않도록 예외 처리
+!frontend/*/src/**
+
+# Azure / 배포 산출물
+.azure/
+*.publishsettings

@@ -1,0 +1,88 @@
+name: deploy-backend
+
+# backend/ 변경 시에만 동작 (§5 paths 필터)
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write # azure/login OIDC
+
+env:
+  IMAGE_NAME: interview-backend
+
+jobs:
+  test:
+    name: 테스트
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - run: pip install -r requirements-dev.txt
+      - run: pytest -q
+
+  deploy:
+    name: 빌드 & 배포
+    needs: test
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 사전 준비: infra/azure-setup.sh 가 만든 앱 등록에 OIDC 페더레이션 자격증명이 있어야 한다.
+      - name: Azure 로그인
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # 러너에서 docker build/push 하지 않고 ACR 원격 빌드를 쓴다 (자격증명 관리가 단순해짐)
+      - name: ACR 이미지 빌드
+        run: |
+          az acr build \
+            --registry "${{ vars.ACR_NAME }}" \
+            --image "${IMAGE_NAME}:${GITHUB_SHA}" \
+            --image "${IMAGE_NAME}:latest" \
+            --file backend/Dockerfile \
+            backend
+
+      - name: Container Apps 배포
+        run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
+          az containerapp update \
+            --name "${{ vars.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "${{ vars.ACR_NAME }}.azurecr.io/${IMAGE_NAME}:${GITHUB_SHA}"
+
+      - name: 배포 스모크 테스트
+        run: |
+          FQDN=$(az containerapp show \
+            --name "${{ vars.CONTAINER_APP_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          echo "https://${FQDN}/health"
+          for i in $(seq 1 10); do
+            if curl -fsS "https://${FQDN}/health"; then exit 0; fi
+            echo "재시도 ${i}/10"; sleep 10
+          done
+          echo "헬스체크 실패"; exit 1
