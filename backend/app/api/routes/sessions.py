@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 
 from app.api.deps import load_session, require_admin
 from app.core.config import get_settings
+from app.schemas.report import Report
 from app.schemas.session import (
     Instruction,
     Session,
@@ -54,3 +56,13 @@ async def get_instructions(session: Session = Depends(load_session)) -> list[Ins
 @router.post("/{session_id}/end", response_model=Session)
 async def end_session(session: Session = Depends(load_session)) -> Session:
     return await orchestrator.end_session(session)
+
+
+@router.get("/{session_id}/report", response_model=None)
+async def get_report(session: Session = Depends(load_session)) -> Report | JSONResponse:
+    report = await get_store().get_report(session.id)
+    if report is None:
+        # 세션 종료 직후엔 아직 생성 중일 수 있음. 대시보드는 이 상태면 폴링하거나
+        # observer 소켓의 report.ready 이벤트를 기다리면 된다.
+        return JSONResponse(status_code=202, content={"status": "pending"})
+    return report

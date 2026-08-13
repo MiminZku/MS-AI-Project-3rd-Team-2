@@ -1,0 +1,173 @@
+{
+  "session": {
+    "id": "ses_demo0001",
+    "title": "OpenAI Codex vs Claude Code 사용자 선호도 리서치",
+    "status": "ended",
+    "duration_minutes": 10,
+    "questions": [
+      {
+        "id": "q1",
+        "order": 1,
+        "text": "현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합을 사용하고 계신가요?",
+        "branches": {
+          "툴 조합 언급됨": "평소 일상적인 코딩과 복잡한 리팩토링/디버깅 시 사용하는 툴이 다른가요?"
+        }
+      },
+      {
+        "id": "q2",
+        "order": 2,
+        "text": "개발자들 사이에서 '모델 성능은 OpenAI가 최고인데, 터미널 작업은 결국 Claude Code를 켜게 된다'는 이야기가 있습니다. 본인도 이 말에 공감하시나요? 공감하신다면 그 결정적인 이유가 무엇인가요?",
+        "branches": {
+          "UX/인터페이스 관점": "터미널 환경에서 대화의 흐름이나 멀티스텝 작업 처리가 어떻게 더 편리하다고 느끼시나요?",
+          "컨텍스트/에이전트 자율성 관점": "대규모 코드베이스를 읽고 수정하는 과정에서 Claude가 의도를 더 잘 파악한다고 느끼는 구체적인 순간이 있나요?"
+        }
+      },
+      {
+        "id": "q3",
+        "order": 3,
+        "text": "반대로, OpenAI 모델이나 관련 툴을 쓰면서 '아, 이 부분 때문에 결국 흐름이 끊긴다'거나 답답하다고 느꼈던 경험은 무엇인가요?",
+        "branches": {
+          "번거로움": "프롬프트를 입력하고 결과물을 검토하는 과정에서 불필요하게 개입해야 하거나 수동으로 수정해야 했던 번거로움이 있었나요?",
+          "속도·비용·자율성": "속도, 비용(토큰), 혹은 에이전트의 자율성 중 어떤 요소가 가장 아쉬웠나요?"
+        }
+      },
+      {
+        "id": "q4",
+        "order": 4,
+        "text": "만약 내일 당장 OpenAI가 터미널 기반 개발 경험을 혁신적으로 바꿀 단 하나의 기능을 내놓는다면, 어떤 모습이어야 할까요?",
+        "branches": {}
+      }
+    ],
+    "current_question_index": 4,
+    "created_at": "2026-08-13T08:55:00Z",
+    "started_at": "2026-08-13T09:00:00Z",
+    "ended_at": "2026-08-13T09:11:30Z"
+  },
+
+  "instructions": [
+    {
+      "id": "ins_demo0001",
+      "session_id": "ses_demo0001",
+      "text": "컨텍스트/에이전트 자율성 관점에서 구체적인 사례를 더 파고들어봐",
+      "status": "applied",
+      "created_at": "2026-08-13T09:05:10Z",
+      "applied_at": "2026-08-13T09:05:42Z",
+      "applied_turn": 6
+    }
+  ],
+
+  "transcript": [
+    {
+      "index": 0,
+      "speaker": "assistant",
+      "text": "안녕하세요! 편하게 대화 나누듯 답변해주시면 됩니다. 현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합을 사용하고 계신가요?",
+      "rationale": "질문 리스트 1번 항목을 그대로 시작 질문으로 사용.",
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:00:05Z"
+    },
+    {
+      "index": 1,
+      "speaker": "interviewee",
+      "text": "요즘은 거의 Claude Code를 메인으로 쓰고 있어요. 그런데 회사에서 비교 평가 때문에 OpenAI Codex CLI도 최근 2주 정도 같이 써봤고, 가끔 Cursor도 곁들여 써요.",
+      "rationale": null,
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:00:50Z"
+    },
+    {
+      "index": 2,
+      "speaker": "assistant",
+      "text": "평소 일상적인 코딩과 복잡한 리팩토링/디버깅 작업에서 사용하는 툴이 다른가요?",
+      "rationale": "질문 1의 [툴 조합 언급됨] 분기 조건 충족 — 후속 probing으로 이동.",
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:01:35Z"
+    },
+    {
+      "index": 3,
+      "speaker": "interviewee",
+      "text": "간단한 자동완성이나 짧은 스크립트는 아무거나 써도 상관없는데, 여러 파일에 걸친 리팩토링이나 버그 추적할 때는 무조건 Claude Code를 켭니다. Codex는 그 상황에서 맥락을 자꾸 놓치더라고요.",
+      "rationale": null,
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:02:20Z"
+    },
+    {
+      "index": 4,
+      "speaker": "assistant",
+      "text": "개발자들 사이에서 '모델 성능은 OpenAI가 최고인데, 터미널 작업은 결국 Claude Code를 켜게 된다'는 이야기가 있습니다. 본인도 이 말에 공감하시나요? 공감하신다면 그 결정적인 이유가 무엇인가요?",
+      "rationale": "질문 리스트 2번(핵심 질문)으로 진행.",
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:03:10Z"
+    },
+    {
+      "index": 5,
+      "speaker": "interviewee",
+      "text": "완전 공감해요. 순수 코드 생성 품질만 보면 Codex도 꿀리지 않는다고 생각하는데, 결과물까지 가는 '과정'이 Claude Code가 훨씬 매끄러워요. 제가 일일이 다음 스텝을 지시 안 해도 알아서 파일 찾아보고 테스트 돌려보고 하는 느낌이랄까.",
+      "rationale": null,
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:04:15Z"
+    },
+    {
+      "index": 6,
+      "speaker": "assistant",
+      "text": "방금 말씀하신 부분과 관련해서, 대규모 코드베이스를 읽고 수정하는 과정에서 Claude가 의도를 더 잘 파악한다고 느끼는 구체적인 사례가 있다면 조금 더 자세히 들려주시겠어요?",
+      "rationale": "[참관자 지시 반영] '컨텍스트/에이전트 자율성 관점에서 구체적인 사례를 더 파고들어봐'라는 지시를 자연스러운 꼬리질문으로 이어감.",
+      "instruction_id": "ins_demo0001",
+      "created_at": "2026-08-13T09:05:42Z"
+    },
+    {
+      "index": 7,
+      "speaker": "interviewee",
+      "text": "예전에 5개 서비스에 걸친 인증 로직을 통째로 바꾼 적이 있는데, Claude Code는 관련 파일을 알아서 찾고 각 서비스별 컨벤션 차이까지 반영해서 고쳐줬어요. Codex CLI는 제가 파일 경로를 하나하나 짚어줘야 그나마 정확하게 고치더라고요.",
+      "rationale": null,
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:06:50Z"
+    },
+    {
+      "index": 8,
+      "speaker": "assistant",
+      "text": "반대로, OpenAI 모델이나 관련 툴을 쓰면서 '아, 이 부분 때문에 결국 흐름이 끊긴다'거나 답답하다고 느꼈던 경험은 무엇인가요?",
+      "rationale": "질문 리스트 3번(핵심 질문)으로 진행.",
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:07:40Z"
+    },
+    {
+      "index": 9,
+      "speaker": "interviewee",
+      "text": "컨텍스트 윈도우가 꽉 차면 갑자기 이전 지시를 까먹은 것처럼 굴 때가 제일 답답해요. 그리고 매번 승인 흐름이 툭툭 끊겨서, 제가 계속 터미널 앞에 붙어있어야 하는 느낌이에요.",
+      "rationale": null,
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:08:35Z"
+    },
+    {
+      "index": 10,
+      "speaker": "assistant",
+      "text": "속도, 비용(토큰), 혹은 에이전트의 자율성 중 어떤 요소가 가장 아쉬웠나요?",
+      "rationale": "질문 3의 [속도·비용·자율성] 분기로 진행.",
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:09:20Z"
+    },
+    {
+      "index": 11,
+      "speaker": "interviewee",
+      "text": "저는 자율성이요. 속도나 비용은 감수할 수 있는데, 제가 옆에서 계속 컨펌해줘야 하는 구조 자체가 피로도가 커요.",
+      "rationale": null,
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:10:05Z"
+    },
+    {
+      "index": 12,
+      "speaker": "assistant",
+      "text": "마지막 질문입니다. 만약 내일 당장 OpenAI가 터미널 기반 개발 경험을 혁신적으로 바꿀 단 하나의 기능을 내놓는다면, 어떤 모습이어야 할까요?",
+      "rationale": "질문 리스트 4번(클로징)으로 진행.",
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:10:45Z"
+    },
+    {
+      "index": 13,
+      "speaker": "interviewee",
+      "text": "세션이 끊겨도 작업 맥락을 스스로 복구하는 장기 기억 같은 거요. 그거 하나만 해결돼도 지금 느끼는 답답함의 8할은 없어질 것 같아요.",
+      "rationale": null,
+      "instruction_id": null,
+      "created_at": "2026-08-13T09:11:20Z"
+    }
+  ]
+}

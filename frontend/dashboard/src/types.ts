@@ -42,6 +42,13 @@ export interface Instruction {
   applied_turn: number | null;
 }
 
+export interface Report {
+  session_id: string;
+  generated_at: string;
+  // 내부 구조는 리포트 담당자가 설계 중 — 확정되면 이 타입도 같이 구체화할 것.
+  data: Record<string, unknown>;
+}
+
 export type ServerMessage =
   | {
       type: "session.snapshot";
@@ -61,6 +68,7 @@ export type ServerMessage =
       hint: string;
     }
   | { type: "session.ended"; session: Session }
+  | { type: "report.ready"; report: Report }
   | { type: "interviewee.connected"; session_id: string }
   | { type: "interviewee.disconnected"; session_id: string }
   | { type: "error"; message: string };

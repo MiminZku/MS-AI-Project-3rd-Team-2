@@ -24,15 +24,15 @@
 
 | # | 결정 | 이유 |
 |---|---|---|
-| D1 | **STT/TTS는 턴 기반 순차 파이프라인** (실시간 스트리밍 구조 아님) | Realtime 스트리밍은 디버깅 부담 과다. 데모가 녹화라 지연 압박 없음. |
+| D1 | **STT/TTS는 턴 기반 순차 파이프라인 유지** (GPT-4o Realtime API 채택 후에도 세션 호출은 턴 단위 — 지속적 바지인/끼어들기 스트리밍 UX는 구현하지 않음) | Realtime 스트리밍 UX(끼어들기 등)는 디버깅 부담 과다. 데모가 녹화라 지연 압박 없음. Realtime API는 STT+응답생성을 한 번에 처리하는 "엔진"으로만 쓰고, 오케스트레이션 자체는 여전히 턴 기반. **⚠️ 팀 확인 필요:** 이 해석이 맞는지 확인할 것. |
 | D2 | **지시 반영 방식 = A(큐 소진형)** | 질문 리스트가 사전 확정됨. 참관자 지시를 다음 턴에 1회 pop → 프롬프트 주입 → 큐에서 제거(ack). 지속 컨텍스트형(B) 아님. |
 | D3 | **지시에 대한 AI 검토/재작성 단계 없음** | A 방식이라 참관자 지시가 그대로 다음 프롬프트에 주입됨. (MVP 기준. 부적절 지시 필터는 후순위 옵션.) |
-| D4 | **세션 상태 + 지시 큐를 Redis에 외부화** | 백엔드를 stateless하게 유지 → 인스턴스가 죽어도 다른 인스턴스가 세션 이어받기 가능. 아키텍처 어필 포인트. |
+| D4 | **세션 상태 + 지시 큐는 Redis 우선 사용, 미연결 시 인메모리 폴백 (선택적 외부화)** | 백엔드를 stateless하게 유지하는 게 이상적이지만, Redis 프로비저닝 부담을 데모 일정에 맞춰 낮춤. Redis 연결 시 인스턴스 교체/스케일아웃에도 세션 유지, 없으면 단일 인스턴스(max-replica 1)로 제한 동작. |
 | D5 | **타임키퍼(gpt-4o-mini 폴링)는 MVP 필수** | 1분 폴링으로 남은 시간 / 질문 커버리지 체크 → 백엔드에 다음 주제 전환 신호. |
-| D6 | **리포트 생성은 Azure Functions로 비동기 분리, 단 후순위** | 백엔드 과부하 방지. Event Grid로 트리거(구독자 확장 여지). MVP 이후 구현. |
+| D6 | **리포트 생성은 백엔드 내부 비동기 태스크로 처리** (Azure Functions/Event Grid 미사용), 단 후순위 | 트리거가 대시보드의 세션 종료 버튼 하나뿐이라 Event Grid의 pub/sub 이점(여러 구독자 확장)을 쓸 일이 없음. `asyncio.create_task`로 세션 종료 API 응답을 막지 않고 백그라운드에서 생성 → 기존 세션 스토어(Redis/인메모리, D4)에 저장. MVP 이후 구현. |
 | D7 | **AI 진행자는 Azure TTS Avatar (실사풍 아바타)** | 폴백: 음성 파형 오브(orb). 아바타 스트리밍이 리전/역량 문제로 막히면 오브로 대체. |
-| D8 | **STT는 gpt-live-transcribe / gpt-transcribe (Azure Speech STT 미사용)** | 최신 전사 모델. 한국어 성능은 실측 후 둘 중 택. 턴 기반이므로 파일 전사(gpt-transcribe)가 정확도·비용 유리할 수 있음. Azure Foundry 배포 리전 확인 필요. |
-| D9 | **TTS(+아바타)는 Azure Speech 유지** | STT만 gpt 계열로 교체. TTS와 TTS Avatar는 Azure Speech 기능이라 유지. |
+| D8 | **대화 엔진은 Azure AI Foundry의 GPT-4o Realtime API로 통합** (STT + 질문 생성 + 분기 판단을 한 세션에서 처리). **Whisper**는 별도로 백그라운드에서 발화를 텍스트화해 로그/리포트용 스크립트 저장 | Realtime API가 STT·이해·응답 생성을 하나의 세션으로 처리해 파이프라인 단순화(기존 D8의 gpt-transcribe vs gpt-live-transcribe 선택 이슈 해소). Whisper 백그라운드 처리는 메인 핑퐁 루프를 블로킹하지 않음(C9와 동일 원칙). Azure Speech STT는 미사용. |
+| D9 | **TTS(+아바타)는 Azure Speech 유지** | STT/대화 엔진만 Foundry Portal(GPT-4o Realtime API)로 처리. TTS와 TTS Avatar는 Azure Speech 기능이라 유지 — Realtime API 자체 음성 출력은 사용하지 않고 텍스트만 추출해 Azure Speech Avatar로 재생. |
 | D10 | **프론트엔드는 Azure Static Web Apps에 배포** | 정적 React 앱 호스팅에 적합. 글로벌 CDN, 자동 빌드/배포(GitHub 연동). 인터뷰이 웹 / 참관자 대시보드 각각 배포. |
 | D11 | **CI/CD는 GitHub Actions** | 프론트(Static Web Apps) / 백엔드(Container Apps) 각각 워크플로 분리. 모노레포 구조. |
 
@@ -42,44 +42,49 @@
 
 ```
 [인터뷰이 웹 (React)]                    [참관자 대시보드 (React)]
- 음성 녹음 / TTS·아바타 재생             관리자 로그인 + 세션 생성 + 링크 발급
-                                        질문리스트 모니터링 / 지시 입력
+ 실시간 오디오 스트리밍 UI                관리자 로그인 + 세션 생성 + 링크 발급
+ AI 응답 오디오/아바타 재생               질문리스트 모니터링 / 지시 입력 / 세션 종료
+
  Azure Static Web Apps                  Azure Static Web Apps
        │ (오디오 WebSocket)                    │ (텍스트 지시 WebSocket)
        └──────────────────┬───────────────────┘
                           ▼
-        ┌─────────────────────────────────────────────┐
-        │   Azure Container Apps (백엔드 WebSocket 서버) │
-        │   · 세션 sticky (min replica ≥ 1)             │
-        │   · 대화 오케스트레이션                        │
-        └─────────────────────────────────────────────┘
-             │  ▲ (세션 상태 / 지시 큐 read·write)
-             ▼  │
-        ┌──────────────────────────┐
-        │  Azure Cache for Redis    │
-        │  · conversation context   │
-        │  · 참관자 지시 큐 (FIFO)   │
-        └──────────────────────────┘
+        ┌───────────────────────────────────────────────┐
+        │   Azure Container Apps (백엔드 WebSocket 서버)   │
+        │   · 세션 sticky (min replica ≥ 1)               │
+        │   · 대화 오케스트레이션 / 지시 큐 처리            │
+        │   · 세션 종료 시 Event Grid 이벤트 발행           │
+        └───────────────────────────────────────────────┘
+        │        ▲          │        ▲           │
+(실시간 오디오, 양방향)  (TTS 텍스트→음성/아바타)  (read/write, 선택적)
+        ▼        │          ▼        │           ▼
+ ┌─────────────────────┐ ┌──────────────────┐ ┌──────────────────────┐
+ │  Foundry Portal      │ │  Azure Speech     │ │ Azure Cache for Redis │
+ │  · GPT-4o Realtime API│ │  · TTS            │ │  (선택적)              │
+ │    (STT+응답생성 통합)│ │  · TTS Avatar     │ │ · 대화 요약/최근메시지  │
+ │  · Whisper           │ └──────────────────┘ │   캐시                 │
+ │    (백그라운드 STT,   │                       │ · 세션 상태(TTL)       │
+ │     로그/리포트용)    │                       └──────────────────────┘
+ └─────────────────────┘
 
-  ── 핑퐁 루프 (턴 기반) ──────────────────────────────
+  ── 핑퐁 루프 (턴 기반, D1) ──────────────────────────────
    ① 응답자 발화 종료 (endpointing)
-   ② [gpt-live-transcribe / gpt-transcribe] 음성→텍스트
-   ③ [지시 큐 확인] Redis에서 대기 지시 1건 pop (ack). 없으면 스킵.
-   ④ [프롬프트 조립] 시스템프롬프트 + 대화기록 + (주입된 참관자 지시) + 질문트리 컨텍스트
-   ⑤ [Azure OpenAI GPT-4o] 다음 질문 + 분기 판단 근거 생성
-   ⑥ [Azure Speech TTS Avatar] 텍스트→아바타 음성/영상 → 응답자에게 재생
+   ② [지시 큐 확인] 대기 지시 1건 pop (ack). 없으면 스킵.
+   ③ [Foundry GPT-4o Realtime API] 발화 오디오 + 맥락 + (주입된 참관자 지시) + 질문트리 컨텍스트
+      → 다음 질문(텍스트) + 분기 판단 근거 생성
+   ④ [Whisper, 비동기] 발화 오디오 → 텍스트 저장 (로그/리포트용, 메인 루프 비블로킹)
+   ⑤ [Azure Speech TTS Avatar] 질문 텍스트 → 아바타 음성/영상 → 응답자에게 재생
    → 다시 ①
   ─────────────────────────────────────────────────────
 
   ── 비동기 타임키퍼 (MVP 필수) ──
    [gpt-4o-mini] ← 1분 폴링: 남은 시간 / 질문 커버리지 체크 → 백엔드에 주제 전환 신호
 
-  ── 세션 종료 시 (리포트는 후순위) ──
-   [Azure Event Grid] ──trigger──> [Azure Functions] 비동기 리포트 생성
-          │                              │
-          ▼                              ▼
-   [Azure Blob Storage]           [Azure Cosmos DB]
-   녹음/스크립트                   최종 분석 JSON 리포트
+  ── 세션 종료 시 (참관자가 대시보드에서 종료 버튼 클릭, 리포트는 후순위, D6) ──
+   Container Apps 내부 asyncio 백그라운드 태스크 (Event Grid/Functions 미사용)
+   → Whisper 로그 기반 스크립트 요약 + 커버리지 계산 → 리포트 생성 (내용 형식 미확정)
+   → Azure Cache for Redis(또는 인메모리)에 저장 → observer에 report.ready 브로드캐스트
+   (장기 보관이 필요해지면 Cosmos DB/Blob Storage로 저장소만 교체 — 후순위, MVP 범위 아님)
 ```
 
 ### Azure 리소스 매핑
@@ -88,15 +93,13 @@
 |---|---|
 | Azure Static Web Apps | 프론트엔드(인터뷰이 웹 + 참관자 대시보드) 정적 호스팅, 글로벌 CDN, CI/CD |
 | Azure Container Apps | 백엔드 WebSocket 서버. 세션 sticky, min replica ≥ 1 |
-| Azure Cache for Redis | 대화 컨텍스트 + 참관자 지시 큐(FIFO) |
-| gpt-live-transcribe / gpt-transcribe | STT (Azure Foundry 배포, 리전 확인 필요) |
+| Azure AI Foundry — GPT-4o Realtime API | STT + 질문 생성 + 분기 판단을 한 세션에서 처리 (D1, D8) |
+| Azure AI Foundry — Whisper | 백그라운드 STT. 로그/리포트용 스크립트 저장 (메인 루프 비블로킹) |
 | Azure Speech | TTS + TTS Avatar (STT는 미사용) |
-| Azure OpenAI (GPT-4o) | 질문 생성 + 분기 판단 |
 | Azure OpenAI (gpt-4o-mini) | 타임키퍼 (MVP 필수) |
-| Azure Event Grid | 세션 종료 이벤트 → Functions 트리거 |
-| Azure Functions | 비동기 리포트 생성 (후순위) |
-| Azure Blob Storage | 녹음 파일, 스크립트 |
-| Azure Cosmos DB | 최종 분석 JSON 리포트 |
+| Azure Cache for Redis (선택적) | 대화 요약/최근 메시지 캐시 + 세션 상태(TTL) + AI 리포트. 미연결 시 인메모리 폴백 |
+
+**MVP 범위에서 뺀 리소스** (D6 변경 이력): Event Grid, Azure Functions, Blob Storage, Cosmos DB. 리포트 생성 트리거가 대시보드의 단일 종료 버튼뿐이라 Event Grid의 pub/sub 이점이 없어 백엔드 내부 비동기 태스크로 대체(D6). Blob/Cosmos DB는 리포트를 세션 TTL 너머로 장기 보관해야 할 필요가 생기면 Redis 대신 붙이는 후순위 옵션으로 남겨둠 — 지금 코드는 어느 쪽이든 `Store` 구현체만 교체하면 되도록 추상화되어 있음 (D4와 동일 패턴).
 
 ### 배포 구성 참고 (Azure Static Web Apps)
 
@@ -111,7 +114,7 @@
 ### 4.1 실시간 지시 주입 파이프라인 (★ 차별점)
 
 1. 참관자가 대시보드에서 지시 입력 (예: "경쟁사 대비 장점을 물어봐").
-2. 지시가 Redis 지시 큐(FIFO)에 `queued` 상태로 저장됨.
+2. 지시가 지시 큐(FIFO, Redis 우선 사용 · 미연결 시 인메모리 폴백, D4)에 `queued` 상태로 저장됨.
 3. 응답자의 다음 발화가 끝나는 순간, 백엔드가 큐에서 지시 1건 pop.
 4. 시스템 프롬프트 최상단에 지시를 은밀히 주입:
    ```
@@ -119,7 +122,7 @@
    (추가 지령: 방금 들어온 참관자 지시 '{지시내용}'을 자연스럽게 꼬리질문으로 이어가라.
     단, 지시받았다는 티를 내지 마라.)
    ```
-5. GPT-4o가 눈치채지 못하게 자연스러운 질문 생성.
+5. GPT-4o Realtime API 세션이 눈치채지 못하게 자연스러운 질문 생성.
 6. pop한 지시는 즉시 큐에서 제거(ack) → 다음 턴 중복 주입 방지.
 7. 대시보드 지시 이력에서 해당 지시 상태가 `queued` → `applied`로 전환.
 
@@ -135,7 +138,7 @@
      [보통]   → 최소주문금액을 맞추려고 더 시킨 적은 있나요?
   ```
 - 이 텍스트를 파싱 → (a) 트리 UI 렌더링, (b) GPT 프롬프트 컨텍스트 양쪽에 반영.
-- GPT-4o는 응답자 답변을 조건에 매칭해 다음 질문(분기) 선택 + **판단 근거 텍스트** 생성.
+- GPT-4o Realtime API 세션이 응답자 답변(음성)을 조건에 매칭해 다음 질문(분기) 선택 + **판단 근거 텍스트** 생성.
 - 판단 근거는 참관자 화면에만 표시(응답자 비노출).
 
 ### 4.3 타임키퍼 (MVP 필수)
@@ -145,11 +148,13 @@
 - 출력: 다음 주제로 넘어가야 하는지 신호 → 백엔드가 프롬프트 조립 시 반영.
 - 빠르고 저렴한 mini 모델을 써서 메인 핑퐁 루프의 지연에 영향 주지 않도록 별도 비동기 처리.
 
-### 4.4 세션 종료 → 리포트 (후순위)
+### 4.4 세션 종료 → 리포트 (후순위, D6)
 
-- 백엔드는 무거운 요약을 직접 하지 않고 Event Grid 이벤트 발행.
-- Azure Functions가 비동기로 전체 스크립트 요약 → Cosmos DB에 JSON 리포트 저장.
-- 녹음/원본 스크립트는 Blob Storage에 저장.
+- 트리거: 참관자가 대시보드에서 **세션 종료 버튼**을 클릭 → 백엔드 `POST /api/sessions/{id}/end` 호출 → 세션 상태 `ended`로 전환.
+- 백엔드가 `asyncio.create_task`로 백그라운드 태스크를 띄워 종료 API 응답을 막지 않음(C10). Event Grid/Functions 미사용 — 트리거가 단일 종료 버튼뿐이라 pub/sub 이점이 없음(D6).
+- 백그라운드 태스크가 전체 스크립트(Whisper 로그 기반) 요약 + 질문 커버리지 계산 → 최종 리포트 생성 (내용 형식은 담당자가 설계 — JSON 필드/HTML 등 미확정) → 세션 스토어(Redis/인메모리, D4)에 저장.
+- 생성 완료 시 observer 채널에 `report.ready` 브로드캐스트, 또는 `GET /api/sessions/{id}/report`로 폴링 조회.
+- 장기 보관이 필요해지면 Blob Storage(원본 파일)/Cosmos DB(리포트 JSON)로 저장소만 교체 가능(선택적, MVP 범위 아님).
 
 ---
 
@@ -182,7 +187,7 @@ my-ai-interviewer-repo/
 ## 6. 구현 제약 & 주의사항 (Constraints)
 
 1. **Container Apps WebSocket sticky:** 스케일 인/아웃 시 인스턴스가 죽으면 WebSocket 끊김. 세션은 한 인스턴스에 고정, min replica ≥ 1 확보. 세션 상태를 Redis에 외부화했으므로 인스턴스 교체 시 복구 가능하게 설계.
-2. **발화 종료 감지(endpointing):** 순차 파이프라인의 최난도 지점. 응답자의 숨 쉬는 침묵을 종료로 오판하면 AI가 말을 끊음. silence timeout 튜닝 필요. 일정 여유 확보.
+2. **발화 종료 감지(endpointing):** GPT-4o Realtime API의 서버 사이드 VAD(`input_audio_buffer.speech_started`/`speech_stopped`)로 처리 — 직접 침묵 임계값 로직을 구현하지 않아도 됨. `turn_detection.create_response`는 반드시 `false`로 설정해 "발화 종료" 이벤트와 "응답 생성 트리거" 사이에 참관자 지시를 주입할 틈을 확보할 것(D2/D3). 프론트는 녹음 후 일괄 전송이 아니라 오디오를 끊김 없이 스트리밍해야 함.
 3. **TTS 스트리밍:** 순차 파이프라인 유지 시 최소한 문장 단위 TTS 청크 스트리밍은 적용해 체감 지연 완화.
 4. **지시 큐 정합성:** pop 후 즉시 ack. 소비된 지시가 다음 턴에 재주입되지 않도록.
 5. **AI 판단 근거는 참관자 전용:** 인터뷰이 화면에 절대 노출 금지.
@@ -190,6 +195,7 @@ my-ai-interviewer-repo/
 7. **STT 모델 미확정 (둘 중 택):** gpt-live-transcribe vs gpt-transcribe는 한국어 실측 후 결정. 어댑터 형태로 STT 백엔드 교체 가능하게 추상화 권장. 배포 리전에 모델이 있는지 먼저 확인.
 8. **WebSocket 라우팅:** 프론트(Static Web Apps)는 정적 자산만 서빙. 실시간 오디오/지시 WebSocket은 백엔드(Container Apps)로 직접 연결.
 9. **타임키퍼 비동기 격리:** 타임키퍼 폴링이 메인 핑퐁 루프를 블로킹하지 않도록 별도 비동기 태스크로 처리.
+10. **리포트 생성 비동기 격리:** 세션 종료 API 응답을 막지 않도록 `asyncio.create_task`로 백그라운드 처리(D6). 실패해도 세션 종료 자체는 성공한 것으로 취급 — 로그만 남기고 API 에러로 전파하지 않음.
 
 ---
 
@@ -202,7 +208,7 @@ my-ai-interviewer-repo/
 - **타임키퍼 (gpt-4o-mini 1분 폴링, 주제 전환 신호)**
 
 **있으면 좋음 (후순위):**
-- **리포트 자동 생성 (Event Grid → Functions → Cosmos)**
+- **리포트 자동 생성 (백엔드 내부 비동기 태스크, D6)**
 - 리포트 정교화
 - 세션 재접속 복구
 - 부적절 지시 필터
@@ -211,10 +217,10 @@ my-ai-interviewer-repo/
 
 ## 8. 발표 방어 포인트 (예상 질문 대비)
 
-- **"왜 Redis?"** → 세션 상태 + 지시 큐 외부화로 백엔드 stateless화. 인스턴스 죽어도 세션 이어받기. 확장성.
-- **"왜 Event Grid? 직접 호출하면?"** → 리포트 외에 알림/집계 등 구독자 확장 여지. 백엔드-리포터 완전 디커플링.
+- **"왜 Redis?"** → 세션 상태 + 지시 큐를 외부화하면 백엔드가 stateless해져 인스턴스가 죽어도 다른 인스턴스가 세션을 이어받을 수 있음. 데모 규모에서는 선택 사항(없으면 인메모리 폴백)이지만, 붙이면 스케일아웃 시연이 가능.
+- **"리포트는 왜 Functions/Event Grid 없이?"** → 트리거가 대시보드의 종료 버튼 하나뿐이라 pub/sub으로 얻을 구독자 확장 이점이 없음. `asyncio.create_task`로 종료 API 응답을 안 막는 정도면 충분(C10). 다만 요약 로직은 `services/report/`로 모듈을 분리해 담당자가 백엔드 나머지 코드를 안 건드리고 개발 가능.
 - **"왜 Static Web Apps?"** → 정적 React 앱에 최적. CDN 기반 빠른 로딩, CI/CD 자동화, 백엔드와 역할 분리(정적 서빙 vs 실시간 처리).
-- **"왜 STT를 gpt 계열로? Azure Speech 놔두고?"** → 최신 전사 모델이 짧은 발화·숫자·전문용어·잡음에서 강함. 인터뷰의 고유명사/소음 환경에 적합. TTS·아바타는 Azure Speech 유지해 역할 분담.
+- **"왜 STT를 GPT-4o Realtime API로?"** → STT+이해+응답 생성을 한 세션에서 처리해 파이프라인이 단순해짐(별도 STT 호출 불필요). Whisper는 백그라운드에서 정확한 텍스트 로그를 남겨 리포트/대시보드 스크립트에 사용. TTS·아바타는 Azure Speech 유지해 역할 분담.
 - **"WebSocket 스케일링 중 세션 유지?"** → 세션 sticky + min replica + 상태 외부화로 복구 가능.
 - **"참관자가 이상한 지시를 넣으면?"** → 신뢰된 리서처 전제(관리자 로그인). 부적절 지시 필터는 확장 계획.
 - **"AI가 대본을 기계적으로 읽나?"** → 아니오. 답변을 해석해 분기 선택 + 판단 근거를 사람이 검증(참관자 화면 AI 판단 표시).

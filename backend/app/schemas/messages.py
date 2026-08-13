@@ -15,6 +15,8 @@
   S -> C : instruction.queued   큐 적재됨
   S -> C : instruction.applied  다음 질문에 주입 완료 (ack)
   S -> C : timekeeper.signal    타임키퍼 주제 전환 신호
+  S -> C : session.ended        세션 종료 (관리자가 종료 버튼 클릭)
+  S -> C : report.ready         AI 리포트 생성 완료 (§4.4, D6). GET /api/sessions/{id}/report로도 조회 가능
   S -> C : error
 """
 

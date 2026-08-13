@@ -9,6 +9,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from app.schemas.messages import server_message
@@ -16,6 +17,7 @@ from app.schemas.session import Instruction, Session, Turn, utcnow
 from app.services.ai import timekeeper
 from app.services.ai.llm import get_question_generator
 from app.services.connections import manager
+from app.services.report import generator as report_generator
 from app.services.store import ack_instruction, get_store
 
 logger = logging.getLogger(__name__)
@@ -101,8 +103,29 @@ async def end_session(session: Session) -> Session:
     session.ended_at = utcnow()
     await get_store().save_session(session)
     timekeeper.stop(session.id)
-    # TODO(후순위, D6): Event Grid 이벤트 발행 -> Azure Functions 리포트 생성
     await manager.broadcast_to_observers(
         session.id, server_message("session.ended", session=session.model_dump(mode="json"))
     )
+    # D6: 별도 Azure 리소스(Event Grid/Functions) 없이 백엔드 내부 비동기 태스크로 생성.
+    # 종료 API 응답을 막지 않도록 fire-and-forget으로 던진다 (C10).
+    asyncio.create_task(_generate_report(session.id))
     return session
+
+
+async def _generate_report(session_id: str) -> None:
+    store = get_store()
+    session = await store.get_session(session_id)
+    if session is None:
+        return
+
+    transcript = await store.get_transcript(session_id)
+    try:
+        report = await report_generator.generate(session, transcript)
+    except Exception:
+        logger.exception("리포트 생성 실패 session=%s", session_id)
+        return
+
+    await store.save_report(report)
+    await manager.broadcast_to_observers(
+        session_id, server_message("report.ready", report=report.model_dump(mode="json"))
+    )

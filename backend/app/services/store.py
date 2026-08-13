@@ -9,6 +9,7 @@ Redis 키 레이아웃
   session:{id}:queue           LIST  대기 중 지시 id (RPUSH -> LPOP = FIFO)
   session:{id}:instructions    HASH  instruction_id -> Instruction JSON (이력 = 대시보드 표시용)
   session:{id}:instr_order     LIST  instruction_id 등록 순서
+  session:{id}:report          JSON  AI 리포트 (§4.4, D6 — 백엔드 내부 비동기 태스크로 생성)
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 from typing import Protocol
 
 from app.core.config import get_settings
+from app.schemas.report import Report
 from app.schemas.session import Instruction, Session, Turn, utcnow
 
 
@@ -29,6 +31,8 @@ class Store(Protocol):
     async def pop_instruction(self, session_id: str) -> Instruction | None: ...
     async def list_instructions(self, session_id: str) -> list[Instruction]: ...
     async def mark_applied(self, instruction: Instruction) -> None: ...
+    async def save_report(self, report: Report) -> None: ...
+    async def get_report(self, session_id: str) -> Report | None: ...
     async def close(self) -> None: ...
 
 
@@ -40,6 +44,7 @@ class InMemoryStore:
         self._transcripts: dict[str, list[Turn]] = {}
         self._queue: dict[str, list[str]] = {}
         self._instructions: dict[str, dict[str, Instruction]] = {}
+        self._reports: dict[str, Report] = {}
 
     async def save_session(self, session: Session) -> None:
         self._sessions[session.id] = session
@@ -73,6 +78,12 @@ class InMemoryStore:
 
     async def mark_applied(self, instruction: Instruction) -> None:
         self._instructions.setdefault(instruction.session_id, {})[instruction.id] = instruction
+
+    async def save_report(self, report: Report) -> None:
+        self._reports[report.session_id] = report
+
+    async def get_report(self, session_id: str) -> Report | None:
+        return self._reports.get(session_id)
 
     async def close(self) -> None:
         return None
@@ -139,6 +150,14 @@ class RedisStore:
             instruction.id,
             instruction.model_dump_json(),
         )
+
+    async def save_report(self, report: Report) -> None:
+        key = self._key(report.session_id, ":report")
+        await self._redis.set(key, report.model_dump_json(), ex=self._ttl)
+
+    async def get_report(self, session_id: str) -> Report | None:
+        raw = await self._redis.get(self._key(session_id, ":report"))
+        return Report.model_validate_json(raw) if raw else None
 
     async def close(self) -> None:
         await self._redis.aclose()
