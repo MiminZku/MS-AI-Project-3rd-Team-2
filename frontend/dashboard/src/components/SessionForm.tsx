@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { createSession, fetchSession } from "../api";
+import { DEMO_SESSION } from "../demoData";
 import type { Session } from "../types";
 
 const SAMPLE_SCRIPT = `1. 배달앱을 얼마나 자주 쓰시나요?
@@ -34,6 +35,16 @@ export default function SessionForm({ onCreated }: Props) {
 
   return (
     <main className="form-page">
+      <section className="panel">
+        <h2>목데이터 미리보기</h2>
+        <p className="muted small" style={{ margin: "6px 0 12px" }}>
+          백엔드가 아직 준비되지 않았을 때, 목데이터로 관리자 대시보드 화면만 확인합니다.
+        </p>
+        <button className="ghost" onClick={() => onCreated(DEMO_SESSION, "")}>
+          데모로 미리보기
+        </button>
+      </section>
+
       <section className="panel">
         <h2>새 인터뷰 세션</h2>
 

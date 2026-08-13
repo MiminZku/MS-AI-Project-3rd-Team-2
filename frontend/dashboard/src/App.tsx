@@ -2,6 +2,8 @@ import { useState } from "react";
 import Monitor from "./components/Monitor";
 import SessionForm from "./components/SessionForm";
 
+export type Role = "pm" | "client";
+
 /**
  * 참관자 대시보드.
  *
@@ -13,26 +15,42 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get("session") ?? "",
   );
   const [intervieweeUrl, setIntervieweeUrl] = useState("");
+  const [role, setRole] = useState<Role>("pm");
 
   return (
-    <div className="app">
+    <div>
       <header className="topbar">
-        <h1>참관자 대시보드</h1>
-        {sessionId && (
-          <button
-            className="ghost"
-            onClick={() => {
-              setSessionId("");
-              setIntervieweeUrl("");
-            }}
-          >
-            세션 목록으로
-          </button>
-        )}
+        <div className="crumb">
+          <span className="glyph">AI</span>참관자 대시보드
+        </div>
+        <div className="top-right">
+          {sessionId && (
+            <div className="role-switch">
+              <button className={role === "pm" ? "on" : ""} onClick={() => setRole("pm")}>
+                PM 모드
+              </button>
+              <button className={role === "client" ? "on" : ""} onClick={() => setRole("client")}>
+                클라이언트 모드
+              </button>
+            </div>
+          )}
+          <span className="role-chip">{role === "pm" ? "PM · Observer" : "클라이언트 · Observer"}</span>
+          {sessionId && (
+            <button
+              className="ghost"
+              onClick={() => {
+                setSessionId("");
+                setIntervieweeUrl("");
+              }}
+            >
+              세션 목록으로
+            </button>
+          )}
+        </div>
       </header>
 
       {sessionId ? (
-        <Monitor sessionId={sessionId} intervieweeUrl={intervieweeUrl} />
+        <Monitor sessionId={sessionId} intervieweeUrl={intervieweeUrl} role={role} />
       ) : (
         <SessionForm
           onCreated={(session, url) => {
