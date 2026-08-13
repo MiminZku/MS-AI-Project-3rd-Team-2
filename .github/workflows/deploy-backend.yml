@@ -59,10 +59,10 @@ jobs:
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
             --query properties.configuration.ingress.fqdn -o tsv)
           
-          # 💡 FastAPI의 기본 엔드포인트(/)로 잘 접속되는지 핑(Ping) 테스트
-          echo "Test URL: https://${FQDN}/"
+          # 💡 루트(/)는 라우트가 없어 404가 나므로 /health로 확인
+          echo "Test URL: https://${FQDN}/health"
           for i in $(seq 1 10); do
-            if curl -fsS "https://${FQDN}/"; then exit 0; fi
+            if curl -fsS "https://${FQDN}/health"; then exit 0; fi
             echo "재시도 ${i}/10"; sleep 10
           done
           echo "헬스체크 실패"; exit 1
