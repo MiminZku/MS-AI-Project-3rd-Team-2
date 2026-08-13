@@ -4,10 +4,16 @@ on:
   push:
     branches:
       - main
+    paths:
+      - "frontend/interviewee/**"
+      - ".github/workflows/azure-static-web-apps-orange-sand-0bb92740f.yml"
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
       - main
+    paths:
+      - "frontend/interviewee/**"
+      - ".github/workflows/azure-static-web-apps-orange-sand-0bb92740f.yml"
 
 jobs:
   build_and_deploy_job:
@@ -22,6 +28,9 @@ jobs:
       - name: Build And Deploy
         id: builddeploy
         uses: Azure/static-web-apps-deploy@v1
+        env:
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_WS_BASE_URL: ${{ vars.VITE_WS_BASE_URL }}
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN_ORANGE_SAND_0BB92740F }}
           repo_token: ${{ secrets.GITHUB_TOKEN }} # Used for Github integrations (i.e. PR comments)
