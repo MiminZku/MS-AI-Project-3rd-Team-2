@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
 import { endSession, fetchReport, observerSocketUrl } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
@@ -8,6 +8,7 @@ interface Props {
   sessionId: string;
   intervieweeUrl: string;
   role: Role;
+  onStatusChange?: (status: TopbarStatus | null) => void;
 }
 
 interface Timekeeper {
@@ -17,7 +18,20 @@ interface Timekeeper {
   hint: string;
 }
 
-type Phase = "wait" | "joined" | "live" | "end";
+export type Phase = "wait" | "joined" | "live" | "end";
+
+/** App.tsx 상단바가 렌더링할 세션 제어 상태 — Monitor가 웹소켓/세션 상태를 들고 있어서 콜백으로 끌어올린다. */
+export interface TopbarStatus {
+  role: Role;
+  phase: Phase;
+  timerLabel: string;
+  phaseLabel: string;
+  connectionStatus: string;
+  ending: boolean;
+  hasReport: boolean;
+  onEndSession: () => void;
+  onOpenReport: () => void;
+}
 
 const QUICK_INSTRUCTIONS = [
   "방금 답변을 더 구체적으로 캐물어봐 주세요.",
@@ -39,7 +53,7 @@ function formatMMSS(totalSeconds: number): string {
   return `${mm}:${ss}`;
 }
 
-export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
+export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChange }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [instructions, setInstructions] = useState<Instruction[]>([]);
@@ -50,7 +64,10 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
   const [report, setReport] = useState<Report | null>(null);
   const [ending, setEnding] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
+  // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
+  const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const reportRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     // 백엔드 없이 화면을 리뷰하기 위한 목데이터 모드 (§SessionForm "데모로 미리보기").
@@ -146,7 +163,23 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
     setDraft("");
   };
 
-  const phase = phaseOf(session, intervieweeOnline);
+  const handleEndSession = useCallback(async () => {
+    setEnding(true);
+    if (sessionId === DEMO_SESSION_ID) {
+      const endedAt = new Date().toISOString();
+      setSession((prev) => (prev ? { ...prev, status: "ended", ended_at: endedAt } : prev));
+      setTimeout(() => setReport(DEMO_REPORT), 1500);
+    } else {
+      await endSession(sessionId).catch(() => undefined);
+    }
+    setEnding(false);
+  }, [sessionId]);
+
+  const handleOpenReport = useCallback(() => {
+    reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  const phase = previewPhase ?? phaseOf(session, intervieweeOnline);
   const questions = session?.questions ?? [];
 
   const finalElapsedSec =
@@ -160,23 +193,79 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
         ? formatMMSS(finalElapsedSec)
         : "00:00";
   const phaseLabel = { wait: "대기", joined: "입장함", live: "경과", end: "종료" }[phase];
+  const statusLabel: Record<Phase, string> = { wait: "대기", joined: "입장함", live: "진행 중", end: "종료" };
+
+  useEffect(() => {
+    onStatusChange?.({
+      role,
+      phase,
+      timerLabel,
+      phaseLabel,
+      connectionStatus: status,
+      ending,
+      hasReport: report != null,
+      onEndSession: handleEndSession,
+      onOpenReport: handleOpenReport,
+    });
+  }, [role, phase, timerLabel, phaseLabel, status, ending, report, handleEndSession, handleOpenReport, onStatusChange]);
+
+  // Monitor가 언마운트될 때만(세션 목록으로 돌아갈 때) 상단바 상태를 지운다.
+  useEffect(() => () => onStatusChange?.(null), [onStatusChange]);
 
   return (
-    <main className="monitor">
-      <section className="panel col-questions">
-        <h2 style={{ padding: "13px 16px 0" }}>질문 트리</h2>
-        <ol className="tree">
-          {questions.map((question, index) => (
-            <li key={question.id} className={index === session?.current_question_index ? "current" : ""}>
-              {question.text}
-              {Object.entries(question.branches).map(([condition, followUp]) => (
-                <div key={condition} className="branch">
-                  <span className="cond">{condition}</span>
-                  {followUp}
-                </div>
-              ))}
-            </li>
+    <>
+      <div className="tabbar">
+        <span className="tlab">세션 상태 (미리보기)</span>
+        <div className="swg">
+          {(Object.keys(statusLabel) as Phase[]).map((p) => (
+            <button
+              key={p}
+              type="button"
+              className={phase === p ? "on" : ""}
+              title="백엔드 연동 전 화면 미리보기용 — 연동 후엔 자동으로 반영됩니다"
+              onClick={() => setPreviewPhase(p)}
+            >
+              {statusLabel[p]}
+            </button>
           ))}
+        </div>
+      </div>
+      <main className="monitor">
+      <section className="panel col-questions">
+        <header className="p-head">
+          <div>
+            <h2>질문 트리</h2>
+            <div className="sub">답변 분기별 파생질문 트리</div>
+          </div>
+          {role === "pm" ? (
+            <button type="button" className="btn-sm solid" disabled title="곧 지원 예정">
+              ＋ 질문 편집
+            </button>
+          ) : (
+            <span className="role-chip" style={{ fontSize: "10px" }}>
+              참관 전용
+            </span>
+          )}
+        </header>
+        <ol className="tree">
+          {questions.map((question, index) => {
+            const current = index === session?.current_question_index;
+            const done = session != null && index < session.current_question_index;
+            return (
+              <li key={question.id} className={current ? "current" : done ? "done" : ""}>
+                <span className="q-num">{index + 1}</span>
+                <div className="q-body">
+                  {question.text}
+                  {Object.entries(question.branches).map(([condition, followUp]) => (
+                    <div key={condition} className="branch">
+                      <span className="cond">{condition}</span>
+                      {followUp}
+                    </div>
+                  ))}
+                </div>
+              </li>
+            );
+          })}
         </ol>
 
         {timekeeper && (
@@ -187,37 +276,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
         )}
       </section>
 
-      <section className="panel col-transcript">
-        <header className="panel-head">
-          <h2>실시간 대화</h2>
-          <span className="timer">
-            <span className="dot" />
-            <b>{timerLabel}</b>
-            <small>{phaseLabel}</small>
-          </span>
-          <span className={`badge ${status}`}>{status}</span>
-          <span className={`badge ${intervieweeOnline ? "connected" : ""}`}>
-            응답자 {intervieweeOnline ? "접속중" : "대기"}
-          </span>
-          {role === "pm" && phase === "live" && (
-            <button
-              className="sess-btn stop"
-              disabled={ending}
-              onClick={async () => {
-                setEnding(true);
-                if (sessionId === DEMO_SESSION_ID) {
-                  const endedAt = new Date().toISOString();
-                  setSession((prev) => (prev ? { ...prev, status: "ended", ended_at: endedAt } : prev));
-                  setTimeout(() => setReport(DEMO_REPORT), 1500);
-                } else {
-                  await endSession(sessionId).catch(() => undefined);
-                }
-                setEnding(false);
-              }}
-            >
-              인터뷰 종료
-            </button>
-          )}
+      <div className="col-transcript">
+      <section className="panel">
+        <header className="p-head">
+          <div>
+            <h2>응답자 화면</h2>
+            <div className="sub">실시간 상태 · {phaseLabel}</div>
+          </div>
         </header>
 
         {intervieweeUrl && role === "pm" && (
@@ -242,20 +307,76 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
                 <span className="rs-dot" />
                 응답자 {intervieweeOnline ? "접속중" : "연결 끊김"}
               </span>
-              {phase === "joined" && <div>입장함 · 인터뷰 시작 대기 중</div>}
-              {phase === "live" && <div>답변 중</div>}
-              {phase === "end" && <div>세션 종료됨</div>}
+              <div className="rs-figure">
+                <svg viewBox="0 0 200 240" fill="none">
+                  <ellipse cx="100" cy="74" rx="44" ry="48" fill="rgba(120,220,180,.2)" />
+                  <path
+                    d="M26 240 C26 174 60 138 100 138 C140 138 174 174 174 240 Z"
+                    fill="rgba(120,220,180,.15)"
+                  />
+                </svg>
+              </div>
+              <div className="rs-strip">
+                {phase === "live" && (
+                  <div className="wave me">
+                    <span />
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                )}
+                <span className="rs-status">
+                  {phase === "joined" && "입장함 · 인터뷰 시작 대기 중"}
+                  {phase === "live" && "답변 중"}
+                  {phase === "end" && "세션 종료됨"}
+                </span>
+                <div className="audio-seg">
+                  <button type="button" className="on" disabled title="곧 지원 예정">
+                    원문 음성
+                  </button>
+                  <button type="button" disabled title="곧 지원 예정">
+                    통역 음성
+                  </button>
+                </div>
+              </div>
             </>
           )}
         </div>
+      </section>
+
+      <section className="panel">
+        <header className="p-head">
+          <div>
+            <h2>실시간 진행 상황</h2>
+            <div className="sub">STT 변환 · AI 판단 · 질문/답변 순</div>
+          </div>
+          <div className="lang-toggle">
+            <button type="button" className="active" disabled title="곧 지원 예정">
+              원문
+            </button>
+            <button type="button" disabled title="곧 지원 예정">
+              원문+번역
+            </button>
+          </div>
+        </header>
 
         <div className="turns">
           {transcript.map((turn) => (
             <article key={`${turn.speaker}-${turn.index}`} className={`turn ${turn.speaker}`}>
-              <strong>{turn.speaker === "assistant" ? "AI 진행자" : "응답자"}</strong>
+              <div className="turn-head">
+                <strong>{turn.speaker === "assistant" ? "AI 진행자" : "응답자"}</strong>
+                <time>
+                  {new Date(turn.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                </time>
+              </div>
               <p>{turn.text}</p>
               {/* AI 판단 근거는 참관자에게만 보인다 (C5) */}
-              {turn.rationale && <p className="rationale">AI 판단 근거: {turn.rationale}</p>}
+              {turn.rationale && (
+                <div className="rationale">
+                  <div className="ai-label">AI 판단 근거</div>
+                  {turn.rationale}
+                </div>
+              )}
             </article>
           ))}
           {transcript.length === 0 && (
@@ -279,7 +400,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
           </div>
         )}
         {report && (
-          <div className="report-highlight">
+          <div className="report-highlight" ref={reportRef}>
             {typeof report.data.summary === "string" && <p>{report.data.summary}</p>}
             <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 11 }}>
               {JSON.stringify(report.data, null, 2)}
@@ -287,12 +408,18 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
           </div>
         )}
       </section>
+      </div>
 
-      <section className="panel col-instructions">
-        {role === "pm" ? (
-          <>
-            <h2 style={{ padding: "13px 16px 0" }}>실시간 지시</h2>
-            <div className={`composer p-body ${phase !== "live" ? "locked" : ""}`}>
+      {role === "pm" && (
+        <div className="col-instructions">
+          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
+            <header className="p-head">
+              <div>
+                <h2>실시간 지시</h2>
+                <div className="sub">다음 질문에 반영 · 응답자에게 노출 안 됨</div>
+              </div>
+            </header>
+            <div className="composer p-body">
               <textarea
                 rows={3}
                 value={draft}
@@ -316,23 +443,44 @@ export default function Monitor({ sessionId, intervieweeUrl, role }: Props) {
                 </button>
               ))}
             </div>
-            <p className="muted small" style={{ padding: "10px 16px 0" }}>
+            <p className="muted small" style={{ padding: "10px 16px 16px" }}>
               응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
             </p>
+          </section>
 
-            <ul className="instructions">
-              {instructions.map((instruction) => (
-                <li key={instruction.id} className={instruction.status}>
-                  <span className="status">{instruction.status === "applied" ? "반영됨" : "대기 중"}</span>
-                  {instruction.text}
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <p className="empty">참관 전용 화면입니다.</p>
-        )}
-      </section>
-    </main>
+          <section className="panel">
+            <header className="p-head">
+              <div>
+                <h2>지시 이력</h2>
+                <div className="sub">보낸 지시와 반영 상태</div>
+              </div>
+            </header>
+            <div className="p-body">
+              <ul className="hist">
+                {instructions.map((instruction) => (
+                  <li key={instruction.id} className="h-item">
+                    <time>
+                      {new Date(instruction.created_at).toLocaleTimeString("ko-KR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </time>
+                    <span className={`h-dot ${instruction.status}`} />
+                    <div className="h-body">
+                      <div className={`h-state ${instruction.status}`}>
+                        {instruction.status === "applied" ? "반영됨" : "대기 중"}
+                      </div>
+                      <div className="h-text">{instruction.text}</div>
+                    </div>
+                  </li>
+                ))}
+                {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
+              </ul>
+            </div>
+          </section>
+        </div>
+      )}
+      </main>
+    </>
   );
 }

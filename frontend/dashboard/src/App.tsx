@@ -1,5 +1,5 @@
 import { useState } from "react";
-import Monitor from "./components/Monitor";
+import Monitor, { type TopbarStatus } from "./components/Monitor";
 import SessionForm from "./components/SessionForm";
 
 export type Role = "pm" | "client";
@@ -16,6 +16,7 @@ export default function App() {
   );
   const [intervieweeUrl, setIntervieweeUrl] = useState("");
   const [role, setRole] = useState<Role>("pm");
+  const [topbarStatus, setTopbarStatus] = useState<TopbarStatus | null>(null);
 
   return (
     <div>
@@ -35,6 +36,38 @@ export default function App() {
             </div>
           )}
           <span className="role-chip">{role === "pm" ? "PM · Observer" : "클라이언트 · Observer"}</span>
+
+          {topbarStatus && (
+            <>
+              <span className="timer">
+                <span className="dot" />
+                <b>{topbarStatus.timerLabel}</b>
+                <small>{topbarStatus.phaseLabel}</small>
+              </span>
+              <span className={`badge ${topbarStatus.connectionStatus}`}>{topbarStatus.connectionStatus}</span>
+              {topbarStatus.role === "pm" && (topbarStatus.phase === "wait" || topbarStatus.phase === "joined") && (
+                <button className="sess-btn go" disabled title="곧 지원 예정 · 지금은 응답자 접속 시 자동 시작됩니다">
+                  인터뷰 시작
+                </button>
+              )}
+              {topbarStatus.role === "pm" && (topbarStatus.phase === "joined" || topbarStatus.phase === "live") && (
+                <button className="sess-btn go" disabled title="곧 지원 예정 · 영상 녹화 파이프라인 구축 후 연동">
+                  녹화 시작
+                </button>
+              )}
+              {topbarStatus.role === "pm" && topbarStatus.phase === "end" && (
+                <button className="sess-btn go" disabled={!topbarStatus.hasReport} onClick={topbarStatus.onOpenReport}>
+                  {topbarStatus.hasReport ? "리포트 열기" : "리포트 생성 중…"}
+                </button>
+              )}
+              {topbarStatus.role === "pm" && topbarStatus.phase === "live" && (
+                <button className="sess-btn stop" disabled={topbarStatus.ending} onClick={topbarStatus.onEndSession}>
+                  인터뷰 종료
+                </button>
+              )}
+            </>
+          )}
+
           {sessionId && (
             <button
               className="ghost"
@@ -50,7 +83,7 @@ export default function App() {
       </header>
 
       {sessionId ? (
-        <Monitor sessionId={sessionId} intervieweeUrl={intervieweeUrl} role={role} />
+        <Monitor sessionId={sessionId} intervieweeUrl={intervieweeUrl} role={role} onStatusChange={setTopbarStatus} />
       ) : (
         <SessionForm
           onCreated={(session, url) => {
