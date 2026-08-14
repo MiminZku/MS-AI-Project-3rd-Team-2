@@ -114,18 +114,30 @@ async def end_session(session: Session) -> Session:
 
 async def _generate_report(session_id: str) -> None:
     store = get_store()
+
     session = await store.get_session(session_id)
     if session is None:
         return
 
     transcript = await store.get_transcript(session_id)
+    instructions = await store.list_instructions(session_id)
+
     try:
-        report = await report_generator.generate(session, transcript)
+        report = await report_generator.generate(
+            session,
+            transcript,
+            instructions,
+        )
     except Exception:
         logger.exception("리포트 생성 실패 session=%s", session_id)
         return
 
     await store.save_report(report)
+
     await manager.broadcast_to_observers(
-        session_id, server_message("report.ready", report=report.model_dump(mode="json"))
+        session_id,
+        server_message(
+            "report.ready",
+            report=report.model_dump(mode="json"),
+        ),
     )
