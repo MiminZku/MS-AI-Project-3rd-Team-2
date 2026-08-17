@@ -757,3 +757,48 @@ body {
     transform: translateY(0);
   }
 }
+
+.consent-scroll-box {
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 20px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.consent-scroll-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+.consent-scroll-box::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+}
+
+.consent-scroll-box h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 24px;
+  margin-bottom: 8px;
+  color: var(--text-white);
+}
+
+.consent-scroll-box h3:first-child {
+  margin-top: 0;
+}
+
+.consent-scroll-box p,
+.consent-scroll-box ul {
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text);
+  margin-top: 0;
+  margin-bottom: 14px;
+}
+
+.consent-scroll-box ul {
+  padding-left: 20px;
+}
