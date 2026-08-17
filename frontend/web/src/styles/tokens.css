@@ -1,0 +1,65 @@
+:root {
+  /* Colors - Apple (España) Inspired */
+  --color-bg: #ffffff;
+  --color-surface: #f5f5f7;
+  --color-text: #1d1d1f;
+  --color-text-muted: #86868b;
+  --color-accent: #0071e3; /* Unified accent color */
+  --color-border: #d2d2d7;
+
+  /* Dark Section Tokens - Exact match with interviewee */
+  --color-bg-dark: #000000;
+  --color-surface-dark: #1d1d1f;
+  --color-border-dark: rgba(255, 255, 255, 0.08);
+  --color-text-on-dark: #f5f5f7;
+  --color-text-muted-on-dark: #86868b;
+  --color-accent-on-dark: #0071e3;
+  --color-link-on-dark: #2997ff;
+
+  /* Spacing - 4px Multiples with generous extension for Apple 톤 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-9: 36px;
+  --space-10: 40px;
+  --space-11: 44px;
+  --space-12: 48px;
+  --space-13: 52px;
+  --space-14: 56px;
+  --space-15: 60px;
+  --space-16: 64px;
+  --space-20: 80px;  /* Generous section gap */
+  --space-24: 96px;  /* Large section gap */
+  --space-32: 128px; /* Extra large gap */
+
+  /* Typography - Larger scale contrast */
+  --font-size-display: 72px; /* Amplified contrast for Apple 톤 */
+  --font-size-h1: 48px;
+  --font-size-h2: 36px;
+  --font-size-h3: 24px;
+  --font-size-body: 17px;
+  --font-size-body-sm: 15px;
+  --font-size-caption: 13px;
+
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* Radius & Shadows - Apple-like minimal border radii & very soft shadows */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
+
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.06);
+
+  /* Layout */
+  --container-max: 1200px;
+}
