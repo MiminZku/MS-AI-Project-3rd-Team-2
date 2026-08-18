@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { endSession, fetchReport, observerSocketUrl } from "../api";
+import { endSession, fetchReport, observerSocketUrl, fetchRtcToken } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
+import VideoSubscriber from "./VideoSubscriber";
 import type { Instruction, Report, ServerMessage, Session, Turn } from "../types";
 
 interface Props {
@@ -64,10 +65,19 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [report, setReport] = useState<Report | null>(null);
   const [ending, setEnding] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (sessionId !== DEMO_SESSION_ID) {
+      fetchRtcToken(sessionId)
+        .then(creds => setRtcCreds(creds))
+        .catch(err => console.error("ACS token fetch failed", err));
+    }
+  }, [sessionId]);
 
   useEffect(() => {
     // 백엔드 없이 화면을 리뷰하기 위한 목데이터 모드 (§SessionForm "데모로 미리보기").
@@ -307,14 +317,18 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <span className="rs-dot" />
                 응답자 {intervieweeOnline ? "접속중" : "연결 끊김"}
               </span>
-              <div className="rs-figure">
-                <svg viewBox="0 0 200 240" fill="none">
-                  <ellipse cx="100" cy="74" rx="44" ry="48" fill="rgba(120,220,180,.2)" />
-                  <path
-                    d="M26 240 C26 174 60 138 100 138 C140 138 174 174 174 240 Z"
-                    fill="rgba(120,220,180,.15)"
-                  />
-                </svg>
+              <div className="rs-figure" style={{ overflow: "hidden", position: "relative" }}>
+                {rtcCreds ? (
+                  <VideoSubscriber token={rtcCreds.token} groupId={rtcCreds.group_id} />
+                ) : (
+                  <svg viewBox="0 0 200 240" fill="none">
+                    <ellipse cx="100" cy="74" rx="44" ry="48" fill="rgba(120,220,180,.2)" />
+                    <path
+                      d="M26 240 C26 174 60 138 100 138 C140 138 174 174 174 240 Z"
+                      fill="rgba(120,220,180,.15)"
+                    />
+                  </svg>
+                )}
               </div>
               <div className="rs-strip">
                 {phase === "live" && (

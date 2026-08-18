@@ -67,3 +67,13 @@ export function observerSocketUrl(sessionId: string): string {
   const query = ADMIN_TOKEN ? `?token=${encodeURIComponent(ADMIN_TOKEN)}` : "";
   return `${WS_BASE_URL}/ws/observer/${sessionId}${query}`;
 }
+
+export async function fetchRtcToken(sessionId: string): Promise<{ user_id: string; token: string; group_id: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/rtc/token`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ role: "observer" }),
+  });
+  if (!response.ok) throw new Error(`ACS 토큰 발급 실패 (${response.status})`);
+  return response.json();
+}
