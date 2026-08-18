@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     # D5: 타임키퍼 폴링 주기(초)
     timekeeper_interval_seconds: int = 60
 
+    # Azure Communication Services (WebRTC)
+    acs_connection_string: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
