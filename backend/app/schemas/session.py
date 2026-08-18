@@ -33,6 +33,7 @@ class QuestionNode(BaseModel):
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: new_id("ses"))
+    study_id: str | None = None
     title: str = "제목 없는 인터뷰"
     status: SessionStatus = "created"
     duration_minutes: int = 20
@@ -69,6 +70,7 @@ class Instruction(BaseModel):
 
 
 class SessionCreateRequest(BaseModel):
+    study_id: str | None = None
     title: str = "제목 없는 인터뷰"
     duration_minutes: int = 20
     # §4.2의 텍스트 포맷. 파싱해서 questions로 변환된다.
