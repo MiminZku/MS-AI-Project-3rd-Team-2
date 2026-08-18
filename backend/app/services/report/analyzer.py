@@ -5,92 +5,22 @@ import logging
 from typing import Any, Protocol
 
 from app.core.config import get_settings
-from app.schemas.report_analysis import IndividualInterviewAnalysis
-from app.schemas.session import Instruction, Session, Turn
+from app.schemas.report_analysis import (
+    IndividualInterviewAnalysis,
+)
+from app.schemas.session import (
+    Instruction,
+    Session,
+    Turn,
+)
+from app.schemas.study import ResearchStudy
+
 
 logger = logging.getLogger(__name__)
 
 
 # =========================================================
-# 이번 리서치에서 반드시 확보해야 하는 Information Slot
-# =========================================================
-
-SLOT_DEFINITIONS = [
-    {
-        "slot_id": "current_tool_stack",
-        "question_id": "q1",
-        "slot_name": "현재 사용 중인 AI 툴 조합",
-    },
-    {
-        "slot_id": "task_based_tool_choice",
-        "question_id": "q1",
-        "slot_name": "작업 유형별 툴 선택 기준",
-    },
-    {
-        "slot_id": "preference_reason",
-        "question_id": "q2",
-        "slot_name": "Claude Code 또는 Codex 선호 이유",
-    },
-    {
-        "slot_id": "workflow_continuity",
-        "question_id": "q2",
-        "slot_name": "작업 흐름의 연속성",
-    },
-    {
-        "slot_id": "context_management",
-        "question_id": "q2",
-        "slot_name": "컨텍스트 관리 경험",
-    },
-    {
-        "slot_id": "agent_autonomy",
-        "question_id": "q2",
-        "slot_name": "에이전트 자율성",
-    },
-    {
-        "slot_id": "concrete_example",
-        "question_id": "q2",
-        "slot_name": "구체적인 실제 사용 사례",
-    },
-    {
-        "slot_id": "openai_pain_point",
-        "question_id": "q3",
-        "slot_name": "OpenAI 도구의 핵심 Pain Point",
-    },
-    {
-        "slot_id": "manual_intervention",
-        "question_id": "q3",
-        "slot_name": "수동 개입 및 반복 컨펌 부담",
-    },
-    {
-        "slot_id": "speed_impact",
-        "question_id": "q3",
-        "slot_name": "속도가 툴 선택에 미치는 영향",
-    },
-    {
-        "slot_id": "cost_impact",
-        "question_id": "q3",
-        "slot_name": "비용이 툴 선택에 미치는 영향",
-    },
-    {
-        "slot_id": "autonomy_impact",
-        "question_id": "q3",
-        "slot_name": "자율성이 툴 선택에 미치는 영향",
-    },
-    {
-        "slot_id": "feature_request",
-        "question_id": "q4",
-        "slot_name": "사용자가 직접 요구한 핵심 기능",
-    },
-    {
-        "slot_id": "switching_trigger",
-        "question_id": "q4",
-        "slot_name": "OpenAI 도구 전환을 촉진할 수 있는 조건",
-    },
-]
-
-
-# =========================================================
-# Analyzer 인터페이스
+# Analyzer Interface
 # =========================================================
 
 class ReportAnalyzer(Protocol):
@@ -100,12 +30,13 @@ class ReportAnalyzer(Protocol):
         session: Session,
         transcript: list[Turn],
         instructions: list[Instruction],
+        study: ResearchStudy | None,
     ) -> dict[str, Any]:
         ...
 
 
 # =========================================================
-# Azure OpenAI 미연결 시 Stub
+# Stub Analyzer
 # =========================================================
 
 class StubReportAnalyzer:
@@ -115,7 +46,14 @@ class StubReportAnalyzer:
         session: Session,
         transcript: list[Turn],
         instructions: list[Instruction],
+        study: ResearchStudy | None,
     ) -> dict[str, Any]:
+
+        slots = (
+            study.information_slots
+            if study
+            else []
+        )
 
         return {
             "participant_context": {
@@ -141,15 +79,19 @@ class StubReportAnalyzer:
                 "overall_coverage": "low",
                 "items": [
                     {
-                        "slot_id": slot["slot_id"],
-                        "question_id": slot["question_id"],
-                        "slot_name": slot["slot_name"],
+                        "slot_id": slot.slot_id,
+                        "question_id": slot.question_id,
+                        "slot_name": slot.slot_name,
                         "coverage": "not_covered",
-                        "reason": "Azure OpenAI 미연결",
+                        "reason": (
+                            "Azure OpenAI 미연결"
+                        ),
                         "evidence_ids": [],
-                        "missing_information": [],
+                        "missing_information": [
+                            slot.description
+                        ],
                     }
-                    for slot in SLOT_DEFINITIONS
+                    for slot in slots
                 ],
             },
 
@@ -179,12 +121,13 @@ class StubReportAnalyzer:
 
 
 # =========================================================
-# GPT-5.1 실제 Analyzer
+# Azure OpenAI Analyzer
 # =========================================================
 
 class AzureOpenAIReportAnalyzer:
 
     def __init__(self) -> None:
+
         from openai import AsyncOpenAI
 
         settings = get_settings()
@@ -194,9 +137,13 @@ class AzureOpenAIReportAnalyzer:
         )
 
         self._client = AsyncOpenAI(
-            api_key=settings.azure_openai_api_key,
+            api_key=(
+                settings.azure_openai_api_key
+            ),
             base_url=(
-                settings.azure_openai_endpoint.rstrip("/")
+                settings
+                .azure_openai_endpoint
+                .rstrip("/")
                 + "/openai/v1/"
             ),
             timeout=120.0,
@@ -208,6 +155,7 @@ class AzureOpenAIReportAnalyzer:
         session: Session,
         transcript: list[Turn],
         instructions: list[Instruction],
+        study: ResearchStudy | None,
     ) -> dict[str, Any]:
 
         # =================================================
@@ -220,7 +168,9 @@ class AzureOpenAIReportAnalyzer:
             if turn.speaker == "interviewee"
         ]
 
-        evidence_library: list[dict[str, Any]] = []
+        evidence_library: list[
+            dict[str, Any]
+        ] = []
 
         for number, turn in enumerate(
             interviewee_turns,
@@ -228,11 +178,16 @@ class AzureOpenAIReportAnalyzer:
         ):
             evidence_library.append(
                 {
-                    "evidence_id": f"E{number:03d}",
+                    "evidence_id": (
+                        f"E{number:03d}"
+                    ),
                     "turn_index": turn.index,
                     "speaker": turn.speaker,
                     "quote": turn.text,
-                    "created_at": turn.created_at.isoformat(),
+                    "created_at": (
+                        turn.created_at
+                        .isoformat()
+                    ),
                 }
             )
 
@@ -241,17 +196,50 @@ class AzureOpenAIReportAnalyzer:
             for item in evidence_library
         }
 
+        # =================================================
+        # 2. Study에서 자동 생성된 Slot 가져오기
+        # =================================================
+
+        required_slots = []
+
+        if study:
+            required_slots = [
+                slot.model_dump(
+                    mode="json"
+                )
+                for slot
+                in study.information_slots
+            ]
 
         # =================================================
-        # 2. GPT에 전달할 데이터
+        # 3. GPT 입력 데이터
         # =================================================
 
         input_data = {
-            "research_title": session.title,
+            "research": {
+                "study_id": (
+                    study.id
+                    if study
+                    else None
+                ),
+                "title": (
+                    study.title
+                    if study
+                    else session.title
+                ),
+                "research_purpose": (
+                    study.research_purpose
+                    if study
+                    else None
+                ),
+            },
 
             "session": {
                 "session_id": session.id,
-                "duration_minutes": session.duration_minutes,
+                "study_id": session.study_id,
+                "duration_minutes": (
+                    session.duration_minutes
+                ),
                 "started_at": (
                     session.started_at.isoformat()
                     if session.started_at
@@ -265,67 +253,108 @@ class AzureOpenAIReportAnalyzer:
             },
 
             "questions": [
-                question.model_dump(mode="json")
-                for question in session.questions
+                question.model_dump(
+                    mode="json"
+                )
+                for question
+                in session.questions
             ],
 
+            "required_slots": (
+                required_slots
+            ),
+
             "transcript": [
-                turn.model_dump(mode="json")
-                for turn in transcript
+                turn.model_dump(
+                    mode="json"
+                )
+                for turn
+                in transcript
             ],
 
             "observer_instructions": [
-                instruction.model_dump(mode="json")
-                for instruction in instructions
+                instruction.model_dump(
+                    mode="json"
+                )
+                for instruction
+                in instructions
             ],
 
-            "evidence_library": evidence_library,
-
-            "required_slots": SLOT_DEFINITIONS,
+            "evidence_library": (
+                evidence_library
+            ),
         }
 
-
         # =================================================
-        # 3. 분석 Prompt
+        # 4. Analysis Prompt
         # =================================================
 
         system_prompt = """
-당신은 기업 시장조사 및 UX Research 전문 정성 인터뷰 분석가입니다.
+당신은 기업 시장조사 및 UX Research 전문
+정성 인터뷰 분석가입니다.
 
-제공된 인터뷰 1건을 분석하여
-Individual Interview Report를 작성하세요.
+제공된 조사 목적, 질문지, Information Slot,
+인터뷰 Transcript를 바탕으로
+한 명의 Individual Interview Report를 작성하세요.
+
+
+==================================================
+[가장 중요한 원칙]
+==================================================
+
+이번 조사의 질문과 Information Slot은
+조사마다 달라질 수 있습니다.
+
+특정 산업, 제품, 브랜드, 기술 주제를
+미리 가정하지 마세요.
+
+반드시 입력으로 제공된
+
+- research
+- questions
+- required_slots
+- transcript
+
+를 기준으로 현재 조사만 분석하세요.
 
 
 ==================================================
 [Evidence 규칙]
 ==================================================
 
-Evidence는 반드시 speaker가 interviewee인
+Evidence는 반드시
+speaker가 interviewee인
 실제 응답자의 발언만 사용할 수 있습니다.
 
-assistant가 한 질문,
-진행자가 질문 속에 넣은 주장,
+assistant의 질문,
+진행자가 질문에 넣은 주장,
 가정,
-유도 문구는 응답자의 Evidence가 아닙니다.
+유도 문구는
+응답자의 Evidence가 아닙니다.
 
-모든 주요 분석은 제공된 Evidence Library의
-evidence_id와 연결하세요.
+모든 주요 분석에는
+Evidence Library에 실제 존재하는
+evidence_id를 연결하세요.
 
-존재하지 않는 evidence_id를 만들지 마세요.
+존재하지 않는 evidence_id를
+새로 만들지 마세요.
 
 
 ==================================================
 [일반화 금지]
 ==================================================
 
-현재 데이터는 한 명의 인터뷰입니다.
+현재 데이터는
+한 명의 인터뷰 결과입니다.
 
-"개발자들은"
+한 사람의 발언을 근거로
+
 "사용자들은"
+"고객들은"
 "시장에서는"
 "대부분의 사람들은"
 
-같은 표현으로 일반화하지 마세요.
+처럼 일반화하지 마세요.
 
 대신
 
@@ -337,16 +366,20 @@ evidence_id와 연결하세요.
 
 
 ==================================================
-[Question Coverage]
+[Research Coverage]
 ==================================================
 
-research_coverage는 질문 단위 Coverage입니다.
+research_coverage는
+질문 단위 Coverage입니다.
 
-질문을 단순히 했는지 여부가 아니라,
-연구자가 해당 질문에서 얻고 싶었던 정보가
-실제 응답으로 얼마나 확보됐는지를 평가하세요.
+질문을 했는지를 평가하는 것이 아닙니다.
 
-coverage:
+해당 질문을 통해
+연구자가 알고 싶었던 정보가
+실제 응답에서 얼마나 확보됐는지를
+평가하세요.
+
+coverage 값:
 
 high
 medium
@@ -358,104 +391,123 @@ not_covered
 [Slot Coverage]
 ==================================================
 
-required_slots에 제공된 모든 Slot을
-정확히 하나씩 평가해야 합니다.
+required_slots는
+이 ResearchStudy 생성 시
+조사 목적과 질문지를 분석해
+미리 확정한 Information Slot입니다.
 
-새로운 Slot을 임의로 생성하지 마세요.
+required_slots가 존재한다면
+모든 Slot을 정확히 하나씩 평가하세요.
 
-기존 Slot을 삭제하거나 생략하지 마세요.
+Slot을 새로 만들지 마세요.
 
-각 Slot에는 반드시 다음 필드를 작성하세요.
+Slot을 삭제하거나 누락하지 마세요.
 
-slot_id
-question_id
-slot_name
-coverage
-reason
-evidence_ids
-missing_information
+각 Slot에는 반드시:
+
+- slot_id
+- question_id
+- slot_name
+- coverage
+- reason
+- evidence_ids
+- missing_information
+
+을 작성하세요.
 
 
-coverage 판단 기준:
+coverage 기준:
 
 high:
-해당 정보가 명확하고 구체적으로 확보됐으며
-판단에 활용할 수 있는 충분한 Evidence가 있음.
+명확한 답변과 구체적인 근거가
+충분히 확보됨.
 
 medium:
-핵심 내용은 확보됐지만
-세부 설명이나 사례가 일부 부족함.
+핵심 정보는 있지만
+구체적인 설명이나 사례가 일부 부족함.
 
 low:
 관련 언급은 있으나
-연구 판단에 사용하기에는 정보가 부족함.
+연구 판단에 사용하기에는 부족함.
 
 not_covered:
-해당 정보를 인터뷰에서 확인하지 못함.
+해당 정보를 실제 인터뷰에서
+확인하지 못함.
 
 
-중요:
+Slot의 importance가 high라고 해서
+자동으로 coverage도 high가 되는 것은 아닙니다.
 
-응답이 짧게 언급되었다는 이유만으로
-무조건 high를 주지 마세요.
+importance는
+'그 정보가 연구에서 얼마나 중요한지'이고,
 
-예를 들어
+coverage는
+'이번 인터뷰에서 실제로 얼마나 확보됐는지'입니다.
 
-"속도는 괜찮다"
-"비용은 감수할 수 있다"
 
-정도의 발언만 있는 경우,
+required_slots가 빈 배열이라면
 
-그 요인이 제품 선택에 미치는 세부 영향까지
-충분히 확인한 것은 아닐 수 있습니다.
-
-이 경우 medium 또는 low가 더 적절할 수 있습니다.
+slot_coverage.items는
+빈 배열로 반환하세요.
 
 
 ==================================================
 [Key Findings]
 ==================================================
 
-단순한 답변 요약이 아니라
-연구 목적과 직접적으로 관련된 중요한 발견을 추출하세요.
+단순 발언 요약이 아니라
+현재 research_purpose와 관련해
+의미 있는 발견을 추출하세요.
 
-각 Finding에는 실제 evidence_ids를 연결하세요.
+각 Finding은 실제 Evidence와
+연결되어야 합니다.
 
 
 ==================================================
 [Preference Drivers]
 ==================================================
 
-응답자가 현재 도구를 선택하고
-계속 사용하게 만드는 실질적인 이유를 분석하세요.
+현재 조사에서
+실제 선택, 선호, 유지 요인이 확인된 경우
+Evidence를 기반으로 분석하세요.
 
-단순 기능 언급과 실제 선택 이유를 구분하세요.
+그러한 내용이 조사에서 확인되지 않았다면
+억지로 생성하지 마세요.
 
 
 ==================================================
 [Pain Points]
 ==================================================
 
-각 Pain Point는 다음을 구분하세요.
+Pain Point가 실제로 확인된 경우:
 
-- 어떤 문제가 발생했는가
-- 어떤 상황에서 발생했는가
-- 사용자에게 어떤 영향을 주는가
-- 심각도는 어느 정도인가
+- 어떤 문제인지
+- 어떤 상황에서 발생하는지
+- 응답자에게 어떤 영향을 주는지
+- 심각도
+
+를 구분하세요.
+
+확인되지 않은 문제를
+추측해서 만들지 마세요.
 
 
 ==================================================
 [Switching Analysis]
 ==================================================
 
+현재 조사에서
+전환, 이탈, 유지와 관련된 Evidence가
+존재할 경우에만 적극적으로 분석하세요.
+
 retention_drivers:
-현재 사용하는 도구를 계속 사용하게 만드는 이유
+현재 선택을 유지하게 만드는 요인
 
 switching_barriers:
-다른 도구로 이동하기 어렵게 만드는 요인
+다른 선택으로 이동하는 것을 방해하는 요인
 
 switching_triggers:
-다른 도구를 새롭게 고려하게 만드는 조건
+다른 선택을 고려하게 만드는 조건
 
 switching_signal:
 
@@ -465,89 +517,87 @@ weak
 unclear
 
 
-응답자가
+전환과 무관한 조사이거나
+전환 Evidence가 없다면
 
-"이 기능이 생기면 불편이 줄어들 것 같다"
+빈 배열과
+switching_signal = unclear
 
-라고 말했다고 해서
+을 사용하세요.
 
-"이 기능이 생기면 반드시 제품을 바꾸겠다"
-
-라고 해석하지 마세요.
-
-직접적인 전환 의사가 확인되지 않았다면
-switching_signal을 과도하게 높이지 마세요.
+"불편이 줄어들 것 같다"는 말과
+"실제로 전환하겠다"는 말은 다릅니다.
 
 
 ==================================================
 [Feature Opportunities]
 ==================================================
 
-source_type은 반드시 다음 둘 중 하나입니다.
+제품/서비스 개선 기회가
+실제 인터뷰에서 확인될 경우 분석하세요.
 
+source_type:
 
 explicit_user_request
-
-응답자가 직접 원하는 기능이나 개선점을 말함.
-
+응답자가 직접 기능이나 개선을 요구함.
 
 derived_opportunity
+응답자는 문제만 말했고
+분석자가 해결 기회를 도출함.
 
-응답자는 문제만 언급했고,
-그 문제를 해결하기 위한 기능은 분석자가 도출함.
+응답자가 직접 말하지 않은 아이디어를
+사용자 직접 요구처럼 표현하지 마세요.
 
-
-AI가 도출한 제품 아이디어를
-응답자가 직접 요구한 것처럼 표현하지 마세요.
+기능 제안과 무관한 조사라면
+빈 배열을 사용할 수 있습니다.
 
 
 ==================================================
-[Observer Intervention Analysis]
+[Observer Intervention]
 ==================================================
 
-observer_instructions가 존재하는 경우 분석하세요.
+observer_instructions가 있는 경우,
 
-참관자의 지시 이후
-실제로 새로운 구체적 Evidence가 확보되었는지 확인하세요.
+해당 지시 이후 실제로
+새로운 Evidence가 확보됐는지 분석하세요.
 
 resulting_evidence_ids에는
-실제로 해당 지시 이후 확보된 Evidence만 연결하세요.
+실제 확보된 Evidence만 연결하세요.
 
-확실한 인과관계를 확인하기 어렵다면
-억지로 Evidence를 연결하지 마세요.
-
-research_value:
-
-high
-medium
-low
+억지로 인과관계를 만들지 마세요.
 
 
 ==================================================
 [Researcher Attention]
 ==================================================
 
-현재 인터뷰만으로 충분히 확인되지 않은 정보,
-모호한 정보,
-추가 인터뷰에서 확인해야 할 내용을 작성하세요.
+현재 인터뷰에서
 
-확인되지 않은 내용을 추측으로 채우지 마세요.
+- 부족했던 정보
+- 애매했던 내용
+- 추가 확인이 필요한 내용
+- Coverage가 낮은 핵심 Slot
+
+등을 연구자에게 알려주세요.
+
+확인되지 않은 내용을
+추측으로 채우지 마세요.
 
 
 ==================================================
 [출력]
 ==================================================
 
-제공된 JSON Schema를 정확히 따라야 합니다.
+제공된 JSON Schema를
+정확하게 따라야 합니다.
 
 Schema에 없는 필드를 추가하지 마세요.
 
 필수 필드를 누락하지 마세요.
 """
 
-
         # =================================================
-        # 4. Pydantic → JSON Schema
+        # 5. Structured Output Schema
         # =================================================
 
         output_schema = (
@@ -555,84 +605,97 @@ Schema에 없는 필드를 추가하지 마세요.
             .model_json_schema()
         )
 
-
         # =================================================
-        # 5. GPT-5.1 Structured Output
+        # 6. GPT-5.1 호출
         # =================================================
 
         try:
-            response = await self._client.responses.create(
-                model=self._deployment,
 
-                instructions=system_prompt,
+            response = (
+                await self._client.responses.create(
+                    model=self._deployment,
 
-                input=(
-                    "아래 인터뷰 데이터를 분석하세요.\n"
-                    "required_slots에 정의된 모든 Slot을 "
-                    "반드시 하나씩 평가하세요.\n"
-                    "결과는 JSON Schema를 정확히 따르세요.\n\n"
-                    + json.dumps(
-                        input_data,
-                        ensure_ascii=False,
-                        indent=2,
-                    )
-                ),
+                    instructions=system_prompt,
 
-                reasoning={
-                    "effort": "none"
-                },
+                    input=(
+                        "아래 조사 및 인터뷰 데이터를 "
+                        "분석하세요.\n"
+                        "required_slots가 존재하면 "
+                        "모든 Slot을 정확히 하나씩 "
+                        "평가하세요.\n\n"
+                        + json.dumps(
+                            input_data,
+                            ensure_ascii=False,
+                            indent=2,
+                        )
+                    ),
 
-                max_output_tokens=12000,
-
-                text={
-                    "verbosity": "low",
-
-                    "format": {
-                        "type": "json_schema",
-                        "name": "individual_interview_analysis",
-                        "schema": output_schema,
-                        "strict": True,
+                    reasoning={
+                        "effort": "none"
                     },
-                },
+
+                    max_output_tokens=12000,
+
+                    text={
+                        "verbosity": "low",
+
+                        "format": {
+                            "type": "json_schema",
+                            "name": (
+                                "individual_"
+                                "interview_analysis"
+                            ),
+                            "schema": (
+                                output_schema
+                            ),
+                            "strict": True,
+                        },
+                    },
+                )
             )
 
         except Exception:
+
             logger.exception(
                 "Azure OpenAI 리포트 분석 호출 실패"
             )
+
             raise
 
-
         # =================================================
-        # 6. 응답 확인
+        # 7. Response 확인
         # =================================================
 
         content = response.output_text
 
         if not content:
             raise ValueError(
-                "Azure OpenAI가 빈 분석 결과를 반환했습니다."
+                "Azure OpenAI가 빈 분석 결과를 "
+                "반환했습니다."
             )
 
-
         # =================================================
-        # 7. JSON Parsing
+        # 8. JSON Parsing
         # =================================================
 
         try:
-            raw_result = json.loads(content)
+
+            raw_result = json.loads(
+                content
+            )
 
         except json.JSONDecodeError:
+
             logger.exception(
                 "Azure OpenAI 결과 JSON 파싱 실패. "
                 "응답 앞부분=%s",
                 content[:500],
             )
+
             raise
 
-
         # =================================================
-        # 8. Evidence ID 검증
+        # 9. Evidence ID 검증
         # =================================================
 
         self._sanitize_evidence_ids(
@@ -640,23 +703,24 @@ Schema에 없는 필드를 추가하지 마세요.
             allowed_evidence_ids,
         )
 
-
         # =================================================
-        # 9. Slot 검증
+        # 10. Dynamic Slot 검증
         # =================================================
 
         self._validate_slots(
-            raw_result
+            result=raw_result,
+            required_slots=required_slots,
         )
 
-
         # =================================================
-        # 10. Pydantic 최종 검증
+        # 11. Pydantic 최종 검증
         # =================================================
 
         validated = (
             IndividualInterviewAnalysis
-            .model_validate(raw_result)
+            .model_validate(
+                raw_result
+            )
         )
 
         return validated.model_dump(
@@ -683,16 +747,22 @@ Schema에 없는 필드를 추가하지 마세요.
                         "evidence_ids",
                         "resulting_evidence_ids",
                     }
-                    and isinstance(item, list)
+                    and isinstance(
+                        item,
+                        list,
+                    )
                 ):
+
                     value[key] = [
                         evidence_id
-                        for evidence_id in item
+                        for evidence_id
+                        in item
                         if evidence_id
                         in allowed_evidence_ids
                     ]
 
                 else:
+
                     self._sanitize_evidence_ids(
                         item,
                         allowed_evidence_ids,
@@ -701,6 +771,7 @@ Schema에 없는 필드를 추가하지 마세요.
         elif isinstance(value, list):
 
             for item in value:
+
                 self._sanitize_evidence_ids(
                     item,
                     allowed_evidence_ids,
@@ -708,23 +779,32 @@ Schema에 없는 필드를 추가하지 마세요.
 
 
     # =====================================================
-    # Slot 검증
+    # Dynamic Slot 검증
     # =====================================================
 
     def _validate_slots(
         self,
         result: dict[str, Any],
+        required_slots: list[
+            dict[str, Any]
+        ],
     ) -> None:
 
         required_ids = [
             slot["slot_id"]
-            for slot in SLOT_DEFINITIONS
+            for slot in required_slots
         ]
 
         items = (
             result
-            .get("slot_coverage", {})
-            .get("items", [])
+            .get(
+                "slot_coverage",
+                {},
+            )
+            .get(
+                "items",
+                [],
+            )
         )
 
         result_ids = [
@@ -732,45 +812,80 @@ Schema에 없는 필드를 추가하지 마세요.
             for item in items
         ]
 
+        # ---------------------------------------------
+        # Study Slot이 없는 legacy Session
+        # ---------------------------------------------
+
+        if not required_ids:
+
+            if result_ids:
+                raise ValueError(
+                    "Study Slot이 없는데 "
+                    "새로운 Slot이 생성되었습니다."
+                )
+
+            return
+
+        # ---------------------------------------------
+        # 누락
+        # ---------------------------------------------
+
         missing = (
             set(required_ids)
             - set(result_ids)
         )
+
+        # ---------------------------------------------
+        # 정의되지 않은 Slot
+        # ---------------------------------------------
 
         unexpected = (
             set(result_ids)
             - set(required_ids)
         )
 
+        # ---------------------------------------------
+        # 중복 Slot
+        # ---------------------------------------------
+
         duplicates = {
             slot_id
             for slot_id in result_ids
-            if result_ids.count(slot_id) > 1
+            if result_ids.count(
+                slot_id
+            ) > 1
         }
 
         if missing:
             raise ValueError(
-                f"누락된 Slot: {sorted(missing)}"
+                "누락된 Slot: "
+                f"{sorted(missing)}"
             )
 
         if unexpected:
             raise ValueError(
-                f"정의되지 않은 Slot: {sorted(unexpected)}"
+                "정의되지 않은 Slot: "
+                f"{sorted(unexpected)}"
             )
 
         if duplicates:
             raise ValueError(
-                f"중복된 Slot: {sorted(duplicates)}"
+                "중복된 Slot: "
+                f"{sorted(duplicates)}"
             )
 
-        if len(result_ids) != len(required_ids):
+        if (
+            len(result_ids)
+            != len(required_ids)
+        ):
             raise ValueError(
-                "Slot 개수가 정의된 Slot 개수와 일치하지 않습니다."
+                "Slot 개수가 ResearchStudy에 "
+                "저장된 Slot 개수와 일치하지 않습니다."
             )
 
 
 # =========================================================
-# Analyzer 선택
+# Analyzer Singleton
 # =========================================================
 
 _analyzer: ReportAnalyzer | None = None
