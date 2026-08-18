@@ -257,14 +257,14 @@ body {
 .main-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   padding: 24px 32px;
 }
 
 .title-area {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
 }
 
 .title-area h1 {
@@ -272,7 +272,7 @@ body {
   margin: 0;
   font-weight: 600;
   color: var(--text-white);
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
 }
 
 .live-dot {
@@ -296,33 +296,7 @@ body {
   }
 }
 
-.badge-status {
-  font-size: 11px;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-}
 
-.badge-status.connected {
-  background: rgba(16, 185, 129, 0.08);
-  color: var(--success);
-  border: 1px solid rgba(16, 185, 129, 0.15);
-}
-
-.badge-status.connecting {
-  background: rgba(245, 158, 11, 0.08);
-  color: var(--warning);
-  border: 1px solid rgba(245, 158, 11, 0.15);
-}
-
-.badge-status.error,
-.badge-status.closed {
-  background: rgba(239, 68, 68, 0.08);
-  color: var(--error);
-  border: 1px solid rgba(239, 68, 68, 0.15);
-}
 
 /* 4. Orb & Audio Animation Stylings */
 .stage-panel {
@@ -330,7 +304,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 320px;
+  min-height: 480px;
   gap: 32px;
   background: var(--panel);
   border: 1px solid var(--panel-border);
@@ -801,4 +775,122 @@ body {
 
 .consent-scroll-box ul {
   padding-left: 20px;
+}
+
+/* Permission Explainer Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  max-width: 460px;
+  width: 90%;
+  animation: smoothFadeUp 0.3s ease-out;
+}
+
+/* Mic Button Panel & Animations */
+.mic-button-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px 24px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 28px;
+}
+
+.mic-wrapper {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.mic-core {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  z-index: 3;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  border: none;
+  cursor: pointer;
+}
+
+/* idle state */
+.mic-wrapper.idle .mic-core {
+  background: linear-gradient(135deg, #1d1d1f 0%, #424245 100%);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.05);
+  color: var(--muted);
+  animation: orb-breathing 5s ease-in-out infinite;
+}
+
+/* recording state (blue glow) */
+.mic-wrapper.recording .mic-core {
+  background: linear-gradient(135deg, #0071e3 0%, #00d4ff 100%);
+  box-shadow: 0 0 40px rgba(0, 113, 227, 0.5);
+  color: var(--text-white);
+  animation: orb-breathing 2s ease-in-out infinite;
+}
+
+.mic-wave {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(0, 113, 227, 0.3), rgba(0, 212, 255, 0.3));
+  opacity: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mic-wrapper.recording .wave-1 {
+  animation: wave-expand 2s infinite linear;
+}
+
+.mic-wrapper.recording .wave-2 {
+  animation: wave-expand 2s infinite linear;
+  animation-delay: 1s;
+}
+
+.mic-glow {
+  position: absolute;
+  width: 130%;
+  height: 130%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(0, 113, 227, 0.15), transparent 70%);
+  z-index: 0;
+  opacity: 0.6;
+  filter: blur(10px);
+  pointer-events: none;
+}
+
+.mic-status-text {
+  font-size: 14px;
+  color: var(--text-white);
+  margin-top: 10px;
+  margin-bottom: 0;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.mic-wrapper.recording + .mic-status-text {
+  color: var(--accent-link);
 }

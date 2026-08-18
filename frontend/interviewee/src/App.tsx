@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { WS_BASE_URL, sessionIdFromUrl } from "./config";
 import type { ServerMessage, Turn } from "./types";
 import WaitingScreen from "./components/WaitingScreen";
-import TranscriptHistory from "./components/TranscriptHistory";
+import PermissionExplainerModal from "./components/PermissionExplainerModal";
+import MicButton from "./components/MicButton";
+import MicOffAlert from "./components/MicOffAlert";
+import { useAudioLevelMonitor } from "./hooks/useAudioLevelMonitor";
 import Orb from "./components/Orb";
 
 type Status = "idle" | "connecting" | "connected" | "closed" | "error";
 type SessionStatus = "created" | "running" | "ended";
-type EntryStep = "gromit" | "welcome_code" | "media_setup" | "consent" | "waiting" | "running" | "ended";
+type EntryStep = "gromit" | "welcome" | "consent" | "waiting" | "running" | "ended";
 
 export default function App() {
   const [sessionId] = useState(sessionIdFromUrl);
@@ -16,26 +19,30 @@ export default function App() {
   const [entryStep, setEntryStep] = useState<EntryStep>("gromit");
 
   // Flow states
-  const [enteredCode, setEnteredCode] = useState("");
-  const [micOn, setMicOn] = useState(false);
-  const [camOn, setCamOn] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isChecking, setIsChecking] = useState(false);
+  const [isExplainerOpen, setIsExplainerOpen] = useState(false);
   const [isAgreedToRecord, setIsAgreedToRecord] = useState(false);
   const [isAgreedToPrivacy, setIsAgreedToPrivacy] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
   const [title, setTitle] = useState("");
-  const [question, setQuestion] = useState("대화 상대를 기다리고 있습니다.");
+  const [question, setQuestion] = useState("준비되셨으면 말씀해 주세요.");
   const [history, setHistory] = useState<Turn[]>([]);
-  const [draft, setDraft] = useState("");
+
+  // Constant audio level monitor when on running step
+  const isVoiceDetected = useAudioLevelMonitor(entryStep === "running");
+  const showMicOffAlert = isVoiceDetected && !isRecording;
+
   const [orbState, setOrbState] = useState<"idle" | "speaking" | "listening">("idle");
   const socketRef = useRef<WebSocket | null>(null);
 
-  // 1. Splash screen timer: Transition from 'gromit' to 'welcome_code' after 5s
+  // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 4s
   useEffect(() => {
     if (entryStep === "gromit") {
       const timer = setTimeout(() => {
-        setEntryStep("welcome_code");
-      }, 5000);
+        setEntryStep("welcome");
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [entryStep]);
@@ -81,38 +88,29 @@ export default function App() {
       setOrbState("idle");
     }
   }, [entryStep, sessionStatus]);
-
-  const send = () => {
-    const text = draft.trim();
-    const socket = socketRef.current;
-    if (!text || socket?.readyState !== WebSocket.OPEN) return;
-
-    socket.send(JSON.stringify({ type: "utterance", text }));
-    setHistory((prev) => [
-      ...prev,
-      {
-        index: prev.length,
-        speaker: "interviewee",
-        text,
-        created_at: new Date().toISOString(),
-      },
-    ]);
-    setDraft("");
-    setOrbState("idle");
-  };
-
-  const handleCodeSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!enteredCode.trim()) {
-      setErrorMessage("입장 코드를 입력해 주세요.");
-      return;
+  // 4. Log interview history for debugging/future logging purposes
+  useEffect(() => {
+    if (history.length > 0) {
+      console.log("Interview history updated:", history);
     }
+  }, [history]);
+  const handleWelcomeStart = async () => {
+    setIsExplainerOpen(false);
+    setIsChecking(true);
     setErrorMessage("");
-    setEntryStep("media_setup");
-  };
-
-  const handleMediaSubmit = () => {
-    setEntryStep("consent");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+        video: true,
+      });
+      stream.getTracks().forEach((track) => track.stop());
+      setEntryStep("consent");
+    } catch (err: any) {
+      console.error("Permission check failed:", err);
+      setErrorMessage("카메라 및 마이크 권한을 허용해 주셔야 인터뷰 진행이 가능합니다.");
+    } finally {
+      setIsChecking(false);
+    }
   };
 
   const handleConsentSubmit = () => {
@@ -144,72 +142,30 @@ export default function App() {
     );
   }
 
-  // Step 2: Welcome and Entry Code Input
-  if (entryStep === "welcome_code") {
+  // Step 2: Welcome
+  if (entryStep === "welcome") {
     return (
       <main className="shell">
         <div className="landing-welcome-container">
           <h1 className="welcome-title">
             {title ? `"${title}"에 온 것을 환영합니다` : "인터뷰에 온 것을 환영합니다"}
           </h1>
-
-          <form className="code-input-panel" onSubmit={handleCodeSubmit}>
-            <div className="input-group">
-              <label style={{ fontSize: 14, color: "var(--muted)" }}>인터뷰 입장 코드 입력</label>
-              <input
-                type="text"
-                className="text-input-premium"
-                placeholder="입장 코드를 입력하세요"
-                value={enteredCode}
-                onChange={(e) => setEnteredCode(e.target.value)}
-              />
-              {errorMessage && <p style={{ color: "var(--error)", fontSize: 13, margin: "4px 0" }}>{errorMessage}</p>}
-              <button type="submit" className="btn-primary">입장하기</button>
-            </div>
-          </form>
-        </div>
-      </main>
-    );
-  }
-
-  // Step 3: Media Setup
-  if (entryStep === "media_setup") {
-    return (
-      <main className="shell">
-        <div className="media-setup-container">
-          <h1 className="welcome-title" style={{ marginBottom: 40 }}>인터뷰 시작 전 장치 설정</h1>
-
-          <div className="code-input-panel" style={{ margin: "0 auto 32px" }}>
-            <div className="toggle-card">
-              <span className="toggle-label">🎤 마이크</span>
-              <button
-                className={`toggle-switch-btn ${micOn ? "on" : "off"}`}
-                onClick={() => setMicOn(!micOn)}
-              >
-                {micOn ? "ON" : "OFF"}
-              </button>
-            </div>
-
-            <div className="toggle-card">
-              <span className="toggle-label">📷 카메라</span>
-              <button
-                className={`toggle-switch-btn ${camOn ? "on" : "off"}`}
-                onClick={() => setCamOn(!camOn)}
-              >
-                {camOn ? "ON" : "OFF"}
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", gap: "16px", marginTop: "24px" }}>
-            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setEntryStep("welcome_code")}>
-              이전
+          <div className="code-input-panel">
+            <button
+              className="btn-primary"
+              onClick={() => setIsExplainerOpen(true)}
+              disabled={isChecking}
+            >
+              {isChecking ? "권한 확인 중..." : "시작하기"}
             </button>
-            <button className="btn-primary" style={{ flex: 1 }} onClick={handleMediaSubmit}>
-              다음
-            </button>
+            {errorMessage && <p className="error-alert">{errorMessage}</p>}
           </div>
         </div>
+
+        <PermissionExplainerModal
+          isOpen={isExplainerOpen}
+          onConfirm={handleWelcomeStart}
+        />
       </main>
     );
   }
@@ -289,7 +245,7 @@ export default function App() {
           {errorMessage && <p className="error-alert">{errorMessage}</p>}
 
           <div style={{ display: "flex", gap: "16px", marginTop: "24px" }}>
-            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setEntryStep("media_setup")}>
+            <button className="btn-secondary" style={{ flex: 1 }} onClick={() => setEntryStep("welcome")}>
               이전
             </button>
             <button className="btn-primary" style={{ flex: 1 }} onClick={handleConsentSubmit} disabled={!isAgreedToRecord || !isAgreedToPrivacy}>
@@ -351,7 +307,6 @@ export default function App() {
           <span className="live-dot" />
           <h1>{title || "AI 인터뷰"}</h1>
         </div>
-        <span className={`badge-status ${status}`}>{status.toUpperCase()}</span>
       </header>
 
       <section className="stage-panel glass-panel">
@@ -361,31 +316,8 @@ export default function App() {
         </div>
       </section>
 
-      <section className="composer-panel glass-panel">
-        <div className="composer-wrapper">
-          <textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                send();
-              }
-            }}
-            placeholder={orbState === "speaking" ? "AI 면접관의 질문이 끝나면 답변해 주세요..." : "질문에 대해 자세히 답변해 주세요..."}
-            rows={3}
-            disabled={status !== "connected" || orbState === "speaking"}
-          />
-          <button className="btn-send" onClick={send} disabled={status !== "connected" || !draft.trim() || orbState === "speaking"}>
-            <span className="send-icon">📤</span> 전송
-          </button>
-        </div>
-        <p className="composer-hint">
-          {orbState === "speaking" ? "AI 가 질문을 읽는 중입니다." : "Enter를 누르면 답변이 전송됩니다. 줄바꿈은 Shift + Enter 입니다."}
-        </p>
-      </section>
-
-      <TranscriptHistory history={history} />
+      <MicOffAlert isVisible={showMicOffAlert} />
+      <MicButton isRecording={isRecording} onRecordingChange={setIsRecording} />
 
       {sessionId === "default-session" && (
         <div style={{ textAlign: "center", marginTop: 20 }}>
