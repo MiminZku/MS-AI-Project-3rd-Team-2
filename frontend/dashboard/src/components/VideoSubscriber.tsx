@@ -19,7 +19,7 @@ export default function VideoSubscriber({ token, groupId }: VideoSubscriberProps
       if (!remoteVideoStream.isAvailable) return;
       
       renderer = new VideoStreamRenderer(remoteVideoStream);
-      const view = await renderer.createView({ scalingMode: 'Crop' });
+      const view = await renderer.createView({ scalingMode: 'Fit' });
       
       if (videoContainerRef.current) {
         // Clear previous video
@@ -30,7 +30,7 @@ export default function VideoSubscriber({ token, groupId }: VideoSubscriberProps
         if (videoEl) {
           videoEl.style.width = '100%';
           videoEl.style.height = '100%';
-          videoEl.style.objectFit = 'cover';
+          videoEl.style.objectFit = 'contain';
         }
       }
     }

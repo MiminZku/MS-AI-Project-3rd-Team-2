@@ -317,7 +317,21 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <span className="rs-dot" />
                 응답자 {intervieweeOnline ? "접속중" : "연결 끊김"}
               </span>
-              <div className="rs-figure" style={{ overflow: "hidden", position: "relative" }}>
+              <div 
+                className="rs-figure" 
+                style={rtcCreds ? { 
+                  overflow: "hidden", 
+                  position: "relative", 
+                  width: "100%", 
+                  aspectRatio: "16 / 9", 
+                  height: "auto", 
+                  borderRadius: "12px", 
+                  background: "#000" 
+                } : { 
+                  overflow: "hidden", 
+                  position: "relative" 
+                }}
+              >
                 {rtcCreds ? (
                   <VideoSubscriber token={rtcCreds.token} groupId={rtcCreds.group_id} />
                 ) : (
