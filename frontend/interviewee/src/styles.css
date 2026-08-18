@@ -950,10 +950,9 @@ body {
   gap: clamp(8px, 1.4vh, 16px);
   min-height: 0;
   min-width: 0;
-  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  grid-template-areas:
-    "avatar self";
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
+  align-content: center;
 }
 
 .monitor {
@@ -982,13 +981,20 @@ body {
 
 /* --- 아바타 모니터 --- */
 .monitor-avatar {
-  grid-area: avatar;
+  grid-column: 1;
+  grid-row: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: clamp(10px, 2.4vh, 28px);
   padding: clamp(38px, 5vh, 48px) clamp(16px, 3vw, 40px) clamp(16px, 3vh, 40px);
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 70vh;
+  place-self: center;
 }
 
 .monitor-avatar .orb-wrapper {
@@ -1002,36 +1008,55 @@ body {
   height: 58%;
 }
 
-.monitor-avatar .question-box {
+.question-prompt-box {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 28px;
+  padding: 12px 24px;
   min-height: 0;
-  max-height: 100%;
-  overflow-y: auto;
-  padding: 0 clamp(4px, 2vw, 24px);
+  height: auto;
+  max-height: 100px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
 }
 
-.monitor-avatar .question-box::-webkit-scrollbar {
+.question-prompt-box .question-box {
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.question-prompt-box .question-box::-webkit-scrollbar {
   width: 6px;
 }
 
-.monitor-avatar .question-box::-webkit-scrollbar-thumb {
+.question-prompt-box .question-box::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 28px;
 }
 
-.monitor-avatar .question-bubble {
-  font-size: clamp(17px, 2.6vh, 26px);
-  max-width: 34ch;
+.question-prompt-box .question-bubble {
+  margin: 0;
+  font-size: clamp(13px, 1.8vh, 16px);
+  line-height: 1.4;
+  color: var(--text-white);
+  text-align: center;
+  max-width: 100%;
 }
 
 /* --- 응답자 모니터 (셀프뷰) --- */
 .monitor-self {
-  grid-area: self;
+  grid-column: 2;
+  grid-row: 1;
   background: var(--panel);
   aspect-ratio: 16 / 9;
   width: 100%;
   height: auto;
   max-width: 100%;
-  max-height: 100%;
+  max-height: 70vh;
   place-self: center;
 }
 
@@ -1073,45 +1098,7 @@ body {
   right: 14px;
 }
 
-.connection-badge {
-  position: absolute;
-  top: 12px;
-  left: 14px;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: rgba(0, 0, 0, 0.55);
-  padding: 5px 12px;
-  border-radius: 28px;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-white);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
 
-.connection-badge .status-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-}
-
-.connection-badge .status-dot.connected {
-  background-color: var(--success);
-  box-shadow: 0 0 8px var(--success);
-}
-
-.connection-badge .status-dot.connecting {
-  background-color: var(--warning);
-  box-shadow: 0 0 8px var(--warning);
-}
-
-.connection-badge .status-dot.idle,
-.connection-badge .status-dot.closed,
-.connection-badge .status-dot.error {
-  background-color: var(--error);
-  box-shadow: 0 0 8px var(--error);
-}
 
 .mic-banner {
   position: absolute;
@@ -1194,19 +1181,28 @@ body {
   }
 
   .monitor-grid {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr);
-    grid-template-areas:
-      "avatar"
-      "self";
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr) auto;
   }
 
-  .monitor {
+  .monitor-avatar {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .monitor-self {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .question-prompt-box {
+    grid-column: 1;
+    grid-row: 3;
+  }
+
+  .monitor,
+  .question-prompt-box {
     border-radius: 22px;
-  }
-
-  .monitor-avatar .question-bubble {
-    max-width: 100%;
   }
 }
 

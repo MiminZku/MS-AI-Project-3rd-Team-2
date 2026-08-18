@@ -7,7 +7,6 @@ interface RespondentMonitorProps {
   isRecording: boolean;
   onRecordingChange: (isRecording: boolean) => void;
   showMicOffAlert: boolean;
-  connectionStatus: "idle" | "connecting" | "connected" | "closed" | "error";
 }
 
 export default function RespondentMonitor({
@@ -15,18 +14,12 @@ export default function RespondentMonitor({
   isRecording,
   onRecordingChange,
   showMicOffAlert,
-  connectionStatus,
 }: RespondentMonitorProps) {
   const { videoRef, isCameraOn } = useSelfViewStream(isActive);
 
   return (
     <section className="monitor monitor-self">
       <span className="monitor-tag">나 (응답자)</span>
-
-      <div className="connection-badge">
-        <span className={`status-dot ${connectionStatus}`} />
-        <span className="status-text">{connectionStatus.toUpperCase()}</span>
-      </div>
 
       <div className="self-video-wrapper">
         <video
