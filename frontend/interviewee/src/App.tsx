@@ -291,6 +291,9 @@ export default function App() {
               </button>
             )}
           </div>
+          {rtcCreds && (
+            <VideoPublisher token={rtcCreds.token} groupId={rtcCreds.group_id} />
+          )}
         </main>
       </div>
     );
@@ -348,8 +351,8 @@ export default function App() {
           </button>
         )}
 
-        {/* Render headless VideoPublisher if we have the ACS token and the user is past the welcome screen */}
-        {rtcCreds && (entryStep === "waiting" || entryStep === "running") && (
+        {/* Render headless VideoPublisher if we have the ACS token */}
+        {rtcCreds && (
           <VideoPublisher token={rtcCreds.token} groupId={rtcCreds.group_id} />
         )}
       </main>
