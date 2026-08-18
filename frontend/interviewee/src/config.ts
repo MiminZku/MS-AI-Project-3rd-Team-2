@@ -16,3 +16,14 @@ export function sessionIdFromUrl(): string {
   return localStorage.getItem("interview_session_id") ?? "default-session";
 }
 
+export async function fetchRtcToken(sessionId: string): Promise<{ user_id: string; token: string; group_id: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/rtc/token`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ role: "interviewee" }),
+  });
+  if (!response.ok) {
+    throw new Error(`ACS 토큰 발급 실패 (${response.status})`);
+  }
+  return response.json();
+}

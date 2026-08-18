@@ -7,6 +7,8 @@ import { useAudioLevelMonitor } from "./hooks/useAudioLevelMonitor";
 import AvatarMonitor from "./components/AvatarMonitor";
 import RespondentMonitor from "./components/RespondentMonitor";
 import QuestionPromptBox from "./components/QuestionPromptBox";
+import VideoPublisher from "./components/VideoPublisher";
+import { fetchRtcToken } from "./config";
 
 type Status = "idle" | "connecting" | "connected" | "closed" | "error";
 type SessionStatus = "created" | "running" | "ended";
@@ -17,6 +19,7 @@ export default function App() {
   const [status, setStatus] = useState<Status>("idle");
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>("created");
   const [entryStep, setEntryStep] = useState<EntryStep>("gromit");
+  const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
 
   // Flow states
   const [isRecording, setIsRecording] = useState(false);
@@ -46,6 +49,14 @@ export default function App() {
       return () => clearTimeout(timer);
     }
   }, [entryStep]);
+
+  // 1.5 Fetch ACS Token as early as possible
+  useEffect(() => {
+    if (!sessionId || sessionId === "default-session") return;
+    fetchRtcToken(sessionId)
+      .then(creds => setRtcCreds(creds))
+      .catch(err => console.error("ACS token fetch failed", err));
+  }, [sessionId]);
 
   // 2. WebSocket Connection: Connect immediately if sessionId is available
   useEffect(() => {
@@ -335,6 +346,11 @@ export default function App() {
           <button className="btn-secondary dev-float-btn" onClick={() => setSessionStatus("ended")}>
             [개발자용] 종료 화면
           </button>
+        )}
+
+        {/* Render headless VideoPublisher if we have the ACS token and the user is past the welcome screen */}
+        {rtcCreds && (entryStep === "waiting" || entryStep === "running") && (
+          <VideoPublisher token={rtcCreds.token} groupId={rtcCreds.group_id} />
         )}
       </main>
     </div>
