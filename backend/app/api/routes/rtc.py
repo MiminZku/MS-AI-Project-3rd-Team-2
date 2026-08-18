@@ -33,18 +33,17 @@ async def create_rtc_token(session_id: str, request: RtcTokenRequest):
         if not settings.acs_connection_string:
             raise HTTPException(status_code=500, detail="ACS_CONNECTION_STRING is not configured in backend.")
 
-        from azure.communication.identity import CommunicationIdentityClient
-        client = CommunicationIdentityClient.from_connection_string(settings.acs_connection_string)
-        
-        user = client.create_user()
-        token_response = client.get_token(user, scopes=["voip"])
-        
-        return RtcTokenResponse(
-            user_id=user.properties['id'],
-            token=token_response.token,
-            expires_on=str(token_response.expires_on),
-            group_id=group_id
-        )
+        from azure.communication.identity.aio import CommunicationIdentityClient
+        async with CommunicationIdentityClient.from_connection_string(settings.acs_connection_string) as client:
+            user = await client.create_user()
+            token_response = await client.get_token(user, scopes=["voip"])
+            
+            return RtcTokenResponse(
+                user_id=user.properties['id'],
+                token=token_response.token,
+                expires_on=str(token_response.expires_on),
+                group_id=group_id
+            )
     except ImportError:
         raise HTTPException(status_code=500, detail="azure-communication-identity is not installed.")
     except Exception as e:
