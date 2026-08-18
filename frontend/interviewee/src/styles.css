@@ -28,13 +28,35 @@ body {
   min-height: 100vh;
 }
 
+.app-frame {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 .shell {
   max-width: 800px;
   margin: 0 auto;
-  padding: 60px 24px 100px;
+  width: 100%;
+  height: 100%;
+  padding: clamp(20px, 4vh, 40px) 24px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+  gap: clamp(16px, 3vh, 32px);
+  overflow-y: auto;
+}
+
+.shell::-webkit-scrollbar {
+  width: 6px;
+}
+
+.shell::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
 }
 
 .text-center {
@@ -624,7 +646,7 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 80vh;
+  flex: 1;
   gap: 32px;
   text-align: center;
 }
@@ -733,7 +755,7 @@ body {
 }
 
 .consent-scroll-box {
-  max-height: 280px;
+  max-height: clamp(120px, 35vh, 280px);
   overflow-y: auto;
   padding: 24px;
   background: rgba(0, 0, 0, 0.25);
@@ -893,4 +915,315 @@ body {
 
 .mic-wrapper.recording + .mic-status-text {
   color: var(--accent-link);
+}
+
+/* ============================================================
+   7. Running Stage — 아바타 / 응답자 2분할 모니터, 무스크롤 1화면 프레임
+   ============================================================ */
+
+.stage-shell {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: clamp(8px, 1.4vh, 16px);
+  padding:
+    clamp(10px, 2vh, 22px)
+    clamp(12px, 2.4vw, 32px)
+    clamp(10px, 2vh, 22px);
+}
+
+.stage-header {
+  padding: 0;
+  min-height: 0;
+}
+
+.stage-header .title-area h1 {
+  font-size: clamp(15px, 2.2vh, 20px);
+}
+
+/* --- 모니터 공통 --- */
+.monitor-grid {
+  position: relative;
+  display: grid;
+  gap: clamp(8px, 1.4vh, 16px);
+  min-height: 0;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1.9fr) minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  grid-template-areas:
+    "avatar self";
+}
+
+.monitor {
+  position: relative;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 28px;
+  overflow: hidden;
+  min-height: 0;
+  min-width: 0;
+}
+
+.monitor-tag {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 3;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--muted);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 5px 12px;
+  border-radius: 28px;
+}
+
+/* --- 아바타 모니터 --- */
+.monitor-avatar {
+  grid-area: avatar;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(10px, 2.4vh, 28px);
+  padding: clamp(38px, 5vh, 48px) clamp(16px, 3vw, 40px) clamp(16px, 3vh, 40px);
+}
+
+.monitor-avatar .orb-wrapper {
+  flex: none;
+  width: clamp(76px, 15vh, 140px);
+  height: clamp(76px, 15vh, 140px);
+}
+
+.monitor-avatar .orb-core {
+  width: 58%;
+  height: 58%;
+}
+
+.monitor-avatar .question-box {
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 0 clamp(4px, 2vw, 24px);
+}
+
+.monitor-avatar .question-box::-webkit-scrollbar {
+  width: 6px;
+}
+
+.monitor-avatar .question-box::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 28px;
+}
+
+.monitor-avatar .question-bubble {
+  font-size: clamp(17px, 2.6vh, 26px);
+  max-width: 34ch;
+}
+
+/* --- 응답자 모니터 (셀프뷰) --- */
+.monitor-self {
+  grid-area: self;
+  background: var(--panel);
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  place-self: center;
+}
+
+.self-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  /* 거울 모드 */
+}
+
+.self-fallback {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+  padding: 12px;
+}
+
+.self-fallback p {
+  margin: 0;
+}
+
+.self-fallback-icon {
+  font-size: 26px;
+  opacity: 0.7;
+}
+
+.monitor-self .monitor-tag {
+  left: auto;
+  right: 14px;
+}
+
+.connection-badge {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 5px 12px;
+  border-radius: 28px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-white);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.connection-badge .status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.connection-badge .status-dot.connected {
+  background-color: var(--success);
+  box-shadow: 0 0 8px var(--success);
+}
+
+.connection-badge .status-dot.connecting {
+  background-color: var(--warning);
+  box-shadow: 0 0 8px var(--warning);
+}
+
+.connection-badge .status-dot.idle,
+.connection-badge .status-dot.closed,
+.connection-badge .status-dot.error {
+  background-color: var(--error);
+  box-shadow: 0 0 8px var(--error);
+}
+
+.mic-banner {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(29, 29, 31, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mic-banner.warning {
+  border-top-color: rgba(239, 68, 68, 0.35);
+}
+
+.mic-banner .mic-button-panel {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  flex: none;
+}
+
+.mic-banner .mic-wrapper {
+  width: 44px;
+  height: 44px;
+  flex: none;
+}
+
+.mic-banner .mic-core {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mic-banner .mic-status-text {
+  display: none;
+}
+
+.mic-banner-content {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.mic-banner-guide {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+  text-align: left;
+}
+
+.mic-banner-warning {
+  margin: 0;
+  color: var(--error);
+  font-size: 13px;
+  line-height: 1.4;
+  font-weight: 500;
+  text-align: left;
+  animation: smoothFadeUp 0.3s ease-out;
+}
+
+/* ---------- 모바일 (세로) ---------- */
+@media (max-width: 767px) {
+  .stage-shell {
+    padding-left: clamp(10px, 3vw, 20px);
+    padding-right: clamp(10px, 3vw, 20px);
+  }
+
+  .monitor-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1.3fr) minmax(0, 1fr);
+    grid-template-areas:
+      "avatar"
+      "self";
+  }
+
+  .monitor {
+    border-radius: 22px;
+  }
+
+  .monitor-avatar .question-bubble {
+    max-width: 100%;
+  }
+}
+
+/* ---------- 낮은 높이(가로 모드 폰 등): 텍스트/여백 추가 압축 ---------- */
+@media (max-height: 520px) {
+  .monitor-avatar {
+    padding-top: clamp(30px, 6vh, 38px);
+    gap: 8px;
+  }
+}
+
+/* --- 개발용 플로팅 컨트롤 (default-session 전용) --- */
+.dev-float-btn {
+  position: fixed;
+  right: 12px;
+  bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  z-index: 900;
+  padding: 8px 14px;
+  font-size: 12px;
 }
