@@ -654,26 +654,27 @@ h2 {
   min-height: 88px;
   resize: vertical;
   border: 1px solid var(--panel-border);
-  border-radius: 11px;
+  border-radius: 20px;
   padding: 12px;
   outline: none;
   font-size: 12.5px;
   line-height: 1.55;
   font-family: inherit;
+  background: #000000;
+  color: var(--text-white);
 }
 
 .composer textarea:focus {
-  border-color: #a99fff;
-  box-shadow: 0 0 0 3px #f0eeff;
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .composer > button {
   align-self: flex-end;
   border: none;
-  background: linear-gradient(135deg, var(--primary), var(--primary2));
-  color: #fff;
+  background: var(--primary);
+  color: var(--text-white);
   padding: 10px 16px;
-  border-radius: 10px;
+  border-radius: 28px;
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
@@ -688,17 +689,17 @@ h2 {
 
 .quick button {
   border: 1px solid var(--panel-border);
-  background: #fbfbfe;
+  background: var(--panel);
   border-radius: 999px;
   padding: 6px 11px;
   font-size: 10.5px;
-  color: #5b6070;
+  color: var(--muted);
   cursor: pointer;
 }
 
 .quick button:hover {
-  border-color: #cfc9ff;
-  color: #5c4ee5;
+  border-color: rgba(0, 113, 227, 0.4);
+  color: var(--primary);
 }
 
 .hist {
@@ -719,7 +720,7 @@ h2 {
 
 .h-item time {
   font-size: 10px;
-  color: #9aa2b1;
+  color: var(--muted);
   padding-top: 2px;
   font-variant-numeric: tabular-nums;
 }
@@ -729,7 +730,7 @@ h2 {
   height: 8px;
   border-radius: 50%;
   margin-top: 4px;
-  background: #e0a52e;
+  background: var(--warning);
 }
 
 .h-dot.applied {
@@ -742,15 +743,15 @@ h2 {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin-bottom: 3px;
-  color: #b7841f;
+  color: var(--warning);
 }
 
 .h-state.applied {
-  color: #137a52;
+  color: var(--success);
 }
 
 .h-text {
-  color: #4a5163;
+  color: var(--text);
   line-height: 1.5;
   font-size: 11.5px;
 }
@@ -764,36 +765,36 @@ h2 {
   content: "인터뷰 시작 후 사용할 수 있습니다";
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(0, 0, 0, 0.82);
   display: grid;
   place-items: center;
   text-align: center;
   padding: 16px;
   font-size: 11.5px;
   font-weight: 700;
-  color: #8a92a2;
+  color: var(--muted);
 }
 
 /* ===== 리포트 ===== */
 .report-note {
   margin: 14px 16px;
   padding: 11px 13px;
-  border-radius: 11px;
-  border: 1px solid #ded8ff;
-  background: #f7f5ff;
+  border-radius: 20px;
+  border: 1px solid rgba(0, 113, 227, 0.2);
+  background: rgba(0, 113, 227, 0.08);
   font-size: 11.5px;
-  color: #4a4468;
+  color: var(--text);
   line-height: 1.6;
 }
 
 .report-note b {
-  color: #5c4ee5;
+  color: var(--primary);
 }
 
 .report-highlight {
   margin: 0 16px 12px;
   padding: 10px 12px;
-  border-radius: 10px;
+  border-radius: 20px;
   border: 1px solid var(--panel-border);
   font-size: 12px;
   line-height: 1.55;
@@ -801,14 +802,14 @@ h2 {
 
 .report-highlight b {
   display: block;
-  color: #3a3363;
+  color: var(--text-white);
   margin-bottom: 4px;
 }
 
 .empty {
   padding: 26px 8px;
   text-align: center;
-  color: #9aa2b1;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.7;
 }
