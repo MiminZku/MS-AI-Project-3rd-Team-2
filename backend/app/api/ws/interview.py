@@ -69,12 +69,28 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
             msg_type = message.get("type")
 
             if msg_type == "audio.start":
+                source_lang = message.get("source_lang", "Korean")
+                target_lang = message.get("target_lang", "English")
                 # Initialize Realtime clients if not created
                 if not stt_client and settings.use_azure_openai:
-                    stt_client = RealtimeSTTClient(session_id, settings.azure_openai_realtime_stt_deployment, on_stt_partial, on_stt_final)
+                    stt_client = RealtimeSTTClient(
+                        session_id,
+                        settings.azure_openai_realtime_stt_deployment,
+                        on_stt_partial,
+                        on_stt_final,
+                        source_lang=source_lang,
+                        target_lang=target_lang
+                    )
                     await stt_client.connect()
                 if not translate_client and settings.use_azure_openai:
-                    translate_client = RealtimeSTTClient(session_id, settings.azure_openai_realtime_translate_deployment, on_translate_partial, on_translate_final)
+                    translate_client = RealtimeSTTClient(
+                        session_id,
+                        settings.azure_openai_realtime_translate_deployment,
+                        on_translate_partial,
+                        on_translate_final,
+                        source_lang=source_lang,
+                        target_lang=target_lang
+                    )
                     await translate_client.connect()
                     
             elif msg_type == "audio.chunk":

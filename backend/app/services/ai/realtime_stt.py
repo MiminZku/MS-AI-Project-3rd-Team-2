@@ -10,12 +10,22 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 class RealtimeSTTClient:
-    def __init__(self, session_id: str, deployment: str, on_partial_transcript: Callable, on_final_transcript: Callable):
+    def __init__(
+        self,
+        session_id: str,
+        deployment: str,
+        on_partial_transcript: Callable,
+        on_final_transcript: Callable,
+        source_lang: str = "Korean",
+        target_lang: str = "English"
+    ):
         self.session_id = session_id
         self.deployment = deployment
         self.settings = get_settings()
         self.on_partial = on_partial_transcript
         self.on_final = on_final_transcript
+        self.source_lang = source_lang
+        self.target_lang = target_lang
         self.ws = None
         self.running = False
         self.current_text = ""
@@ -46,18 +56,20 @@ class RealtimeSTTClient:
             
             # 세션 초기화 (Translate 엔드포인트와 일반 Realtime 엔드포인트 분기)
             if is_translate:
+                instructions = f"You are a real-time speech translator. Translate speech from {self.source_lang} to {self.target_lang}. Output ONLY the translated text in {self.target_lang} without any explanations, filler words, or other languages."
                 update_payload = {
                     "type": "session.update",
                     "session": {
-                        "instructions": "Translate whatever the user says into English accurately."
+                        "instructions": instructions
                     }
                 }
             else:
+                instructions = f"You are a real-time transcriber. Transcribe whatever the user says in {self.source_lang}. Output ONLY the {self.source_lang} transcription without any conversational filler."
                 update_payload = {
                     "type": "session.update",
                     "session": {
                         "modalities": ["text"],
-                        "instructions": "You are a real-time transcriber. Transcribe whatever the user says in Korean.",
+                        "instructions": instructions,
                         "input_audio_format": "pcm16",
                         "output_audio_format": "pcm16",
                         "input_audio_transcription": {
