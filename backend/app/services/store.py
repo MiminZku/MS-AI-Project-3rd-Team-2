@@ -6,6 +6,7 @@ REDIS_URL이 없으면 InMemoryStore를 사용한다.
 Redis key 구조 예시:
 
   study:{id}                    JSON  ResearchStudy
+  study:{id}:sessions           SET   Session ID
 
   session:{id}                  JSON  Session
   session:{id}:transcript       LIST  Turn JSON
@@ -66,6 +67,12 @@ class Store(Protocol):
         self,
         session_id: str,
     ) -> Session | None:
+        ...
+
+    async def list_sessions(
+        self,
+        study_id: str,
+    ) -> list[Session]:
         ...
 
     # -----------------------------------------------------
@@ -216,6 +223,24 @@ class InMemoryStore:
     ) -> Session | None:
 
         return self._sessions.get(session_id)
+
+
+    async def list_sessions(
+        self,
+        study_id: str,
+    ) -> list[Session]:
+
+        sessions = [
+            session
+            for session in self._sessions.values()
+            if session.study_id == study_id
+        ]
+
+        sessions.sort(
+            key=lambda session: session.created_at
+        )
+
+        return sessions
 
 
     # -----------------------------------------------------
@@ -406,6 +431,14 @@ class RedisStore:
         return f"study:{study_id}"
 
 
+    def _study_sessions_key(
+        self,
+        study_id: str,
+    ) -> str:
+
+        return f"study:{study_id}:sessions"
+
+
     # -----------------------------------------------------
     # Research Study
     # -----------------------------------------------------
@@ -459,11 +492,32 @@ class RedisStore:
             session.id
         )
 
-        await self._redis.set(
+        pipe = self._redis.pipeline()
+
+        pipe.set(
             key,
             session.model_dump_json(),
             ex=self._ttl,
         )
+
+        if session.study_id:
+            study_sessions_key = (
+                self._study_sessions_key(
+                    session.study_id
+                )
+            )
+
+            pipe.sadd(
+                study_sessions_key,
+                session.id,
+            )
+
+            pipe.expire(
+                study_sessions_key,
+                self._ttl,
+            )
+
+        await pipe.execute()
 
 
     async def get_session(
@@ -484,6 +538,48 @@ class RedisStore:
             Session
             .model_validate_json(raw)
         )
+
+
+    async def list_sessions(
+        self,
+        study_id: str,
+    ) -> list[Session]:
+
+        session_ids = list(
+            await self._redis.smembers(
+                self._study_sessions_key(
+                    study_id
+                )
+            )
+        )
+
+        if not session_ids:
+            return []
+
+        raws = await self._redis.mget(
+            [
+                self._key(session_id)
+                for session_id in session_ids
+            ]
+        )
+
+        sessions = [
+            Session.model_validate_json(raw)
+            for raw in raws
+            if raw
+        ]
+
+        sessions = [
+            session
+            for session in sessions
+            if session.study_id == study_id
+        ]
+
+        sessions.sort(
+            key=lambda session: session.created_at
+        )
+
+        return sessions
 
 
     # -----------------------------------------------------

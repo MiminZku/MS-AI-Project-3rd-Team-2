@@ -10,35 +10,47 @@ from pydantic import BaseModel, ConfigDict
 # =========================================================
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(
+        extra="forbid"
+    )
 
 
 # =========================================================
 # Participant Context
+#
+# 특정 "도구", "제품"에 고정하지 않는다.
+#
+# 예:
+# - 직무: 백엔드 개발자
+# - 이용 빈도: 주 3회
+# - 주 사용 서비스: A 서비스
+# - 경험 기간: 2년
 # =========================================================
 
-class UsagePattern(StrictModel):
-    situation: str
-    preferred_tool: str
+class ContextAttribute(StrictModel):
+    name: str
+    value: str
     evidence_ids: list[str]
 
 
 class ParticipantContext(StrictModel):
-    primary_tool: str
-    secondary_tools: list[str]
-    usage_pattern: list[UsagePattern]
+    summary: str
+    attributes: list[ContextAttribute]
 
 
 # =========================================================
 # Executive Summary
 # =========================================================
 
+class SummaryPoint(StrictModel):
+    point: str
+    evidence_ids: list[str]
+
+
 class ExecutiveSummary(StrictModel):
     core_insight: str
-    current_preference: str
-    primary_driver: str
-    primary_pain_point: str
-    top_switching_trigger: str
+    summary: str
+    key_takeaways: list[SummaryPoint]
 
 
 # =========================================================
@@ -73,6 +85,9 @@ class ResearchCoverage(StrictModel):
 
 # =========================================================
 # Slot Coverage
+#
+# Study 생성 시 질문지에 따라 자동 생성된
+# Information Slot을 그대로 평가한다.
 # =========================================================
 
 class SlotCoverageItem(StrictModel):
@@ -120,10 +135,31 @@ class KeyFinding(StrictModel):
 
 
 # =========================================================
-# Preference Drivers
+# Themes
+#
+# 인터뷰에서 반복되거나
+# 조사 목적상 의미 있는 주제
 # =========================================================
 
-class PreferenceDriver(StrictModel):
+class Theme(StrictModel):
+    theme: str
+    description: str
+    evidence_ids: list[str]
+
+
+# =========================================================
+# Key Drivers
+#
+# 특정 "선호"에만 한정하지 않는다.
+#
+# 구매 요인
+# 만족 요인
+# 선택 요인
+# 행동 요인
+# 재방문 요인 등 모두 가능
+# =========================================================
+
+class KeyDriver(StrictModel):
     driver: str
 
     strength: Literal[
@@ -137,11 +173,16 @@ class PreferenceDriver(StrictModel):
 
 
 # =========================================================
-# Pain Points
+# Needs / Pain Points
 # =========================================================
 
-class PainPoint(StrictModel):
-    pain_point: str
+class NeedOrPainPoint(StrictModel):
+    type: Literal[
+        "pain_point",
+        "need",
+    ]
+
+    title: str
 
     severity: Literal[
         "high",
@@ -150,35 +191,52 @@ class PainPoint(StrictModel):
     ]
 
     situation: str
-    user_impact: str
+    impact: str
     evidence_ids: list[str]
 
 
 # =========================================================
-# Switching Analysis
+# Decision / Behavior Dynamics
+#
+# 구매, 선택, 유지, 이탈, 전환 등의
+# 의사결정 행동이 실제 조사에 있을 때만 사용.
+#
+# 관련 없는 조사라면
+# decision_dynamics = null
 # =========================================================
 
-class RetentionDriver(StrictModel):
-    driver: str
+class DecisionFactor(StrictModel):
+    factor: str
+    description: str
     evidence_ids: list[str]
 
 
-class SwitchingBarrier(StrictModel):
+class DecisionBarrier(StrictModel):
     barrier: str
     evidence_ids: list[str]
 
 
-class SwitchingTrigger(StrictModel):
+class DecisionTrigger(StrictModel):
     trigger: str
     evidence_ids: list[str]
 
 
-class SwitchingAnalysis(StrictModel):
-    retention_drivers: list[RetentionDriver]
-    switching_barriers: list[SwitchingBarrier]
-    switching_triggers: list[SwitchingTrigger]
+class DecisionDynamics(StrictModel):
+    current_state: str
 
-    switching_signal: Literal[
+    decision_factors: list[
+        DecisionFactor
+    ]
+
+    barriers: list[
+        DecisionBarrier
+    ]
+
+    triggers: list[
+        DecisionTrigger
+    ]
+
+    behavioral_signal: Literal[
         "strong",
         "moderate",
         "weak",
@@ -187,19 +245,32 @@ class SwitchingAnalysis(StrictModel):
 
 
 # =========================================================
-# Feature Opportunities
+# Opportunities
+#
+# Feature에만 한정하지 않는다.
+# 제품 / 서비스 / 프로세스 / 정책 /
+# 커뮤니케이션 / 추가 연구 등 모두 가능
 # =========================================================
 
-class FeatureOpportunity(StrictModel):
-    feature: str
+class Opportunity(StrictModel):
+    opportunity: str
+
+    opportunity_type: Literal[
+        "product",
+        "service",
+        "process",
+        "policy",
+        "communication",
+        "research",
+        "other",
+    ]
 
     source_type: Literal[
         "explicit_user_request",
         "derived_opportunity",
     ]
 
-    problem: str
-    user_need: str
+    problem_or_need: str
     expected_value: str
 
     priority: Literal[
@@ -215,7 +286,9 @@ class FeatureOpportunity(StrictModel):
 # Observer Intervention Analysis
 # =========================================================
 
-class ObserverInterventionAnalysis(StrictModel):
+class ObserverInterventionAnalysis(
+    StrictModel
+):
     instruction_id: str
     instruction: str
     applied_turn: int
@@ -233,6 +306,8 @@ class ObserverInterventionAnalysis(StrictModel):
 
 # =========================================================
 # Researcher Attention
+#
+# 다음 인터뷰 / 추가 확인이 필요한 내용
 # =========================================================
 
 class ResearcherAttention(StrictModel):
@@ -251,14 +326,18 @@ class ResearcherAttention(StrictModel):
 # =========================================================
 
 class AnalysisMetadata(StrictModel):
-    mode: Literal["azure_openai"]
+    mode: Literal[
+        "azure_openai"
+    ]
 
 
 # =========================================================
-# 최종 Individual Interview Analysis
+# 최종 범용 Individual Interview Analysis
 # =========================================================
 
-class IndividualInterviewAnalysis(StrictModel):
+class IndividualInterviewAnalysis(
+    StrictModel
+):
     participant_context: ParticipantContext
 
     executive_summary: ExecutiveSummary
@@ -267,15 +346,29 @@ class IndividualInterviewAnalysis(StrictModel):
 
     slot_coverage: SlotCoverage
 
-    key_findings: list[KeyFinding]
+    key_findings: list[
+        KeyFinding
+    ]
 
-    preference_drivers: list[PreferenceDriver]
+    themes: list[
+        Theme
+    ]
 
-    pain_points: list[PainPoint]
+    key_drivers: list[
+        KeyDriver
+    ]
 
-    switching_analysis: SwitchingAnalysis
+    needs_and_pain_points: list[
+        NeedOrPainPoint
+    ]
 
-    feature_opportunities: list[FeatureOpportunity]
+    decision_dynamics: (
+        DecisionDynamics | None
+    )
+
+    opportunities: list[
+        Opportunity
+    ]
 
     observer_intervention_analysis: list[
         ObserverInterventionAnalysis
