@@ -280,8 +280,7 @@ h2 {
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
+  border-radius: 28px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -326,13 +325,13 @@ h2 {
 .tree li {
   border-radius: 9px;
   padding: 9px 10px;
-  color: #2c3547;
+  color: var(--text);
   line-height: 1.5;
 }
 
 .tree li.current {
-  background: #eef1fd;
-  border: 1px solid #d3dbfa;
+  background: rgba(0, 113, 227, 0.15);
+  border: 1px solid rgba(0, 113, 227, 0.4);
   font-weight: 600;
 }
 
@@ -347,8 +346,8 @@ h2 {
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  background: #eef1fd;
-  color: #4356b8;
+  background: rgba(0, 113, 227, 0.15);
+  color: #5ac8fa;
   font-size: 10px;
   font-weight: 800;
   display: grid;
@@ -358,16 +357,16 @@ h2 {
 
 .tree li.current .q-num {
   background: var(--primary);
-  color: #fff;
+  color: var(--text-white);
 }
 
 .tree li.done .q-num {
-  background: #eafaf2;
-  color: #178a5a;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
 }
 
 .tree li.done {
-  color: #8a92a2;
+  color: var(--muted);
 }
 
 .q-body {
@@ -380,9 +379,9 @@ h2 {
   padding: 6px 9px;
   border-radius: 8px;
   font-size: 11.5px;
-  color: #4a5163;
+  color: var(--text);
   font-weight: 400;
-  border-left: 1.5px dashed #d8dde8;
+  border-left: 1.5px dashed var(--panel-border);
 }
 
 .cond {
@@ -390,8 +389,8 @@ h2 {
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 5px;
-  background: #eef1f5;
-  color: #5a6475;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
   margin-right: 6px;
 }
 
