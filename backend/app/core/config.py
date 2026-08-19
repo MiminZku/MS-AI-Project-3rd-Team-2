@@ -36,8 +36,8 @@ class Settings(BaseSettings):
     azure_speech_region: str = ""
 
     # 실시간 웹소켓 모델 (GPT-4o Realtime 또는 GPT-Live-Transcribe)
-    azure_openai_realtime_stt_deployment: str = "gpt-live-transcribe"
-    azure_openai_realtime_translate_deployment: str = "gpt-live-translate"
+    azure_openai_realtime_stt_deployment: str = "gpt-realtime-whisper"
+    azure_openai_realtime_translate_deployment: str = "gpt-realtime-translate"
 
     # D5: 타임키퍼 폴링 주기(초)
     timekeeper_interval_seconds: int = 60

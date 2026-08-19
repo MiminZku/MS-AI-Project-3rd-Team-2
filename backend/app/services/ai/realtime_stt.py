@@ -25,8 +25,8 @@ class RealtimeSTTClient:
         endpoint = self.settings.azure_openai_endpoint.replace("https://", "wss://").rstrip("/")
         api_key = self.settings.azure_openai_api_key
         
-        # Realtime API websocket URL 형식 (Preview)
-        url = f"{endpoint}/openai/realtime?api-version=2024-10-01-preview&deployment={self.deployment}"
+        # Realtime API websocket URL 형식
+        url = f"{endpoint}/openai/realtime?api-version={self.settings.azure_openai_api_version}&deployment={self.deployment}"
         
         headers = {
             "api-key": api_key
