@@ -68,6 +68,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [drawerPinned, setDrawerPinned] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
 
@@ -230,8 +231,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   return (
     <>
       <div className="tabbar">
-        <div className="kebab-wrap">
-          <button type="button" className="kebab-btn" title="질문 트리 / 세션 링크">
+        <div className={`kebab-wrap ${drawerPinned ? "pinned" : ""}`}>
+          <button
+            type="button"
+            className="kebab-btn"
+            title="질문 트리 / 세션 링크 (클릭하면 고정)"
+            onClick={() => setDrawerPinned((v) => !v)}
+          >
             ⋮
           </button>
           <div className="hover-drawer">

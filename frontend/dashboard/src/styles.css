@@ -321,16 +321,17 @@ h2 {
 
 .hover-drawer {
   position: fixed;
-  top: 0;
+  top: 132px;
   left: 0;
   bottom: 0;
   z-index: 41;
   width: min(360px, 88vw);
   background: var(--panel);
   border-right: 1px solid var(--panel-border);
+  border-top: 1px solid var(--panel-border);
   box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
   overflow-y: auto;
-  padding-top: 76px;
+  padding-top: 8px;
   opacity: 0;
   visibility: hidden;
   transform: translateX(-16px);
@@ -339,11 +340,18 @@ h2 {
 }
 
 .kebab-wrap:hover .hover-drawer,
-.kebab-wrap:focus-within .hover-drawer {
+.kebab-wrap:focus-within .hover-drawer,
+.kebab-wrap.pinned .hover-drawer {
   opacity: 1;
   visibility: visible;
   transform: translateX(0);
   pointer-events: auto;
+}
+
+.kebab-wrap.pinned .kebab-btn {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--text-white);
 }
 
 .hover-drawer-section + .hover-drawer-section {
