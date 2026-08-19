@@ -152,7 +152,7 @@ h2 {
 }
 
 .timer b {
-  font-size: 14px;
+  font-size: 20px;
   font-variant-numeric: tabular-nums;
   color: var(--success);
   letter-spacing: 0.5px;
@@ -166,8 +166,8 @@ h2 {
 .sess-btn {
   border: none;
   border-radius: 28px;
-  padding: 8px 15px;
-  font-size: 12px;
+  padding: 14px 24px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
@@ -248,8 +248,8 @@ h2 {
 .monitor {
   display: grid;
   grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.5fr) minmax(340px, 0.95fr);
-  gap: 16px;
-  padding: 16px 20px 40px;
+  gap: 24px;
+  padding: 24px 30px 60px;
   align-items: start;
 }
 
@@ -288,7 +288,7 @@ h2 {
 
 .panel-head,
 .p-head {
-  padding: 13px 16px;
+  padding: 20px 24px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -297,7 +297,7 @@ h2 {
 }
 
 .p-head h2 {
-  font-size: 13px;
+  font-size: 17px;
 }
 
 .p-head .sub {
@@ -308,14 +308,14 @@ h2 {
 }
 
 .p-body {
-  padding: 14px 16px;
+  padding: 21px 24px;
 }
 
 /* ===== 질문 트리 ===== */
 .tree {
   list-style: none;
   margin: 0;
-  padding: 14px 16px;
+  padding: 21px 24px;
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -333,6 +333,7 @@ h2 {
   background: rgba(0, 113, 227, 0.15);
   border: 1px solid rgba(0, 113, 227, 0.4);
   font-weight: 600;
+  font-size: 15px;
 }
 
 .tree li {
@@ -580,7 +581,7 @@ h2 {
 .turns {
   display: flex;
   flex-direction: column;
-  padding: 4px 16px 16px;
+  padding: 6px 24px 24px;
   gap: 0;
   max-height: 70vh;
   overflow-y: auto;
@@ -673,9 +674,9 @@ h2 {
   border: none;
   background: var(--primary);
   color: var(--text-white);
-  padding: 10px 16px;
+  padding: 14px 24px;
   border-radius: 28px;
-  font-size: 12px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -993,14 +994,14 @@ textarea {
 }
 
 button {
-  padding: 10px 18px;
+  padding: 14px 24px;
   border-radius: 28px;
   border: none;
   background: var(--primary);
   color: var(--text-white);
   font-family: inherit;
   font-weight: 700;
-  font-size: 12.5px;
+  font-size: 15px;
   cursor: pointer;
 }
 
