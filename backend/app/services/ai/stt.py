@@ -33,14 +33,34 @@ class NotConfiguredTranscriber:
 
 
 class GptTranscriber:
-    """gpt-transcribe / gpt-live-transcribe 어댑터 (구현 예정)."""
+    """gpt-transcribe / gpt-live-transcribe 어댑터."""
 
     def __init__(self) -> None:
+        from openai import AsyncAzureOpenAI
         settings = get_settings()
         self._model = settings.stt_model
+        self._client = AsyncAzureOpenAI(
+            azure_endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_api_key,
+            api_version=settings.azure_openai_api_version,
+        )
 
     async def transcribe(self, audio: bytes, *, mime_type: str = "audio/webm") -> str:
-        raise NotImplementedError(f"{self._model} 전사 호출 구현 필요")
+        try:
+            # Whisper API expects a tuple (filename, file_content)
+            filename = "audio.webm" if "webm" in mime_type else "audio.wav"
+            response = await self._client.audio.transcriptions.create(
+                model=self._model,
+                file=(filename, audio),
+                language="ko",
+                response_format="text"
+            )
+            text = str(response).strip()
+            logger.info("STT 변환 성공: %s", text)
+            return text
+        except Exception as e:
+            logger.exception("STT 변환 실패")
+            raise e
 
 
 def get_transcriber() -> Transcriber:

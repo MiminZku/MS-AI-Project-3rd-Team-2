@@ -1,4 +1,4 @@
-import type { Session } from "./types";
+import type { Report, Session } from "./types";
 
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -44,7 +44,36 @@ export async function fetchSession(sessionId: string): Promise<SessionResponse> 
   return response.json();
 }
 
+export async function endSession(sessionId: string): Promise<Session> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/end`, {
+    method: "POST",
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`세션 종료 실패 (${response.status})`);
+  return response.json();
+}
+
+/** 리포트가 아직 생성 중이면 null (202 pending). observer 소켓의 report.ready로도 받을 수 있다. */
+export async function fetchReport(sessionId: string): Promise<Report | null> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/report`, {
+    headers: headers(),
+  });
+  if (response.status === 202) return null;
+  if (!response.ok) throw new Error(`리포트 조회 실패 (${response.status})`);
+  return response.json();
+}
+
 export function observerSocketUrl(sessionId: string): string {
   const query = ADMIN_TOKEN ? `?token=${encodeURIComponent(ADMIN_TOKEN)}` : "";
   return `${WS_BASE_URL}/ws/observer/${sessionId}${query}`;
+}
+
+export async function fetchRtcToken(sessionId: string): Promise<{ user_id: string; token: string; group_id: string }> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/rtc/token`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify({ role: "observer" }),
+  });
+  if (!response.ok) throw new Error(`ACS 토큰 발급 실패 (${response.status})`);
+  return response.json();
 }

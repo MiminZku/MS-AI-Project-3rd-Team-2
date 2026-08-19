@@ -58,6 +58,8 @@ export type ServerMessage =
       interviewee_connected: boolean;
     }
   | { type: "transcript.append"; turn: Turn }
+  | { type: "transcript.partial"; lang: "ko" | "en"; text: string }
+  | { type: "transcript.final"; lang: "ko" | "en"; text: string }
   | { type: "instruction.queued"; instruction: Instruction }
   | { type: "instruction.applied"; instruction: Instruction }
   | {

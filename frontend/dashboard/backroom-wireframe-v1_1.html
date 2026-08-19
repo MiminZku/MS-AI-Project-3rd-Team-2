@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>백룸 대시보드 와이어프레임 v1 — 확정본</title>
+<style>
+:root{
+  --bg:#eef1f6;--panel:#fff;--line:#e2e7ef;--text:#1a2233;--muted:#6b7484;
+  --primary:#5b4de9;--primary2:#8172fb;--live:#16a36a;--danger:#db4b50;
+  --self:#1f9d6b;--ai:#4f6fd4;--amber:#d98c16;
+  --shadow:0 10px 30px rgba(29,38,60,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Pretendard',Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* ===== TOP BAR ===== */
+.topbar{
+  height:60px;background:rgba(255,255,255,.92);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);display:flex;align-items:center;
+  justify-content:space-between;padding:0 22px;position:sticky;top:0;z-index:30;
+}
+.crumb{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:8px}
+.crumb .glyph{width:26px;height:26px;border-radius:8px;background:linear-gradient(135deg,#6c5df8,#57c9ff);display:grid;place-items:center;color:#fff;font-size:12px;font-weight:800}
+.crumb b{color:var(--text)}
+.top-right{display:flex;align-items:center;gap:12px}
+.role-chip{font-size:11px;color:var(--muted);border:1px solid var(--line);background:#fff;padding:7px 11px;border-radius:8px;font-weight:600;white-space:nowrap}
+.timer{display:flex;align-items:center;gap:9px;padding:8px 14px;border:1px solid #cfe9dc;background:#f3fbf7;border-radius:999px}
+.timer .dot{width:8px;height:8px;border-radius:50%;background:var(--live);animation:pulse 2.2s infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(22,163,106,.5)}70%{box-shadow:0 0 0 7px rgba(22,163,106,0)}100%{box-shadow:0 0 0 0 rgba(22,163,106,0)}}
+.timer b{font-size:14px;font-variant-numeric:tabular-nums;color:#137a52;letter-spacing:.5px}
+.timer small{font-size:10px;color:#5aa588}
+
+/* ===== 3-COLUMN LAYOUT =====
+   Page scrolls vertically (body min-height:100vh, no fixed app height).
+   Each column sticks under the topbar and scrolls internally on tall screens,
+   but the page itself can also scroll — so nothing is ever clipped/hidden. */
+.app{
+  display:grid;
+  grid-template-columns:minmax(280px,.9fr) minmax(0,1.5fr) minmax(340px,.95fr);
+  gap:16px;padding:16px;align-items:start;
+}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0;
+  position:sticky;top:76px;max-height:calc(100vh - 92px);overflow:auto;
+}
+.col::-webkit-scrollbar{width:7px}
+.col::-webkit-scrollbar-thumb{background:#d3d9e3;border-radius:99px}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden}
+.p-head{padding:13px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line);gap:10px}
+.p-head h3{font-size:13px;font-weight:700}
+.p-head .sub{font-size:10px;color:var(--muted);margin-top:2px}
+.p-body{padding:14px 16px}
+
+/* ===== QUESTION TREE (left) ===== */
+.tree-actions{display:flex;gap:6px}
+.btn-sm{border:1px solid var(--line);background:#fff;border-radius:8px;padding:6px 10px;font-size:10.5px;cursor:pointer;color:#4a5163;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.btn-sm:hover{border-color:#cfc9ff;color:#5c4ee5}
+.btn-sm.solid{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;border:none}
+
+.tree{display:flex;flex-direction:column;gap:2px;font-size:12px}
+.node{border-radius:9px}
+.q-main{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border-radius:9px;cursor:default}
+.q-main:hover{background:#f7f8fc}
+.q-main.active{background:#eef1fd;border:1px solid #d3dbfa}
+.q-num{flex-shrink:0;width:20px;height:20px;border-radius:6px;background:#eef1fd;color:#4356b8;font-size:10px;font-weight:800;display:grid;place-items:center;margin-top:1px}
+.q-main.done .q-num{background:#eafaf2;color:#178a5a}
+.q-main.active .q-num{background:var(--primary);color:#fff}
+.q-text{line-height:1.5;color:#2c3547}
+.q-main.done .q-text{color:#8a92a2}
+/* branches */
+.branches{margin:2px 0 8px 20px;padding-left:12px;border-left:1.5px dashed #d8dde8;display:flex;flex-direction:column;gap:3px}
+.branch{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:start;padding:6px 9px;border-radius:8px}
+.branch:hover{background:#faf9ff}
+.cond{font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:5px;white-space:nowrap;margin-top:1px}
+.cond.pos{background:#eafaf2;color:#178a5a}
+.cond.neg{background:#fdeeee;color:#c0453f}
+.cond.neu{background:#eef1f5;color:#5a6475}
+.branch-q{font-size:11.5px;line-height:1.45;color:#4a5163}
+.branch.taken{background:#f2fff9}
+.branch.taken .branch-q{color:#137a52;font-weight:600}
+.branch.taken::after{content:"◀ 진행됨";font-size:9px;color:#16a36a;font-weight:800;grid-column:2;margin-top:2px}
+
+/* ===== RESPONDENT VIDEO (top of center) ===== */
+.resp-stage{
+  position:relative;aspect-ratio:16/9;border-radius:12px;overflow:hidden;
+  background:linear-gradient(150deg,#22303f,#141c27);
+  display:flex;align-items:center;justify-content:center;
+}
+.rs-figure{width:26%;height:74%;align-self:flex-end;display:flex;align-items:flex-end}
+.rs-figure svg{width:100%;height:100%;filter:drop-shadow(0 6px 22px rgba(87,217,163,.2))}
+.rs-badge{position:absolute;left:12px;top:11px;display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#eaf0f8;background:rgba(10,14,20,.5);padding:5px 10px;border-radius:7px;backdrop-filter:blur(5px)}
+.rs-badge .rs-dot{width:6px;height:6px;border-radius:50%;background:var(--self);animation:blink 1.1s infinite}
+@keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
+.rs-strip{position:absolute;right:12px;bottom:12px;display:flex;align-items:center;gap:9px;padding:6px 11px;border-radius:999px;background:rgba(10,14,20,.42);backdrop-filter:blur(5px)}
+.rs-status{font-size:10px;color:#cdeede;font-weight:700;white-space:nowrap}
+.wave{display:flex;align-items:center;gap:3px;height:16px}
+.wave span{width:3px;border-radius:2px;animation:talk 1s ease-in-out infinite}
+.wave.me span{background:var(--self)}
+.wave span:nth-child(1){height:6px;animation-delay:0s}
+.wave span:nth-child(2){height:14px;animation-delay:.12s}
+.wave span:nth-child(3){height:16px;animation-delay:.24s}
+.wave span:nth-child(4){height:9px;animation-delay:.36s}
+@keyframes talk{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}
+
+/* ===== TRANSCRIPT + AI JUDGMENT (center) ===== */
+/* 역할 모드: body.client 하나로 전환. PM 전용 요소만 숨긴다 */
+.role-switch{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.role-switch button{border:0;background:#fff;padding:7px 12px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
+.role-switch button:last-child{border-right:0}
+.role-switch button.on{background:#eeeaff;color:#5c4ee5}
+body.client .pm-only{display:none}
+.client-only{display:none}
+body.client .client-only{display:inline-flex}
+/* 응답자 음성 선택: 원문 / 통역 */
+.audio-seg{display:flex;margin-left:auto;border:1px solid rgba(255,255,255,.22);border-radius:8px;overflow:hidden}
+.audio-seg button{border:0;border-right:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.12);color:#dbe6f2;padding:6px 11px;font-size:10.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+.audio-seg button:last-child{border-right:0}
+.audio-seg button.on{background:rgba(91,77,233,.85);color:#fff}
+.lang-toggle{display:flex;gap:6px}
+.lang-toggle button{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:600;color:var(--muted)}
+.lang-toggle button.active{background:#eeeaff;color:#5c4ee5;border-color:#ded8ff}
+.turn{padding:12px 4px;border-bottom:1px solid #f0f2f6}
+.turn:last-child{border-bottom:0}
+.turn-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.turn-head .tag{font-size:10px;font-weight:700;padding:2px 8px;border-radius:6px}
+.tag.q{background:#eef1fd;color:#4356b8} .tag.a{background:#eafaf2;color:#178a5a}
+.turn-head time{font-size:10px;color:var(--muted)}
+.turn-head .interim{font-size:9px;color:#c98a1a;background:#fdf5e6;padding:1px 7px;border-radius:5px;font-weight:700}
+.line{font-size:13.5px;line-height:1.62;color:#2c3547}
+.trans{margin-top:6px;padding:7px 11px;border-left:2px solid #d8d3ff;background:#faf9ff;border-radius:0 8px 8px 0;color:#655f7c;font-size:11.5px;line-height:1.55;display:none}
+.trans.show{display:block}
+.cursor{display:inline-block;width:2px;height:14px;background:var(--primary);margin-left:2px;transform:translateY(2px);animation:cblink 1s step-end infinite}
+@keyframes cblink{50%{opacity:0}}
+/* AI judgment note */
+.ai-note{
+  margin:8px 0 2px;padding:9px 12px;border-radius:10px;
+  background:linear-gradient(180deg,#f6f4ff,#f1eeff);border:1px solid #e2ddff;
+  display:grid;grid-template-columns:auto 1fr;gap:9px;align-items:start;
+}
+.ai-note .ai-ic{width:20px;height:20px;border-radius:6px;background:linear-gradient(135deg,#6c5df8,#a181ff);display:grid;place-items:center;color:#fff;font-size:11px;margin-top:1px}
+.ai-note .ai-label{font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:#6a5cf0;margin-bottom:3px}
+.ai-note .ai-reason{font-size:11.5px;line-height:1.5;color:#4b4470}
+.ai-note .ai-reason b{color:#3a3363}
+
+/* ===== INSTRUCTION (right) ===== */
+.req-box textarea{width:100%;min-height:88px;resize:vertical;border:1px solid var(--line);border-radius:11px;padding:12px;outline:none;font-size:12.5px;line-height:1.55;font-family:inherit}
+.req-box textarea:focus{border-color:#a99fff;box-shadow:0 0 0 3px #f0eeff}
+.req-actions{display:flex;justify-content:space-between;align-items:center;margin-top:11px;gap:10px}
+.req-actions .hint{font-size:10px;color:var(--muted)}
+.send-btn{border:none;background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;padding:10px 16px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.send-btn:hover{filter:brightness(1.05)}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.quick button{border:1px solid var(--line);background:#fbfbfe;border-radius:999px;padding:6px 11px;font-size:10.5px;color:#5b6070;cursor:pointer}
+.quick button:hover{border-color:#cfc9ff;color:#5c4ee5}
+
+.hist{display:flex;flex-direction:column;gap:10px}
+.h-item{display:grid;grid-template-columns:46px 10px 1fr;gap:9px;align-items:start}
+.h-item time{font-size:10px;color:#9aa2b1;padding-top:2px;font-variant-numeric:tabular-nums}
+.h-item .h-dot{width:8px;height:8px;border-radius:50%;margin-top:4px}
+.h-dot.queued{background:#e0a52e} .h-dot.applied{background:var(--live)}
+.h-item .h-state{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;margin-bottom:3px}
+.h-state.queued{color:#b7841f} .h-state.applied{color:#137a52}
+.h-item .h-text{color:#4a5163;line-height:1.5;font-size:11.5px}
+
+/* ===== 화면 탭 & 상태 스위처 ===== */
+.tabbar{display:flex;align-items:center;gap:10px;padding:10px 20px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap;position:sticky;top:60px;z-index:25}
+.tabbar .tlab{font-size:10px;font-weight:800;letter-spacing:.05em;color:#9aa2b1;text-transform:uppercase}
+.swg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.swg button{border:0;background:#fff;padding:7px 12px;font-size:11px;font-weight:700;color:var(--muted);cursor:pointer;border-right:1px solid var(--line)}
+.swg button:last-child{border-right:0}
+.swg button.on{background:#eeeaff;color:#5c4ee5}
+.swg button:focus-visible{outline:2px solid var(--primary);outline-offset:-2px}
+.screen[hidden]{display:none}
+
+/* 상태별 노출 제어: body.st-wait / st-joined / st-live / st-end */
+.only-wait,.only-joined,.only-live,.only-end{display:none}
+body.st-wait .only-wait,body.st-joined .only-joined,body.st-live .only-live,body.st-end .only-end{display:block}
+body.st-wait .hide-wait,body.st-joined .hide-joined,body.st-end .hide-end{display:none}
+/* 대기 상태에서는 영상 자리를 플레이스홀더로 */
+.stage-ph{position:absolute;inset:0;display:grid;place-items:center;text-align:center;color:#9fb3c8;font-size:12.5px;line-height:1.7;background:linear-gradient(150deg,#243244,#161f2b)}
+.stage-ph b{display:block;color:#dbe6f2;font-size:13.5px;margin-bottom:4px}
+.rep-note{margin-top:12px;padding:11px 13px;border-radius:11px;border:1px solid #ded8ff;background:#f7f5ff;font-size:11.5px;color:#4a4468;line-height:1.6}
+.rep-note b{color:#5c4ee5}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid #ded8ff;border-top-color:var(--primary);border-radius:50%;animation:sp .8s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.spin{animation:none}}
+.empty{padding:26px 8px;text-align:center;color:#9aa2b1;font-size:12px;line-height:1.7}
+/* 잠긴 패널 */
+.locked-target{position:relative}
+body.st-wait .locked-target::after,body.st-joined .locked-target::after,body.st-end .locked-target::after{content:"인터뷰 시작 후 사용할 수 있습니다";position:absolute;inset:0;background:rgba(255,255,255,.85);display:grid;place-items:center;text-align:center;padding:16px;font-size:11.5px;font-weight:700;color:#8a92a2;border-radius:16px}
+.locked{position:relative}
+.locked::after{content:"인터뷰 시작 후 사용할 수 있습니다";position:absolute;inset:0;background:rgba(255,255,255,.82);
+  display:grid;place-items:center;text-align:center;padding:16px;font-size:11.5px;font-weight:700;color:#8a92a2;border-radius:16px;backdrop-filter:blur(1px)}
+/* 세션 제어 버튼 */
+.sess-btn{border:none;border-radius:9px;padding:8px 15px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+.sess-btn.go{background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff}
+.sess-btn.go:disabled{background:#cdd2dc;cursor:not-allowed}
+.sess-btn.stop{background:#fff;color:var(--danger);border:1px solid #f0c3c5}
+body.client .sess-btn{opacity:.45;pointer-events:none}
+
+/* ===== 세션 생성 화면 ===== */
+.create-wrap{max-width:760px;margin:22px auto;padding:0 20px 40px}
+.fld{margin-bottom:18px}
+.fld label{display:block;font-size:12px;font-weight:700;margin-bottom:6px}
+.fld .desc{font-size:10.5px;color:var(--muted);margin-bottom:7px;line-height:1.5}
+.fld input,.fld select,.fld textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:12.5px;font-family:inherit;outline:none;background:#fff}
+.fld input:focus,.fld select:focus,.fld textarea:focus{border-color:#a99fff;box-shadow:0 0 0 3px #f0eeff}
+.fld textarea{min-height:190px;line-height:1.6;resize:vertical}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.linkrow{display:flex;align-items:center;gap:9px;border:1px solid #ded8ff;background:#f7f5ff;border-radius:10px;padding:10px 12px;margin-bottom:9px;flex-wrap:wrap}
+.linkrow .lk-tag{font-size:9px;font-weight:800;background:#eeeaff;color:#5c4ee5;padding:3px 8px;border-radius:5px;white-space:nowrap}
+.linkrow code{flex:1;font-size:11.5px;color:#4a4468;word-break:break-all;min-width:180px}
+.linkrow .note{width:100%;font-size:10px;color:#8a84a8}
+
+/* ===== modal for question list editing ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(20,26,40,.5);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:50}
+.modal-bg.show{display:flex}
+.modal{width:min(560px,92vw);max-height:82vh;overflow:auto;background:#fff;border-radius:18px;padding:22px}
+.modal h2{font-size:16px;margin-bottom:5px}
+.modal .m-sub{font-size:11px;color:var(--muted);margin-bottom:16px}
+.modal textarea{width:100%;min-height:220px;border:1px solid var(--line);border-radius:12px;padding:13px;font-size:12.5px;line-height:1.6;font-family:inherit;resize:vertical;outline:none}
+.modal textarea:focus{border-color:#a99fff;box-shadow:0 0 0 3px #f0eeff}
+.modal .m-hint{font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5}
+.modal-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px}
+.btn-ghost{border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 15px;font-size:12px;cursor:pointer;font-weight:600;color:#4a5163}
+
+@media(max-width:1200px){
+  .app{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}
+  .col.right{grid-column:1 / -1}
+  .col{position:static;max-height:none}
+}
+@media(max-width:820px){
+  .app{grid-template-columns:1fr}
+  .col{position:static;max-height:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="crumb"><span class="glyph">AI</span>배달 서비스 이용 경험 / <b>P-017</b></div>
+  <div class="top-right">
+    <div class="role-switch" id="roleSw">
+      <button class="on" data-r="pm">PM 모드</button><button data-r="client">클라이언트 모드</button>
+    </div>
+    <span class="role-chip" id="whoChip">PM · Observer</span>
+    <div class="timer"><span class="dot"></span><b id="clock">00:00</b><small id="clocklab">대기</small></div>
+    <button class="sess-btn go only-wait" disabled>인터뷰 시작</button>
+    <button class="sess-btn go only-joined">인터뷰 시작</button>
+    <button class="sess-btn stop only-live">인터뷰 종료</button>
+    <button class="sess-btn go only-end" id="repBtn">리포트 생성</button>
+  </div>
+</div>
+
+<div class="tabbar">
+  <span class="tlab">화면</span>
+  <div class="swg" id="scrSw">
+    <button data-s="create">① 세션 생성</button><button class="on" data-s="console">② 백룸 콘솔</button>
+  </div>
+  <span class="tlab" style="margin-left:8px">세션 상태</span>
+  <div class="swg" id="stSw">
+    <button data-st="wait">대기</button><button data-st="joined">입장함</button><button class="on" data-st="live">진행 중</button><button data-st="end">종료</button>
+  </div>
+</div>
+
+<div class="app screen" id="scr-console">
+
+  <!-- LEFT: question tree -->
+  <div class="col left">
+    <section class="panel">
+      <div class="p-head">
+        <div><h3>질문 리스트</h3><div class="sub">답변 분기별 파생질문 트리</div></div>
+        <div class="tree-actions">
+          <button class="btn-sm solid pm-only" onclick="openModal()">＋ 질문 편집</button>
+          <span class="role-chip client-only" style="font-size:10px">참관 전용</span>
+        </div>
+      </div>
+      <div class="p-body">
+        <div class="tree">
+
+          <div class="node">
+            <div class="q-main done"><div class="q-num">1</div><div class="q-text">배달 앱을 주로 어떤 상황에서 사용하시나요?</div></div>
+          </div>
+
+          <div class="node">
+            <div class="q-main done"><div class="q-num">2</div><div class="q-text">배달비 때문에 주문을 망설인 적이 있나요?</div></div>
+            <div class="branches">
+              <div class="branch taken"><span class="cond pos">있다</span><div class="branch-q">얼마 정도의 배달비부터 부담을 느끼시나요?</div></div>
+              <div class="branch"><span class="cond neg">없다</span><div class="branch-q">배달비가 올라도 계속 쓰게 되는 이유가 있나요?</div></div>
+            </div>
+          </div>
+
+          <div class="node">
+            <div class="q-main active"><div class="q-num">3</div><div class="q-text">최소주문금액에 대해 어떻게 느끼시나요?</div></div>
+            <div class="branches">
+              <div class="branch"><span class="cond pos">부담됨</span><div class="branch-q">그 때문에 주문을 포기한 경험이 있나요?</div></div>
+              <div class="branch"><span class="cond neu">보통</span><div class="branch-q">최소주문금액을 맞추려고 더 시킨 적은 있나요?</div></div>
+            </div>
+          </div>
+
+          <div class="node">
+            <div class="q-main"><div class="q-num">4</div><div class="q-text">경쟁 앱과 비교했을 때 차이를 느끼나요?</div></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- CENTER: live progress + AI judgment -->
+  <div class="col center">
+    <section class="panel">
+      <div class="p-head">
+        <div><h3>응답자 화면</h3><div class="sub">실시간 영상 · 음성 원문/통역 선택</div></div>
+        <span class="role-chip">P-017 · 20대 · 한국어</span>
+      </div>
+      <div class="p-body">
+        <div class="resp-stage">
+          <div class="stage-ph only-wait"><div><b>인터뷰이 입장 대기 중</b>발급된 링크로 접속하면<br>이 자리에 응답자 영상이 나타납니다</div></div>
+          <div class="rs-badge hide-wait"><span class="rs-dot"></span>응답자 P-017</div>
+          <div class="rs-figure">
+            <svg viewBox="0 0 200 240" fill="none">
+              <ellipse cx="100" cy="74" rx="44" ry="48" fill="rgba(120,220,180,.2)"/>
+              <path d="M26 240 C26 174 60 138 100 138 C140 138 174 174 174 240 Z" fill="rgba(120,220,180,.15)"/>
+            </svg>
+          </div>
+          <div class="rs-strip">
+            <div class="wave me"><span></span><span></span><span></span><span></span></div>
+            <span class="rs-status only-joined">입장함 · 시작 전</span>
+            <span class="rs-status only-live">답변 중</span>
+            <span class="rs-status only-end">세션 종료됨</span>
+            <div class="audio-seg hide-wait" id="aseg">
+              <button class="on" data-a="orig">원문 음성</button>
+              <button data-a="dub">통역 음성</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="p-head">
+        <div><h3>실시간 진행 상황</h3><div class="sub">STT 변환 · AI 판단 · 질문/답변 순</div></div>
+        <div class="lang-toggle">
+          <button class="active" onclick="setLang(this,'ko')">원문</button>
+          <button onclick="setLang(this,'en')">원문+번역</button>
+        </div>
+      </div>
+      <div class="p-body" id="transcript">
+        <div class="empty only-wait">인터뷰이가 입장하면 대화가 여기에 표시됩니다.</div>
+        <div class="empty only-joined">인터뷰이가 입장했습니다.<br>상단의 <b>인터뷰 시작</b>을 누르면 진행됩니다.</div>
+        <div class="only-end rep-note" id="repNote">세션이 종료되었습니다. 상단의 <b>리포트 생성</b>을 누르면 대화 기록과 커버리지를 정리한 리포트를 만듭니다.</div>
+        <div class="hide-wait hide-joined">
+
+        <div class="turn">
+          <div class="turn-head"><span class="tag q">질문 2</span><time>14:05</time></div>
+          <div class="line">배달비 때문에 주문을 망설인 적이 있으신가요?</div>
+          <div class="trans">Have you recently hesitated to order because of the delivery fee?</div>
+        </div>
+
+        <div class="turn">
+          <div class="turn-head"><span class="tag a">답변</span><time>14:06</time></div>
+          <div class="line">네, 요즘엔 배달비가 너무 올라서요. 3천 원 넘어가면 그냥 안 시켜요.</div>
+          <div class="trans">Yes, the fee has gone up so much lately. If it goes over 3,000 won I just don't order.</div>
+        </div>
+
+        <div class="ai-note">
+          <div class="ai-ic">✦</div>
+          <div>
+            <div class="ai-label">AI 판단 · 파생질문 선택</div>
+            <div class="ai-reason">응답자가 <b>"망설인 적 있다"</b>로 답해 <b>[있다]</b> 분기 진입. "3천 원"이라는 구체적 기준이 나와, 부담 임계 금액을 더 확인하는 파생질문으로 이어감.</div>
+          </div>
+        </div>
+
+        <div class="turn">
+          <div class="turn-head"><span class="tag q">질문 3</span><time>14:07</time></div>
+          <div class="line">최소주문금액에 대해서는 어떻게 느끼시나요?</div>
+          <div class="trans">How do you feel about the minimum order amount?</div>
+        </div>
+
+        <div class="turn">
+          <div class="turn-head"><span class="tag a">답변</span><time>14:08</time><span class="interim">STT 변환 중</span></div>
+          <div class="line">사실 그것도 부담이에요. 최소주문금액 맞추려고 굳이 더 시킨 적도 많고<span class="cursor"></span></div>
+          <div class="trans">That's a burden too. I've often ordered more than I wanted just to meet the minimum...</div>
+        </div>
+
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- RIGHT: instruction + history -->
+  <div class="col right">
+    <section class="panel pm-only locked-target">
+      <div class="p-head"><div><h3>실시간 지시</h3><div class="sub">다음 질문에 반영 · 응답자에게 노출 안 됨</div></div></div>
+      <div class="p-body req-box">
+        <textarea id="req" placeholder="예) 최소주문금액 때문에 실제로 주문을 포기한 적이 있는지 더 캐물어봐 주세요."></textarea>
+        <div class="req-actions">
+          <span class="hint">전송 시 다음 턴 질문에 반영</span>
+          <button class="send-btn" onclick="sendReq()">지시 전송 →</button>
+        </div>
+        <div class="quick">
+          <button onclick="fill('방금 답변을 더 구체적으로 캐물어봐 주세요.')">더 캐묻기</button>
+          <button onclick="fill('경쟁 앱과 비교해서 물어봐 주세요.')">경쟁사 비교</button>
+          <button onclick="fill('다음 주제로 자연스럽게 넘어가 주세요.')">주제 전환</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel pm-only">
+      <div class="p-head"><div><h3>지시 이력</h3><div class="sub">보낸 지시와 반영 상태</div></div></div>
+      <div class="p-body">
+        <div class="hist" id="hist">
+          <div class="h-item">
+            <time>14:05</time><div class="h-dot applied"></div>
+            <div class="h-body"><div class="h-state applied">반영됨</div><div class="h-text">배달비 부담을 느낀 구체적 기준 금액을 물어봐 주세요.</div></div>
+          </div>
+          <div class="h-item">
+            <time>13:58</time><div class="h-dot applied"></div>
+            <div class="h-body"><div class="h-state applied">반영됨</div><div class="h-text">어떤 상황에서 앱을 쓰는지 먼저 물어봐 주세요.</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- ===== ① 세션 생성 화면 ===== -->
+<div class="screen create-wrap" id="scr-create" hidden>
+  <section class="panel">
+    <div class="p-head">
+      <div><h3>인터뷰 세션 생성</h3><div class="sub">PM만 접근 · 생성 후 링크가 발급됩니다</div></div>
+    </div>
+    <div class="p-body">
+      <div class="fld">
+        <label>세션 이름</label>
+        <input value="배달 서비스 이용 경험 / P-017">
+      </div>
+      <div class="two">
+        <div class="fld">
+          <label>인터뷰 시간</label>
+          <div class="desc">종료 예정 시각 계산에 사용됩니다</div>
+          <select><option>30분</option><option selected>60분</option><option>90분</option></select>
+        </div>
+        <div class="fld">
+          <label>통역 언어</label>
+          <div class="desc">응답자 발화를 이 언어로 통역해 백룸에 전달합니다</div>
+          <select><option selected>한국어</option><option>English</option><option>日本語</option></select>
+        </div>
+      </div>
+      <div class="fld">
+        <label>질문 리스트</label>
+        <div class="desc">질문은 세션 생성 후 <b>백룸 콘솔의 [＋ 질문 편집]</b>에서 입력합니다. 인터뷰 진행 중에도 수정할 수 있습니다.</div>
+      </div>
+      <div class="fld">
+        <label>발급된 링크</label>
+        <div class="linkrow">
+          <span class="lk-tag">인터뷰이</span><code>https://interview.app/s/8f2a-91cd</code>
+          <button class="btn-sm">복사</button>
+          <span class="note">일회용 · 1회 입장 후 만료</span>
+        </div>
+        <div class="linkrow">
+          <span class="lk-tag">클라이언트</span><code>https://interview.app/b/8f2a-91cd</code>
+          <button class="btn-sm">복사</button>
+          <span class="note">관찰 전용 · 세션 종료 시 만료</span>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:9px;margin-top:6px">
+        <button class="btn-sm">임시 저장</button>
+        <button class="btn-sm solid">세션 생성하고 백룸 열기</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- question list edit modal -->
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h2>질문 리스트 편집</h2>
+    <div class="m-sub">질문과 답변 분기별 파생질문을 정의합니다. 인터뷰 시작 전 또는 진행 중 수정할 수 있습니다.</div>
+    <textarea id="qedit">1. 배달 앱을 주로 어떤 상황에서 사용하시나요?
+
+2. 배달비 때문에 주문을 망설인 적이 있나요?
+   [있다] → 얼마 정도의 배달비부터 부담을 느끼시나요?
+   [없다] → 배달비가 올라도 계속 쓰게 되는 이유가 있나요?
+
+3. 최소주문금액에 대해 어떻게 느끼시나요?
+   [부담됨] → 그 때문에 주문을 포기한 경험이 있나요?
+   [보통]   → 최소주문금액을 맞추려고 더 시킨 적은 있나요?
+
+4. 경쟁 앱과 비교했을 때 차이를 느끼나요?</textarea>
+    <div class="m-hint">형식: 번호로 메인 질문, 들여쓴 <b>[조건] →</b> 로 파생질문. AI가 응답자의 답변을 이 조건에 매칭해 다음 질문을 선택합니다.</div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeModal()">취소</button>
+      <button class="send-btn" onclick="closeModal()">저장</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function setLang(btn,lang){
+  document.querySelectorAll('.lang-toggle button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.trans').forEach(el=>{
+    if(lang==='ko') el.classList.remove('show'); else el.classList.add('show');
+  });
+}
+function fill(t){const r=document.getElementById('req');r.value=t;r.focus();}
+function sendReq(){
+  const txt=document.getElementById('req').value.trim();
+  if(!txt){document.getElementById('req').focus();return;}
+  const now=new Date();
+  const hh=String(now.getHours()).padStart(2,'0');
+  const mm=String(now.getMinutes()).padStart(2,'0');
+  const item=document.createElement('div');
+  item.className='h-item';
+  item.innerHTML=`<time>${hh}:${mm}</time><div class="h-dot queued"></div><div class="h-body"><div class="h-state queued">대기 중</div><div class="h-text">${txt.replace(/</g,'&lt;')}</div></div>`;
+  document.getElementById('hist').prepend(item);
+  document.getElementById('req').value='';
+  setTimeout(()=>{
+    item.querySelector('.h-dot').className='h-dot applied';
+    const st=item.querySelector('.h-state');st.className='h-state applied';st.textContent='반영됨';
+  },2600);
+}
+function openModal(){document.getElementById('modal').classList.add('show');}
+function closeModal(){document.getElementById('modal').classList.remove('show');}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
+
+/* 공통: 스위처 클릭 처리 헬퍼 */
+function bindSwitch(id, onPick){
+  document.getElementById(id).addEventListener('click', function(e){
+    var b = e.target.closest('button'); if(!b) return;          // 버튼 밖 클릭 무시
+    var btns = this.querySelectorAll('button');
+    for(var i=0;i<btns.length;i++) btns[i].classList.remove('on');
+    b.classList.add('on');                                       // 누른 것만 활성
+    onPick(b);
+  });
+}
+
+/* ① 화면 탭: 세션 생성 / 백룸 콘솔 */
+bindSwitch('scrSw', function(b){
+  var isCreate = b.dataset.s === 'create';
+  document.getElementById('scr-create').hidden = !isCreate;
+  document.getElementById('scr-console').hidden = isCreate;
+  document.getElementById('stSw').style.display = isCreate ? 'none' : '';  // 생성 화면에선 상태 무의미
+});
+
+/* ② 세션 상태: 대기 / 입장함 / 진행 중 / 종료 */
+var CLOCK = { wait:['00:00','대기'], joined:['00:00','입장함'], live:['14:32','경과'], end:['58:12','종료'] };
+bindSwitch('stSw', function(b){
+  var st = b.dataset.st;
+  document.body.className = document.body.className
+    .replace(/\bst-\w+/g,'').trim() + ' st-' + st;              // 기존 상태 클래스 제거 후 교체
+  document.getElementById('clock').textContent = CLOCK[st][0];
+  document.getElementById('clocklab').textContent = CLOCK[st][1];
+});
+
+/* 역할 전환은 상태 클래스와 공존해야 하므로 별도 유지 */
+document.body.classList.add('st-live');                          // 초기 상태: 진행 중
+
+/* 리포트 생성: 눌러야 시작되는 비동기 작업.
+   실제로는 Event Grid → Functions 가 처리하고, 완료 신호가 오면 '열기'로 바뀐다. */
+document.getElementById('repBtn').addEventListener('click', function(){
+  var btn = this, note = document.getElementById('repNote');
+  if(btn.dataset.done === '1'){ return; }                        // 완료 후에는 리포트 열기
+  btn.disabled = true; btn.textContent = '생성 중…';
+  note.innerHTML = '<span class="spin"></span>리포트를 생성하고 있습니다. 창을 닫아도 진행되며, 완료되면 알림이 표시됩니다.';
+  setTimeout(function(){                                          // 데모용. 실제로는 서버 완료 신호로 대체
+    btn.disabled = false; btn.textContent = '리포트 열기'; btn.dataset.done = '1';
+    note.innerHTML = '리포트 생성이 완료되었습니다. <b>리포트 열기</b>를 눌러 확인하세요.';
+  }, 2800);
+});
+
+/* 역할 모드 전환 (데모용 스위치. 실제로는 로그인 시 서버가 role 을 내려줌) */
+document.getElementById('roleSw').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;                 // 버튼 밖 클릭 무시
+  var btns=document.querySelectorAll('#roleSw button');
+  for(var i=0;i<btns.length;i++) btns[i].classList.remove('on');   // 전부 비활성화
+  b.classList.add('on');                                            // 누른 것만 활성화
+  var isClient = b.dataset.r==='client';
+  document.body.classList.toggle('client', isClient);               // .pm-only 요소가 숨겨짐
+  document.getElementById('whoChip').textContent = isClient ? '클라이언트 · Observer' : 'PM · Observer';
+});
+
+/* 응답자 음성: 원문 / 통역 선택. 참관자 개인 설정이며 다른 참관자에게 영향 없음 */
+document.getElementById('aseg').addEventListener('click',function(e){
+  var b=e.target.closest('button'); if(!b) return;
+  var btns=document.querySelectorAll('#aseg button');
+  for(var i=0;i<btns.length;i++) btns[i].classList.remove('on');
+  b.classList.add('on');
+  // 실제 구현: orig = 응답자 원본 오디오 재생, dub = 통역 TTS 오디오 재생
+});
+</script>
+</body>
+</html>

@@ -35,11 +35,16 @@ class Settings(BaseSettings):
     azure_speech_key: str = ""
     azure_speech_region: str = ""
 
-    # D8: gpt-transcribe | gpt-live-transcribe (한국어 실측 후 결정)
-    stt_model: str = "gpt-transcribe"
+    # 실시간 웹소켓 모델 (GPT-4o Realtime 또는 GPT-Live-Transcribe)
+    azure_openai_realtime_api_version: str = "2026-06-01-preview"
+    azure_openai_realtime_stt_deployment: str = "gpt-realtime-whisper"
+    azure_openai_realtime_translate_deployment: str = "gpt-realtime-translate"
 
     # D5: 타임키퍼 폴링 주기(초)
     timekeeper_interval_seconds: int = 60
+
+    # Azure Communication Services (WebRTC)
+    acs_connection_string: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:
