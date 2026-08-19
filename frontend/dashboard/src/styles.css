@@ -302,7 +302,6 @@ h2 {
 
 .kebab-wrap {
   position: relative;
-  margin-left: auto;
 }
 
 .kebab-btn {
@@ -320,20 +319,10 @@ h2 {
   justify-content: center;
 }
 
-.kebab-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  border: none;
-  background: transparent;
-  cursor: default;
-  padding: 0;
-}
-
 .kebab-menu {
   position: absolute;
   top: calc(100% + 6px);
-  right: 0;
+  left: 0;
   z-index: 41;
   display: flex;
   flex-direction: column;
@@ -343,6 +332,19 @@ h2 {
   border-radius: 10px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateX(-10px);
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
+}
+
+.kebab-wrap:hover .kebab-menu,
+.kebab-wrap:focus-within .kebab-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(0);
+  pointer-events: auto;
 }
 
 .kebab-menu button {

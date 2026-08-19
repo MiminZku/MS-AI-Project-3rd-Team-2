@@ -67,7 +67,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<"tree" | "links" | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
@@ -232,6 +231,19 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   return (
     <>
       <div className="tabbar">
+        <div className="kebab-wrap">
+          <button type="button" className="kebab-btn" title="질문 트리 / 세션 링크">
+            ⋮
+          </button>
+          <div className="kebab-menu">
+            <button type="button" onClick={() => setActivePanel("tree")}>
+              질문 트리
+            </button>
+            <button type="button" onClick={() => setActivePanel("links")}>
+              세션 링크
+            </button>
+          </div>
+        </div>
         <span className="tlab">세션 상태 (미리보기)</span>
         <div className="swg">
           {(Object.keys(statusLabel) as Phase[]).map((p) => (
@@ -245,46 +257,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
               {statusLabel[p]}
             </button>
           ))}
-        </div>
-        <div className="kebab-wrap">
-          <button
-            type="button"
-            className="kebab-btn"
-            title="질문 트리 / 세션 링크"
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            ⋮
-          </button>
-          {menuOpen && (
-            <>
-              <button
-                type="button"
-                className="kebab-backdrop"
-                aria-label="메뉴 닫기"
-                onClick={() => setMenuOpen(false)}
-              />
-              <div className="kebab-menu">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivePanel("tree");
-                    setMenuOpen(false);
-                  }}
-                >
-                  질문 트리
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActivePanel("links");
-                    setMenuOpen(false);
-                  }}
-                >
-                  세션 링크
-                </button>
-              </div>
-            </>
-          )}
         </div>
       </div>
       <main className="monitor">
