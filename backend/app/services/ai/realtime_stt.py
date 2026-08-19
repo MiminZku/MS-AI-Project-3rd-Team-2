@@ -50,7 +50,7 @@ class RealtimeSTTClient:
                 system_prompt = "You are a real-time transcriber. Transcribe whatever the user says in Korean. Output ONLY the Korean transcription without any conversational filler."
 
             # 세션 초기화 (Text 모드로 설정)
-            await self.ws.send(json.dumps({
+            update_payload = {
                 "type": "session.update",
                 "session": {
                     "modalities": ["text"],
