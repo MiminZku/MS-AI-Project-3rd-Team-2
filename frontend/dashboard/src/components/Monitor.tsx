@@ -31,6 +31,19 @@ export interface TopbarStatus {
   onOpenReport: () => void;
 }
 
+const FILE_FORMATS = [
+  { key: "json", label: "JSON", accept: ".json,application/json" },
+  { key: "pdf", label: "PDF", accept: ".pdf,application/pdf" },
+  {
+    key: "word",
+    label: "Word",
+    accept: ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
+  { key: "md", label: "Markdown", accept: ".md,text/markdown" },
+] as const;
+
+type FileFormat = (typeof FILE_FORMATS)[number]["key"];
+
 const QUICK_INSTRUCTIONS = [
   "방금 답변을 더 구체적으로 캐물어봐 주세요.",
   "경쟁 앱과 비교해서 물어봐 주세요.",
@@ -69,6 +82,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [drawerPinned, setDrawerPinned] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [fileFormat, setFileFormat] = useState<FileFormat>("json");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
 
@@ -245,7 +261,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
               <div className="hover-drawer-label">• 질문 트리</div>
               <div className="accordion-actions">
                 {role === "pm" ? (
-                  <button type="button" className="btn-sm solid" disabled title="곧 지원 예정">
+                  <button type="button" className="btn-sm solid" onClick={() => setEditModalOpen(true)}>
                     ＋ 질문 편집
                   </button>
                 ) : (
@@ -553,6 +569,51 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         </div>
       )}
       </main>
+
+      {editModalOpen && (
+        <div className="modal-bg" onClick={() => setEditModalOpen(false)}>
+          <div className="modal" onClick={(event) => event.stopPropagation()}>
+            <h2>질문 편집</h2>
+            <p className="m-sub">파일로 질문지를 가져올 형식을 선택하세요</p>
+
+            <div className="format-seg">
+              {FILE_FORMATS.map((format) => (
+                <button
+                  key={format.key}
+                  type="button"
+                  className={fileFormat === format.key ? "on" : ""}
+                  onClick={() => {
+                    setFileFormat(format.key);
+                    setSelectedFile(null);
+                  }}
+                >
+                  {format.label}
+                </button>
+              ))}
+            </div>
+
+            <input
+              type="file"
+              accept={FILE_FORMATS.find((f) => f.key === fileFormat)?.accept}
+              onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)}
+            />
+            {selectedFile && <p className="muted small">선택된 파일: {selectedFile.name}</p>}
+
+            <p className="m-hint">
+              백엔드 연동 후 이 파일을 질문 트리(JSON) 구조로 변환합니다. 지금은 파일 선택까지만 가능합니다.
+            </p>
+
+            <div className="modal-actions">
+              <button type="button" className="btn-ghost" onClick={() => setEditModalOpen(false)}>
+                취소
+              </button>
+              <button type="button" disabled title="곧 지원 예정 · 백엔드 연동 후 사용 가능">
+                적용
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
