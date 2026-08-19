@@ -33,6 +33,7 @@ export default function MicButton({ isRecording, onRecordingChange, onAudioChunk
   const audioContextRef = useRef<AudioContext | null>(null);
   const processorRef = useRef<ScriptProcessorNode | null>(null);
   const sourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   const startRecording = async () => {
     setErrorMsg("");
@@ -85,7 +86,7 @@ export default function MicButton({ isRecording, onRecordingChange, onAudioChunk
       audioContextRef.current.close();
     }
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track: MediaStreamTrack) => track.stop());
     }
     if (onRecordingStop) onRecordingStop();
     onRecordingChange(false);
