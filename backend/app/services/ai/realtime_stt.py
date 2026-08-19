@@ -18,6 +18,7 @@ class RealtimeSTTClient:
         self.on_final = on_final_transcript
         self.ws = None
         self.running = False
+        self.current_text = ""
 
     async def connect(self):
         """Azure OpenAI Realtime 웹소켓 연결 (Whisper / Translate)"""
@@ -36,13 +37,30 @@ class RealtimeSTTClient:
             self.running = True
             logger.info(f"[{self.session_id}] 실시간 STT 웹소켓 연결 성공")
             
+            # Determine system prompt based on deployment
+            system_prompt = "You are a helpful assistant."
+            if "translate" in self.deployment:
+                system_prompt = "You are a real-time translator. Translate whatever the user says into English. Output ONLY the English translation without any conversational filler."
+            else:
+                system_prompt = "You are a real-time transcriber. Transcribe whatever the user says in Korean. Output ONLY the Korean transcription without any conversational filler."
+
             # 세션 초기화 (Text 모드로 설정)
             await self.ws.send(json.dumps({
                 "type": "session.update",
                 "session": {
                     "modalities": ["text"],
+                    "instructions": system_prompt,
                     "input_audio_format": "pcm16",
-                    "output_audio_format": "pcm16"
+                    "output_audio_format": "pcm16",
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": 0.5,
+                        "prefix_padding_ms": 300,
+                        "silence_duration_ms": 500
+                    },
+                    "input_audio_transcription": {
+                        "model": "whisper-1"
+                    }
                 }
             }))
             
@@ -59,12 +77,25 @@ class RealtimeSTTClient:
                 data = json.loads(message)
                 
                 msg_type = data.get("type")
-                if msg_type == "conversation.item.input_audio_transcription.partial":
+                if msg_type == "response.text.delta":
+                    delta = data.get("delta", "")
+                    self.current_text += delta
+                    await self.on_partial(self.current_text)
+                elif msg_type == "response.text.done":
+                    text = data.get("text", "")
+                    if text:
+                        self.current_text = text
+                    await self.on_final(self.current_text)
+                    self.current_text = ""
+                elif msg_type == "conversation.item.input_audio_transcription.partial":
+                    # Some implementations emit this
                     text = data.get("transcript", "")
                     await self.on_partial(text)
                 elif msg_type == "conversation.item.input_audio_transcription.completed":
+                    # Fallback for input audio transcription if enabled
                     text = data.get("transcript", "")
-                    await self.on_final(text)
+                    if "translate" not in self.deployment:
+                        await self.on_final(text)
                 elif msg_type == "error":
                     logger.error(f"Realtime API 에러: {data}")
         except websockets.exceptions.ConnectionClosed:
