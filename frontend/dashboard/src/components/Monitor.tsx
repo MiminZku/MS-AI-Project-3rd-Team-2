@@ -25,9 +25,6 @@ export type Phase = "wait" | "joined" | "live" | "end";
 export interface TopbarStatus {
   role: Role;
   phase: Phase;
-  timerLabel: string;
-  phaseLabel: string;
-  connectionStatus: string;
   ending: boolean;
   hasReport: boolean;
   onEndSession: () => void;
@@ -219,15 +216,12 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     onStatusChange?.({
       role,
       phase,
-      timerLabel,
-      phaseLabel,
-      connectionStatus: status,
       ending,
       hasReport: report != null,
       onEndSession: handleEndSession,
       onOpenReport: handleOpenReport,
     });
-  }, [role, phase, timerLabel, phaseLabel, status, ending, report, handleEndSession, handleOpenReport, onStatusChange]);
+  }, [role, phase, ending, report, handleEndSession, handleOpenReport, onStatusChange]);
 
   // Monitor가 언마운트될 때만(세션 목록으로 돌아갈 때) 상단바 상태를 지운다.
   useEffect(() => () => onStatusChange?.(null), [onStatusChange]);
@@ -301,7 +295,14 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         <header className="p-head">
           <div>
             <h2>응답자 화면</h2>
-            <div className="sub">실시간 상태 · {phaseLabel}</div>
+            <div className="sub status-line">
+              <span>실시간 상태 · {phaseLabel}</span>
+              <span className="timer-inline">
+                <span className="dot" />
+                {timerLabel}
+              </span>
+              <span className={`badge ${status}`}>{status}</span>
+            </div>
           </div>
         </header>
 

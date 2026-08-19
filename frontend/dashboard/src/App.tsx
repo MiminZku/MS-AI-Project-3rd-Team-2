@@ -39,12 +39,6 @@ export default function App() {
 
           {topbarStatus && (
             <>
-              <span className="timer">
-                <span className="dot" />
-                <b>{topbarStatus.timerLabel}</b>
-                <small>{topbarStatus.phaseLabel}</small>
-              </span>
-              <span className={`badge ${topbarStatus.connectionStatus}`}>{topbarStatus.connectionStatus}</span>
               {topbarStatus.role === "pm" && (topbarStatus.phase === "wait" || topbarStatus.phase === "joined") && (
                 <button className="sess-btn go" disabled title="곧 지원 예정 · 지금은 응답자 접속 시 자동 시작됩니다">
                   인터뷰 시작
