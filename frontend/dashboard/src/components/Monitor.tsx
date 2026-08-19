@@ -69,6 +69,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
   const [treeOpen, setTreeOpen] = useState(true);
   const [linksOpen, setLinksOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
 
@@ -435,71 +436,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
           )}
         </div>
       </section>
-
-      <section className="panel">
-        <header className="p-head">
-          <div>
-            <h2>실시간 진행 상황</h2>
-            <div className="sub">STT 변환 · AI 판단 · 질문/답변 순</div>
-          </div>
-          <div className="lang-toggle">
-            <button type="button" className="active" disabled title="곧 지원 예정">
-              원문
-            </button>
-            <button type="button" disabled title="곧 지원 예정">
-              원문+번역
-            </button>
-          </div>
-        </header>
-
-        <div className="turns">
-          {transcript.map((turn) => (
-            <article key={`${turn.speaker}-${turn.index}`} className={`turn ${turn.speaker}`}>
-              <div className="turn-head">
-                <strong>{turn.speaker === "assistant" ? "AI 진행자" : "응답자"}</strong>
-                <time>
-                  {new Date(turn.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
-                </time>
-              </div>
-              <p>{turn.text}</p>
-              {/* AI 판단 근거는 참관자에게만 보인다 (C5) */}
-              {turn.rationale && (
-                <div className="rationale">
-                  <div className="ai-label">AI 판단 근거</div>
-                  {turn.rationale}
-                </div>
-              )}
-            </article>
-          ))}
-          {transcript.length === 0 && (
-            <p className="empty">
-              {phase === "wait" && "인터뷰이가 입장하면 대화가 여기에 표시됩니다."}
-              {phase === "joined" && "인터뷰이가 입장했습니다. 첫 발화가 오면 진행됩니다."}
-              {(phase === "live" || phase === "end") && "아직 발화가 없습니다."}
-            </p>
-          )}
-        </div>
-
-        {phase === "end" && (
-          <div className="report-note">
-            {!report ? (
-              <>세션이 종료되었습니다. <b>AI 리포트</b>를 생성하고 있습니다 — 완료되면 아래에 표시됩니다.</>
-            ) : (
-              <>
-                <b>AI 리포트</b>가 생성되었습니다.
-              </>
-            )}
-          </div>
-        )}
-        {report && (
-          <div className="report-highlight" ref={reportRef}>
-            {typeof report.data.summary === "string" && <p>{report.data.summary}</p>}
-            <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 11 }}>
-              {JSON.stringify(report.data, null, 2)}
-            </pre>
-          </div>
-        )}
-      </section>
       </div>
 
       {role === "pm" && (
@@ -538,37 +474,104 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             <p className="muted small" style={{ padding: "10px 16px 16px" }}>
               응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
             </p>
+
+            <button
+              type="button"
+              className="accordion-head accordion-head--sub"
+              onClick={() => setHistoryOpen((v) => !v)}
+            >
+              <h2>지시 이력</h2>
+              <span className="accordion-caret">{historyOpen ? "▾" : "▸"}</span>
+            </button>
+            {historyOpen && (
+              <div className="p-body">
+                <ul className="hist">
+                  {instructions.map((instruction) => (
+                    <li key={instruction.id} className="h-item">
+                      <time>
+                        {new Date(instruction.created_at).toLocaleTimeString("ko-KR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </time>
+                      <span className={`h-dot ${instruction.status}`} />
+                      <div className="h-body">
+                        <div className={`h-state ${instruction.status}`}>
+                          {instruction.status === "applied" ? "반영됨" : "대기 중"}
+                        </div>
+                        <div className="h-text">{instruction.text}</div>
+                      </div>
+                    </li>
+                  ))}
+                  {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
+                </ul>
+              </div>
+            )}
           </section>
 
           <section className="panel">
             <header className="p-head">
               <div>
-                <h2>지시 이력</h2>
-                <div className="sub">보낸 지시와 반영 상태</div>
+                <h2>실시간 진행 상황</h2>
+                <div className="sub">STT 변환 · AI 판단 · 질문/답변 순</div>
+              </div>
+              <div className="lang-toggle">
+                <button type="button" className="active" disabled title="곧 지원 예정">
+                  원문
+                </button>
+                <button type="button" disabled title="곧 지원 예정">
+                  원문+번역
+                </button>
               </div>
             </header>
-            <div className="p-body">
-              <ul className="hist">
-                {instructions.map((instruction) => (
-                  <li key={instruction.id} className="h-item">
+
+            <div className="turns">
+              {transcript.map((turn) => (
+                <article key={`${turn.speaker}-${turn.index}`} className={`turn ${turn.speaker}`}>
+                  <div className="turn-head">
+                    <strong>{turn.speaker === "assistant" ? "AI 진행자" : "응답자"}</strong>
                     <time>
-                      {new Date(instruction.created_at).toLocaleTimeString("ko-KR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {new Date(turn.created_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                     </time>
-                    <span className={`h-dot ${instruction.status}`} />
-                    <div className="h-body">
-                      <div className={`h-state ${instruction.status}`}>
-                        {instruction.status === "applied" ? "반영됨" : "대기 중"}
-                      </div>
-                      <div className="h-text">{instruction.text}</div>
+                  </div>
+                  <p>{turn.text}</p>
+                  {/* AI 판단 근거는 참관자에게만 보인다 (C5) */}
+                  {turn.rationale && (
+                    <div className="rationale">
+                      <div className="ai-label">AI 판단 근거</div>
+                      {turn.rationale}
                     </div>
-                  </li>
-                ))}
-                {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
-              </ul>
+                  )}
+                </article>
+              ))}
+              {transcript.length === 0 && (
+                <p className="empty">
+                  {phase === "wait" && "인터뷰이가 입장하면 대화가 여기에 표시됩니다."}
+                  {phase === "joined" && "인터뷰이가 입장했습니다. 첫 발화가 오면 진행됩니다."}
+                  {(phase === "live" || phase === "end") && "아직 발화가 없습니다."}
+                </p>
+              )}
             </div>
+
+            {phase === "end" && (
+              <div className="report-note">
+                {!report ? (
+                  <>세션이 종료되었습니다. <b>AI 리포트</b>를 생성하고 있습니다 — 완료되면 아래에 표시됩니다.</>
+                ) : (
+                  <>
+                    <b>AI 리포트</b>가 생성되었습니다.
+                  </>
+                )}
+              </div>
+            )}
+            {report && (
+              <div className="report-highlight" ref={reportRef}>
+                {typeof report.data.summary === "string" && <p>{report.data.summary}</p>}
+                <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 11 }}>
+                  {JSON.stringify(report.data, null, 2)}
+                </pre>
+              </div>
+            )}
           </section>
         </div>
       )}

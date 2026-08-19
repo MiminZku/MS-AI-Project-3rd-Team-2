@@ -307,6 +307,13 @@ h2 {
   padding: 12px 24px 0;
 }
 
+.accordion-head--sub {
+  border-top: 1px solid var(--panel-border);
+  border-bottom: none;
+  margin-top: 8px;
+  padding: 14px 16px;
+}
+
 .sidebar-rail {
   display: flex;
   flex-direction: column;
