@@ -25,9 +25,11 @@ class RealtimeSTTClient:
         endpoint = self.settings.azure_openai_endpoint.replace("https://", "wss://").rstrip("/")
         api_key = self.settings.azure_openai_api_key
         
-        # Azure OpenAI Realtime API (GA 표준 엔드포인트: /openai/v1/realtime)
-        # api-version 없이 /openai/v1/realtime 경로를 사용하며, 핸드셰이크 안정성을 위해 api-key 및 model/deployment를 쿼리스트링에 포함
-        url = f"{endpoint}/openai/v1/realtime?model={self.deployment}&deployment={self.deployment}&api-key={api_key}"
+        # Azure OpenAI Realtime API (GA 표준 엔드포인트)
+        # 번역 모델(gpt-realtime-translate)은 /openai/v1/realtime/translations 엔드포인트를 사용
+        # 일반 STT 모델(gpt-realtime-whisper)은 /openai/v1/realtime 엔드포인트를 사용
+        path = "/openai/v1/realtime/translations" if "translate" in self.deployment else "/openai/v1/realtime"
+        url = f"{endpoint}{path}?model={self.deployment}&deployment={self.deployment}&api-key={api_key}"
         
         headers = {
             "api-key": api_key
