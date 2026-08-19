@@ -319,102 +319,43 @@ h2 {
   justify-content: center;
 }
 
-.kebab-menu {
-  position: absolute;
-  top: calc(100% + 6px);
+.hover-drawer {
+  position: fixed;
+  top: 0;
   left: 0;
+  bottom: 0;
   z-index: 41;
-  display: flex;
-  flex-direction: column;
-  min-width: 140px;
+  width: min(360px, 88vw);
   background: var(--panel);
-  border: 1px solid var(--panel-border);
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  overflow: hidden;
+  border-right: 1px solid var(--panel-border);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
+  overflow-y: auto;
+  padding-top: 76px;
   opacity: 0;
   visibility: hidden;
-  transform: translateX(-10px);
+  transform: translateX(-16px);
   pointer-events: none;
   transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
 }
 
-.kebab-wrap:hover .kebab-menu,
-.kebab-wrap:focus-within .kebab-menu {
+.kebab-wrap:hover .hover-drawer,
+.kebab-wrap:focus-within .hover-drawer {
   opacity: 1;
   visibility: visible;
   transform: translateX(0);
   pointer-events: auto;
 }
 
-.kebab-menu button {
-  background: none;
-  border: none;
-  border-radius: 0;
-  padding: 10px 14px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text);
-  text-align: left;
-  cursor: pointer;
+.hover-drawer-section + .hover-drawer-section {
+  border-top: 1px solid var(--panel-border);
+  margin-top: 12px;
 }
 
-.kebab-menu button:hover {
-  background: rgba(0, 113, 227, 0.08);
-  color: var(--primary);
-}
-
-.overlay-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  border: none;
-  background: rgba(0, 0, 0, 0.5);
-  cursor: default;
-  padding: 0;
-}
-
-.overlay-panel {
-  position: fixed;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  z-index: 51;
-  width: min(360px, 88vw);
-  background: var(--panel);
-  border-right: 1px solid var(--panel-border);
-  box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
-  overflow-y: auto;
-}
-
-.overlay-panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--panel-border);
-  position: sticky;
-  top: 0;
-  background: var(--panel);
-}
-
-.overlay-close {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.overlay-panel-body {
-  padding-top: 12px;
+.hover-drawer-label {
+  padding: 12px 24px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-white);
 }
 
 .panel {
