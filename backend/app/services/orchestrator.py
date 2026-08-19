@@ -13,6 +13,7 @@
   ④ StudyReportAnalyzer로 종합 분석
   ⑤ study_report.json 저장
   ⑥ Word / Power BI Excel 자동 생성
+  ⑦ Azure Blob Storage reports 컨테이너 자동 업로드
 """
 
 from __future__ import annotations
@@ -83,6 +84,18 @@ _study_report_locks: dict[
     str,
     asyncio.Lock,
 ] = {}
+
+
+# =========================================================
+# Study 출력 파일 전역 Lock
+#
+# 현재 Word / Power BI Exporter는 공통 경로의
+# study_report.json / docx / xlsx를 사용한다.
+# 서로 다른 Study가 동시에 종료되면 파일이 섞일 수 있으므로
+# JSON 저장 → Export → Blob 업로드 구간은 한 번에 하나만 실행한다.
+# =========================================================
+
+_study_output_lock = asyncio.Lock()
 
 
 def _get_study_report_lock(
@@ -666,59 +679,100 @@ async def _maybe_generate_study_report(
             return
 
         # -------------------------------------------------
-        # study_report.json 저장
-        # -------------------------------------------------
-
-        try:
-
-            await asyncio.to_thread(
-                _save_study_report_json,
-                study_report.model_dump(
-                    mode="json"
-                ),
-            )
-
-        except Exception:
-
-            logger.exception(
-                "Study Report JSON 저장 실패 "
-                "study=%s",
-                study_id,
-            )
-
-            return
-
-        logger.info(
-            "Study 종합 분석 완료 "
-            "study=%s participants=%d",
-            study_id,
-            len(participant_reports),
-        )
-
-        # -------------------------------------------------
-        # Word + Power BI 자동 Export
+        # Study 출력 파일 처리
         #
-        # 파일 Export는 동기 작업이므로
-        # asyncio event loop를 막지 않도록
-        # thread에서 실행한다.
+        # 현재 Exporter가 공통 파일 경로를 사용하므로
+        # 서로 다른 Study의 파일이 섞이지 않게 전역 Lock 안에서
+        # JSON 저장 → Word/BI Export → Blob 업로드까지 연속 실행한다.
         # -------------------------------------------------
 
-        try:
+        async with _study_output_lock:
 
-            await asyncio.to_thread(
-                _export_study_outputs
-            )
+            # ---------------------------------------------
+            # study_report.json 저장
+            # ---------------------------------------------
 
-        except Exception:
+            try:
 
-            # Study JSON 자체는 이미 정상 생성됐으므로
-            # Word/Excel Export 실패가
-            # Study 분석 결과까지 날리지 않도록 분리한다.
-            logger.exception(
-                "Study Report Export 실패 "
-                "study=%s",
+                await asyncio.to_thread(
+                    _save_study_report_json,
+                    study_report.model_dump(
+                        mode="json"
+                    ),
+                )
+
+            except Exception:
+
+                logger.exception(
+                    "Study Report JSON 저장 실패 "
+                    "study=%s",
+                    study_id,
+                )
+
+                return
+
+            logger.info(
+                "Study 종합 분석 완료 "
+                "study=%s participants=%d",
                 study_id,
+                len(participant_reports),
             )
+
+            # ---------------------------------------------
+            # Word + Power BI Excel 자동 Export
+            # ---------------------------------------------
+
+            export_succeeded = True
+
+            try:
+
+                await asyncio.to_thread(
+                    _export_study_outputs
+                )
+
+            except Exception:
+
+                export_succeeded = False
+
+                # Study JSON 자체는 이미 정상 생성됐으므로
+                # Word/Excel Export 실패가
+                # Study 분석 결과까지 날리지 않도록 분리한다.
+                logger.exception(
+                    "Study Report Export 실패 "
+                    "study=%s",
+                    study_id,
+                )
+
+            # ---------------------------------------------
+            # Azure Blob Storage 자동 업로드
+            #
+            # 세 파일이 모두 최신 상태로 생성된 경우에만 업로드한다.
+            # Export가 실패했는데 이전 파일을 잘못 올리는 것을 방지한다.
+            # ---------------------------------------------
+
+            if export_succeeded:
+
+                try:
+
+                    await asyncio.to_thread(
+                        _upload_study_outputs_to_blob
+                    )
+
+                    logger.info(
+                        "Study Report Blob 업로드 완료 "
+                        "study=%s",
+                        study_id,
+                    )
+
+                except Exception:
+
+                    # 로컬 Study Report 생성 자체는 성공했으므로
+                    # Blob 업로드 실패만 별도로 기록한다.
+                    logger.exception(
+                        "Study Report Blob 업로드 실패 "
+                        "study=%s",
+                        study_id,
+                    )
 
         # -------------------------------------------------
         # 참관자 알림
@@ -797,6 +851,8 @@ def _save_study_report_json(
 
 def _export_study_outputs() -> None:
 
+    errors: list[str] = []
+
     # -----------------------------------------------------
     # Word
     # -----------------------------------------------------
@@ -806,6 +862,10 @@ def _export_study_outputs() -> None:
         export_word_report()
 
     except Exception:
+
+        errors.append(
+            "Word"
+        )
 
         logger.exception(
             "자동 Word Report Export 실패"
@@ -821,6 +881,47 @@ def _export_study_outputs() -> None:
 
     except Exception:
 
+        errors.append(
+            "Power BI"
+        )
+
         logger.exception(
             "자동 Power BI Dataset Export 실패"
         )
+
+    # -----------------------------------------------------
+    # 하나라도 실패하면 Blob 업로드 단계로 넘어가지 않도록
+    # 호출자에게 실패를 전달한다.
+    # -----------------------------------------------------
+
+    if errors:
+
+        raise RuntimeError(
+            "Study Report Export 실패: "
+            + ", ".join(
+                errors
+            )
+        )
+
+
+# =========================================================
+# Azure Blob Storage Upload
+# =========================================================
+
+def _upload_study_outputs_to_blob() -> None:
+    """
+    생성된 Study Report 3개 파일을
+    Azure Blob Storage의 reports 컨테이너에 업로드한다.
+
+    실제 업로드 구현은 app.upload_reports_to_blob의 main()을
+    재사용한다.
+
+    import를 함수 안에서 수행해 Azure Blob SDK가 누락되어도
+    백엔드 전체가 시작 단계에서 죽지 않도록 한다.
+    """
+
+    from app.upload_reports_to_blob import (
+        main as upload_reports_to_blob,
+    )
+
+    upload_reports_to_blob()
