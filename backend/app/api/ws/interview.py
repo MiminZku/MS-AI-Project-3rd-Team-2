@@ -47,14 +47,15 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
     stt_client = None
     translate_client = None
 
+    utterance_buffer = []
+
     async def on_stt_partial(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.partial", lang="ko", text=text))
         
     async def on_stt_final(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.final", lang="ko", text=text))
-        current = await store.get_session(session_id)
-        if current and text.strip():
-            await orchestrator.handle_utterance(current, text.strip())
+        if text.strip():
+            utterance_buffer.append(text.strip())
 
     async def on_translate_partial(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.partial", lang="en", text=text))
@@ -85,6 +86,16 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
             elif msg_type == "audio.end":
                 if stt_client: await stt_client.commit_audio()
                 if translate_client: await translate_client.commit_audio()
+                
+                # VAD가 여러 번 발동했을 수 있으므로 모든 텍스트가 도착할 때까지 잠시 대기 후 하나로 합쳐서 질문 생성
+                import asyncio
+                await asyncio.sleep(1.5)
+                
+                full_text = " ".join(utterance_buffer).strip()
+                utterance_buffer.clear()
+                current = await store.get_session(session_id)
+                if current and full_text:
+                    await orchestrator.handle_utterance(current, full_text)
                 
             elif msg_type == "utterance":
                 # Fallback for text mode demo
