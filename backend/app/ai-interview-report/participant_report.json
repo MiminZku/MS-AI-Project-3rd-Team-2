@@ -1,0 +1,645 @@
+{
+  "session_id": "ses_demo0001",
+  "generated_at": "2026-08-18T02:12:32.701506Z",
+  "data": {
+    "participant_context": {
+      "summary": "이 응답자는 터미널 기반 AI 코딩 도구를 비교 평가 중이며, Claude Code를 메인으로 사용하고 OpenAI Codex CLI와 Cursor를 보조적으로 사용하는 개발자이다. 단순 코드 생성보다 작업 과정, 에이전트 자율성, 장기 맥락 유지에 민감하게 반응한다.",
+      "attributes": [
+        {
+          "name": "주요 사용 AI 툴",
+          "value": "Claude Code를 메인으로, OpenAI Codex CLI를 최근 2주간 비교 평가용으로, Cursor를 가끔 병행 사용",
+          "evidence_ids": [
+            "E001"
+          ]
+        },
+        {
+          "name": "작업 유형별 툴 선택 기준",
+          "value": "간단 자동완성·짧은 스크립트는 어떤 도구든 사용, 여러 파일 리팩토링·버그 추적은 반드시 Claude Code 사용",
+          "evidence_ids": [
+            "E002"
+          ]
+        },
+        {
+          "name": "에이전트 자율성에 대한 민감도",
+          "value": "속도·비용보다 에이전트 자율성과 승인 구조에서 오는 피로도를 더 크게 문제로 인식",
+          "evidence_ids": [
+            "E006"
+          ]
+        }
+      ]
+    },
+    "executive_summary": {
+      "core_insight": "이 응답자는 코드 생성 품질 자체는 OpenAI Codex와 Claude가 비슷하다고 보지만, 터미널 환경에서의 '과정'과 에이전트 자율성·맥락 유지 측면에서 Claude Code를 명확히 선호하며, OpenAI 도구의 맥락 단절과 낮은 자율성을 가장 큰 전환/지속사용 장애 요인으로 인식한다.",
+      "summary": "현재 이 응답자는 Claude Code를 메인으로, Codex CLI와 Cursor를 보조적으로 사용한다. 단순 작업에서는 도구 간 차이를 크게 느끼지 않지만, 여러 파일에 걸친 리팩토링·버그 추적처럼 복잡도가 높은 작업에서는 Claude Code를 일관되게 선택한다. 그 이유로 Claude가 파일 탐색, 서비스별 컨벤션 반영 등 멀티스텝 작업을 더 자율적으로 이어가는 반면, Codex CLI는 파일 경로를 일일이 지시해야 하고 컨텍스트가 꽉 차면 이전 지시를 잊은 것처럼 행동해 작업 흐름을 끊는다고 느낀다. 또한 승인 플로우가 자주 끊기고 사용자가 계속 터미널 앞에 상주해야 하는 구조를 큰 피로 요인으로 인식한다. 이상적인 개선으로는 세션이 끊겨도 작업 맥락을 스스로 복구하는 '장기 기억' 기능을 제안하며, 이 기능이 현재 느끼는 답답함의 상당 부분을 줄여줄 것이라고 기대한다.",
+      "key_takeaways": [
+        {
+          "point": "복잡한 멀티파일 리팩토링·버그 추적에서 이 응답자는 Claude Code를 일관되게 선택하며, Codex는 해당 상황에서 맥락을 자주 놓친다고 인식한다.",
+          "evidence_ids": [
+            "E002"
+          ]
+        },
+        {
+          "point": "'모델 성능은 OpenAI, 터미널은 Claude'라는 서술에 완전히 공감하며, 결정적 이유로 Claude의 매끄러운 과정·높은 자율성과 Codex의 수동 지시 필요성을 대비시킨다.",
+          "evidence_ids": [
+            "E003",
+            "E004"
+          ]
+        },
+        {
+          "point": "OpenAI 도구 사용 시 컨텍스트 윈도우 한계로 인한 지시 망각, 승인 흐름의 잦은 단절, 낮은 자율성이 작업 흐름을 크게 방해한다고 느낀다.",
+          "evidence_ids": [
+            "E005",
+            "E006"
+          ]
+        },
+        {
+          "point": "OpenAI에 기대하는 핵심 혁신은 세션이 끊겨도 작업 맥락을 스스로 복구하는 장기 기억 기능이며, 이 응답자는 이 기능이 자신의 답답함 상당 부분을 줄여줄 것이라고 주관적으로 예상한다.",
+          "evidence_ids": [
+            "E007"
+          ]
+        }
+      ]
+    },
+    "research_coverage": {
+      "overall_coverage": "high",
+      "items": [
+        {
+          "question_id": "q1",
+          "question": "현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합을 사용하고 계신가요?",
+          "coverage": "high",
+          "reason": "어떤 도구를 어떤 맥락에서 사용하는지, 메인/보조 도구와 작업 유형별 사용 차이가 구체적으로 드러남.",
+          "evidence_ids": [
+            "E001",
+            "E002"
+          ],
+          "missing_information": [
+            "각 도구의 구체적인 설정 방식이나 IDE 플러그인 활용 여부는 다뤄지지 않았다."
+          ]
+        },
+        {
+          "question_id": "q2",
+          "question": "OpenAI-모델우위 vs Claude-터미널우위 인식 공감도 및 이유",
+          "coverage": "high",
+          "reason": "해당 서술에 대한 공감 여부와 이유(과정의 매끄러움, 자율적 파일 탐색·테스트 등)가 명확히 진술되었으며, 대규모 코드베이스 사례까지 제공되었다.",
+          "evidence_ids": [
+            "E003",
+            "E004"
+          ],
+          "missing_information": [
+            "OpenAI 터미널 경험의 구체적 UX 요소(명령어 설계, 로그 표시 등)에 대한 세부 비교는 부족하다."
+          ]
+        },
+        {
+          "question_id": "q3",
+          "question": "OpenAI 사용 중 흐름 단절 및 불편 경험",
+          "coverage": "high",
+          "reason": "컨텍스트 윈도우 한계, 승인 플로우 단절, 에이전트 자율성 부족 등 흐름을 끊는 요인이 구체적으로 언급되었고, 속도·비용 대비 자율성의 상대적 중요도도 확인되었다.",
+          "evidence_ids": [
+            "E005",
+            "E006"
+          ],
+          "missing_information": [
+            "이러한 문제들이 실제 업무 일정이나 산출물 품질에 미친 정량적·정성적 영향은 구체적으로 다뤄지지 않았다."
+          ]
+        },
+        {
+          "question_id": "q4",
+          "question": "이상적인 터미널 기반 혁신 기능",
+          "coverage": "medium",
+          "reason": "장기 기억을 통한 세션 맥락 복구라는 핵심 아이디어와 기대 효과는 명확하지만, 실제 사용 시나리오나 단계별 상호작용 흐름은 간략하게만 언급되었다.",
+          "evidence_ids": [
+            "E007"
+          ],
+          "missing_information": [
+            "장기 기억이 어떤 단위(프로젝트, 브랜치, 태스크)로 작동해야 하는지, 보안·프라이버시 등 부수 조건은 논의되지 않았다."
+          ]
+        }
+      ]
+    },
+    "slot_coverage": {
+      "overall_coverage": "high",
+      "items": [
+        {
+          "slot_id": "current_ai_tool_stack",
+          "question_id": "q1",
+          "slot_name": "현재 사용 중인 AI 툴 조합",
+          "coverage": "high",
+          "reason": "주요 도구(Claude Code, OpenAI Codex CLI, Cursor)와 사용 빈도·역할이 명확히 언급됨.",
+          "evidence_ids": [
+            "E001"
+          ],
+          "missing_information": [
+            "각 도구를 사용하는 구체적인 환경(터미널 플러그인, IDE 연동 등)은 상세히 다뤄지지 않았다."
+          ]
+        },
+        {
+          "slot_id": "task_based_tool_switching",
+          "question_id": "q1",
+          "slot_name": "업무 유형별 툴 분리 사용 여부",
+          "coverage": "high",
+          "reason": "간단 작업과 복잡한 멀티파일 작업에서의 도구 선택 기준이 분명하게 설명됨.",
+          "evidence_ids": [
+            "E002"
+          ],
+          "missing_information": [
+            "테스트 작성, 코드 리뷰 등 다른 작업 유형에서의 도구 선택 기준은 언급되지 않았다."
+          ]
+        },
+        {
+          "slot_id": "openai_vs_claude_terminal_agreement",
+          "question_id": "q2",
+          "slot_name": "OpenAI-모델우위 vs Claude-터미널우위 인식 공감도",
+          "coverage": "high",
+          "reason": "'완전 공감한다'는 직접적 표현과 그 배경 인식(코드 생성 품질은 비슷하나 과정에서 차이)이 제공됨.",
+          "evidence_ids": [
+            "E003"
+          ],
+          "missing_information": [
+            "공감 정도를 수치적으로 표현하거나 특정 상황에서 예외를 두는지 여부는 확인되지 않았다."
+          ]
+        },
+        {
+          "slot_id": "claude_terminal_preference_reasons",
+          "question_id": "q2",
+          "slot_name": "Claude Code 터미널 선호의 결정적 이유",
+          "coverage": "high",
+          "reason": "다음 스텝 자동 진행, 파일 탐색, 테스트 실행 등 Claude의 자율적 과정 처리에 대한 구체적 이유가 제시됨.",
+          "evidence_ids": [
+            "E003",
+            "E004"
+          ],
+          "missing_information": [
+            "설정 편의성, 에러 핸들링 UI 등 기타 요인의 상대적 중요도는 다뤄지지 않았다."
+          ]
+        },
+        {
+          "slot_id": "terminal_ux_flow_experience",
+          "question_id": "q2",
+          "slot_name": "터미널 환경에서의 대화 흐름 경험",
+          "coverage": "medium",
+          "reason": "Claude에서 결과물까지 가는 과정이 매끄럽다고 느끼는 이유는 언급되지만, 터미널 상의 대화 인터페이스나 로그 흐름에 대한 세부 UX 묘사는 제한적이다.",
+          "evidence_ids": [
+            "E003"
+          ],
+          "missing_information": [
+            "명령-응답 히스토리 관리, 인터럽트/재시작 경험 등 세부 흐름은 구체적으로 설명되지 않았다."
+          ]
+        },
+        {
+          "slot_id": "multistep_task_handling",
+          "question_id": "q2",
+          "slot_name": "멀티스텝 작업 처리 경험",
+          "coverage": "high",
+          "reason": "인증 로직 변경 사례에서 파일 탐색→컨벤션 반영→수정까지 이어지는 멀티스텝 처리가 Claude와 Codex 간 대비로 구체적으로 설명됨.",
+          "evidence_ids": [
+            "E004"
+          ],
+          "missing_information": [
+            "테스트 실행, 롤백 등 다른 멀티스텝 시나리오에 대한 언급은 없다."
+          ]
+        },
+        {
+          "slot_id": "large_codebase_understanding",
+          "question_id": "q2",
+          "slot_name": "대규모 코드베이스 이해·편집 능력 인식",
+          "coverage": "medium",
+          "reason": "5개 서비스에 걸친 인증 로직 변경 사례를 통해 Claude의 코드베이스 이해·컨벤션 인식 능력이 간접적으로 드러나지만, OpenAI와의 정량적·체계적 비교는 부족하다.",
+          "evidence_ids": [
+            "E004"
+          ],
+          "missing_information": [
+            "다른 종류의 대규모 변경(예: 데이터 모델 변경, 퍼포먼스 튜닝)에 대한 비교 경험은 없다."
+          ]
+        },
+        {
+          "slot_id": "agent_autonomy_moments",
+          "question_id": "q2",
+          "slot_name": "에이전트 자율성 체감 순간",
+          "coverage": "high",
+          "reason": "다음 스텝 자동 진행, 파일 자동 탐색, 테스트 실행 등 자율적 행동으로 느낀 순간이 구체 사례와 함께 제시됨.",
+          "evidence_ids": [
+            "E003",
+            "E004"
+          ],
+          "missing_information": [
+            "자율적 행동이 실패했거나 과도하게 동작한 사례는 언급되지 않았다."
+          ]
+        },
+        {
+          "slot_id": "openai_flow_break_experiences",
+          "question_id": "q3",
+          "slot_name": "OpenAI 사용 중 흐름이 끊긴 경험",
+          "coverage": "high",
+          "reason": "컨텍스트 윈도우 한계와 승인 플로우 단절이 흐름을 끊는 대표 경험으로 명시됨.",
+          "evidence_ids": [
+            "E005"
+          ],
+          "missing_information": [
+            "이 문제가 언제 얼마나 자주 발생하는지에 대한 구체 빈도는 제시되지 않았다."
+          ]
+        },
+        {
+          "slot_id": "openai_usability_frictions",
+          "question_id": "q3",
+          "slot_name": "OpenAI 사용 시 사용성/작업성 마찰 요인",
+          "coverage": "medium",
+          "reason": "승인 흐름이 자주 끊겨 계속 터미널 앞에 있어야 한다는 진술이 구조적 마찰을 시사하지만, 프롬프트 작성·결과 검토 등 세부 상호작용 단계별 번거로움은 자세히 다루지 않았다.",
+          "evidence_ids": [
+            "E005"
+          ],
+          "missing_information": [
+            "재실행, 수정 요청 등 각 단계에서 어떤 추가 입력이 필요한지 구체 사례가 부족하다."
+          ]
+        },
+        {
+          "slot_id": "manual_edit_burden",
+          "question_id": "q3",
+          "slot_name": "수동 수정/보완 부담",
+          "coverage": "not_covered",
+          "reason": "OpenAI가 생성한 코드를 수동 수정해야 했던 구체적 경험이나 부담감은 직접적으로 언급되지 않았다.",
+          "evidence_ids": [],
+          "missing_information": [
+            "수정 빈도, 수정 유형(스타일, 로직, 에러 수정 등), 수정으로 인한 피로도에 대한 정보가 필요하다."
+          ]
+        },
+        {
+          "slot_id": "performance_speed_pain",
+          "question_id": "q3",
+          "slot_name": "속도 관련 불만",
+          "coverage": "low",
+          "reason": "속도는 감수할 수 있다고 언급했을 뿐, 속도 관련 불만이나 사례는 없다.",
+          "evidence_ids": [
+            "E006"
+          ],
+          "missing_information": [
+            "느리다고 느낀 상황, 타임아웃, 응답 지연으로 인한 우회 행동 등이 전혀 다뤄지지 않았다."
+          ]
+        },
+        {
+          "slot_id": "cost_token_concerns",
+          "question_id": "q3",
+          "slot_name": "비용/토큰 소비에 대한 부담",
+          "coverage": "low",
+          "reason": "비용 역시 감수 가능하다고만 언급되어, 부담이나 제약 요소를 파악할 수 없다.",
+          "evidence_ids": [
+            "E006"
+          ],
+          "missing_information": [
+            "토큰 비용 때문에 사용을 줄이거나 특정 작업에서 제한하는지 여부가 필요하다."
+          ]
+        },
+        {
+          "slot_id": "openai_agent_autonomy_issues",
+          "question_id": "q3",
+          "slot_name": "OpenAI 에이전트 자율성에 대한 아쉬움",
+          "coverage": "high",
+          "reason": "자율성이 가장 아쉽고, 계속 컨펌해야 하는 구조가 피로하다는 진술이 명확히 나온다.",
+          "evidence_ids": [
+            "E006"
+          ],
+          "missing_information": [
+            "어떤 유형의 작업에서 자율성 부족이 특히 두드러지는지에 대한 추가 분류는 없다."
+          ]
+        },
+        {
+          "slot_id": "ideal_terminal_feature",
+          "question_id": "q4",
+          "slot_name": "이상적인 터미널 기반 핵심 기능 아이디어",
+          "coverage": "high",
+          "reason": "세션 종료 후에도 작업 맥락을 스스로 복구하는 장기 기억 기능이라는 아이디어가 명확히 제시됨.",
+          "evidence_ids": [
+            "E007"
+          ],
+          "missing_information": [
+            "이 기능이 어떤 인터페이스로 노출되어야 하는지(UI/명령어 등)는 언급되지 않았다."
+          ]
+        },
+        {
+          "slot_id": "ideal_feature_problem_focus",
+          "question_id": "q4",
+          "slot_name": "이상적 기능이 해결하려는 핵심 문제",
+          "coverage": "medium",
+          "reason": "현재 느끼는 답답함의 약 80%를 줄여줄 것이라는 주관적 기대를 통해, 주된 문제는 맥락 단절·기억 부족임이 드러나지만 다른 문제와의 상대적 비중은 더 탐색이 필요하다.",
+          "evidence_ids": [
+            "E007"
+          ],
+          "missing_information": [
+            "장기 기억 외에 남는 20%의 답답함이 무엇인지, 어떤 문제군에 속하는지 정보가 없다."
+          ]
+        },
+        {
+          "slot_id": "ideal_feature_usage_scenario",
+          "question_id": "q4",
+          "slot_name": "이상적 기능의 구체적 사용 시나리오",
+          "coverage": "low",
+          "reason": "맥락을 복구해준다는 기대는 있으나, 언제 어떻게 복구가 이루어지는지, 사용자가 어떤 입력을 하는지 시나리오 수준 설명은 부족하다.",
+          "evidence_ids": [
+            "E007"
+          ],
+          "missing_information": [
+            "예: 세션 재시작 시 어떤 명령으로 이전 태스크를 불러오고, 어떤 단계에서 자동 복구/사용자 확인이 이뤄지는지 등의 흐름이 필요하다."
+          ]
+        }
+      ]
+    },
+    "key_findings": [
+      {
+        "title": "복잡한 멀티파일 작업에서 Claude Code를 일관되게 선택하며 Codex는 맥락 유지 측면에서 열세로 인식된다.",
+        "summary": "이 응답자는 간단한 자동완성·짧은 스크립트 수준에서는 도구 간 차이를 크게 느끼지 않지만, 여러 파일에 걸친 리팩토링·버그 추적과 같은 복잡한 작업에서는 '무조건 Claude Code'를 사용한다고 말한다. Codex는 이 상황에서 맥락을 자꾸 놓친다고 인식해, 복잡 작업용 도구로 신뢰하지 않는 상태이다.",
+        "evidence_strength": "strong",
+        "evidence_ids": [
+          "E002"
+        ]
+      },
+      {
+        "title": "‘모델 성능은 OpenAI, 터미널 작업은 Claude’라는 인식에 강하게 공감하며, 과정·자율성 차이를 핵심 이유로 본다.",
+        "summary": "응답자는 해당 서술에 '완전 공감'한다고 말하며, 순수 코드 생성 품질만 보면 Codex도 뒤지지 않는다고 본다. 그러나 결과물까지 가는 과정이 Claude가 훨씬 매끄럽고, 사용자가 일일이 다음 스텝을 지시하지 않아도 파일 탐색·테스트 실행 등을 알아서 처리해주는 느낌이 Codex 대비 결정적인 차별점으로 작용한다.",
+        "evidence_strength": "strong",
+        "evidence_ids": [
+          "E003"
+        ]
+      },
+      {
+        "title": "대규모 코드 변경 작업에서 Claude의 파일 탐색·컨벤션 반영 자율성이 OpenAI보다 높은 신뢰를 얻고 있다.",
+        "summary": "5개 서비스에 걸친 인증 로직 변경 사례에서 Claude는 관련 파일을 스스로 찾고 서비스별 컨벤션 차이를 반영해 수정했다고 인식하는 반면, Codex CLI는 파일 경로를 하나하나 지시해야 원하는 결과가 나왔다고 한다. 이는 응답자가 Claude의 대규모 코드베이스 이해·편집과 에이전트 자율성을 Codex보다 높게 평가하는 근거로 작용한다.",
+        "evidence_strength": "strong",
+        "evidence_ids": [
+          "E004"
+        ]
+      },
+      {
+        "title": "OpenAI 도구의 컨텍스트 한계와 승인 플로우 단절, 낮은 자율성이 작업 흐름을 끊는 주요 불만 요인이다.",
+        "summary": "응답자는 컨텍스트 윈도우가 꽉 찼을 때 이전 지시를 잊은 것처럼 행동하는 점을 가장 답답한 경험으로 언급한다. 또한 승인 흐름이 자주 끊겨 사용자가 계속 터미널 앞에서 승인·컨펌을 반복해야 한다고 느끼며, 속도·비용보다 에이전트 자율성 부족과 컨펌 구조 자체를 더 큰 피로 요인으로 인식한다.",
+        "evidence_strength": "strong",
+        "evidence_ids": [
+          "E005",
+          "E006"
+        ]
+      },
+      {
+        "title": "세션 간 장기 기억을 통한 맥락 복구 기능은 응답자가 인식하는 불편의 상당 부분을 완화할 잠재 개선 요인으로 제시된다.",
+        "summary": "응답자는 OpenAI가 터미널 경험을 혁신하려면 세션이 끊겨도 작업 맥락을 스스로 복구하는 '장기 기억' 기능이 필요하다고 제안한다. 이 기능이 구현되면 현재 느끼는 답답함의 약 80%가 줄어들 것이라고 개인적으로 예상해, 맥락·기억 관련 문제가 자신의 경험에서 매우 큰 비중을 차지함을 시사한다.",
+        "evidence_strength": "moderate",
+        "evidence_ids": [
+          "E007"
+        ]
+      }
+    ],
+    "themes": [
+      {
+        "theme": "복잡한 작업일수록 에이전트 자율성과 멀티스텝 과정 품질이 도구 선택을 좌우한다.",
+        "description": "이 응답자는 단순 자동완성 수준에서는 도구 간 차이를 크게 보지 않지만, 여러 파일 리팩토링·대규모 인증 로직 변경 등 복잡한 작업에서는 에이전트가 얼마나 자율적으로 파일을 찾고 컨벤션을 이해하며 다음 스텝을 이어가는지가 도구 선택의 핵심 기준이 된다. Claude는 이러한 자율적 멀티스텝 처리가 강점으로 인식되고, Codex는 사용자가 세밀하게 지시해야 하는 도구로 인식된다.",
+        "evidence_ids": [
+          "E002",
+          "E003",
+          "E004"
+        ]
+      },
+      {
+        "theme": "맥락 유지 실패와 반복 승인 요구는 OpenAI 기반 터미널 경험에서 가장 크게 체감되는 흐름 단절 요인이다.",
+        "description": "응답자는 컨텍스트 윈도우 한계로 인해 이전 지시를 잊는 행동과 승인 흐름이 툭툭 끊기는 구조를 '계속 터미널 앞에 붙어 있어야 하는' 경험으로 묘사한다. 이는 단순한 응답 품질 문제가 아니라 작업 플로우와 몰입을 무너뜨리는 구조적 문제로 받아들여지고 있다.",
+        "evidence_ids": [
+          "E005",
+          "E006"
+        ]
+      },
+      {
+        "theme": "장기 맥락 기억에 대한 강한 기대는 현재 도구의 세션·컨텍스트 설계 한계를 반영한다.",
+        "description": "응답자는 세션이 끊겨도 작업 맥락을 복구하는 장기 기억 기능 하나로 자신의 답답함의 대부분이 해소될 것이라고 본다. 이는 현재 OpenAI 도구의 세션·컨텍스트 설계가 실제 작업 단위·기간과 잘 맞지 않으며, 사용자가 장기 작업을 이어갈 때 반복적으로 동일 맥락을 재구축해야 하는 부담을 느낀다는 점을 시사한다.",
+        "evidence_ids": [
+          "E007"
+        ]
+      }
+    ],
+    "key_drivers": [
+      {
+        "driver": "복잡한 멀티파일 작업에서의 맥락 유지 능력",
+        "strength": "high",
+        "description": "여러 파일에 걸친 리팩토링·버그 추적, 다수 서비스에 걸친 인증 로직 변경과 같은 작업에서 에이전트가 프로젝트 맥락을 유지하고 이해하는 정도가 도구 선택에 직접적인 영향을 준다. Claude는 이러한 상황에서 맥락을 놓치지 않는 도구로, Codex는 맥락을 자주 놓치는 도구로 인식된다.",
+        "evidence_ids": [
+          "E002",
+          "E004"
+        ]
+      },
+      {
+        "driver": "에이전트 자율성과 승인 구조로 인한 피로도",
+        "strength": "high",
+        "description": "응답자는 속도·비용보다 에이전트 자율성을 더 중요하게 보며, 계속 컨펌해야 하는 승인 구조 자체를 피로 요인으로 지적한다. 자율적으로 파일 탐색·테스트 실행을 이어가는 Claude에 대한 선호와, 컨텍스트 한계·승인 플로우 단절이 있는 OpenAI에 대한 불만은 이 자율성 요소가 도구 선호의 핵심 드라이버임을 보여준다.",
+        "evidence_ids": [
+          "E003",
+          "E005",
+          "E006"
+        ]
+      },
+      {
+        "driver": "세션·컨텍스트 설계에 대한 신뢰",
+        "strength": "medium",
+        "description": "컨텍스트 윈도우 한계로 이전 지시를 잊는 행동, 세션 종료 후 맥락을 잃는 경험은 OpenAI 도구에 대한 신뢰를 떨어뜨리며, 응답자는 이를 완화할 장기 기억 기능에 강한 기대를 보인다. 세션·컨텍스트 설계가 장기 작업 경험의 만족도와 도구 재이용 의사에 중요한 영향을 주는 것으로 보인다.",
+        "evidence_ids": [
+          "E005",
+          "E007"
+        ]
+      }
+    ],
+    "needs_and_pain_points": [
+      {
+        "type": "pain_point",
+        "title": "복잡한 리팩토링·버그 추적 시 Codex의 맥락 유지 한계",
+        "severity": "high",
+        "situation": "여러 파일에 걸친 리팩토링이나 버그 추적 작업에서 Codex가 맥락을 자꾸 놓쳐 신뢰하기 어렵다고 느낌.",
+        "impact": "복잡 작업에서는 '무조건 Claude Code'를 사용하게 되어 OpenAI 기반 도구의 활용 범위가 제한되고, 도구 간 전환 비용이 발생한다.",
+        "evidence_ids": [
+          "E002"
+        ]
+      },
+      {
+        "type": "pain_point",
+        "title": "OpenAI 도구의 컨텍스트 윈도우 한계로 인한 지시 망각",
+        "severity": "high",
+        "situation": "컨텍스트 윈도우가 꽉 차면 이전 지시를 까먹은 것처럼 행동하는 상황을 자주 경험.",
+        "impact": "장기·복합 작업에서 동일 맥락을 반복 설명해야 해 흐름이 끊기고, 터미널 작업의 몰입도가 크게 떨어진다.",
+        "evidence_ids": [
+          "E005"
+        ]
+      },
+      {
+        "type": "pain_point",
+        "title": "승인 흐름 단절과 지속적인 사용자 상주 요구",
+        "severity": "high",
+        "situation": "승인 플로우가 자주 끊겨 매번 승인·컨펌이 필요해, 사용자가 계속 터미널 앞에 붙어 있어야 한다고 느낌.",
+        "impact": "작업 과정에서 반복적 개입과 컨펌으로 피로도가 증가하고, 에이전트를 장시간 자율적으로 돌리기 어렵다고 인식한다.",
+        "evidence_ids": [
+          "E005",
+          "E006"
+        ]
+      },
+      {
+        "type": "need",
+        "title": "에이전트의 높은 자율성과 최소한의 컨펌 구조",
+        "severity": "high",
+        "situation": "속도·비용보다 자율성을 중요하게 보고, 매 단계 컨펌이 아닌 스스로 다음 스텝을 진행하는 에이전트를 선호.",
+        "impact": "충분한 자율성이 제공되면 복잡 작업에서도 에이전트를 더 적극적으로 활용할 수 있고, 개발자 개입·피로를 줄일 수 있을 것으로 기대한다.",
+        "evidence_ids": [
+          "E003",
+          "E006"
+        ]
+      },
+      {
+        "type": "need",
+        "title": "세션 간 장기 맥락을 복구하는 기억 기능",
+        "severity": "high",
+        "situation": "세션이 끊기면 작업 맥락이 사라지는 경험을 불편해하며, 장기 기억 기능이 필요하다고 제안.",
+        "impact": "응답자는 이 기능이 자신의 답답함의 약 80%를 줄여줄 것이라고 기대하여, 맥락 복구가 터미널 기반 개발 경험 개선의 핵심 영역임을 시사한다.",
+        "evidence_ids": [
+          "E007"
+        ]
+      }
+    ],
+    "decision_dynamics": null,
+    "opportunities": [
+      {
+        "opportunity": "복잡 멀티파일 작업을 위한 고자율 멀티스텝 에이전트 강화",
+        "opportunity_type": "product",
+        "source_type": "derived_opportunity",
+        "problem_or_need": "여러 파일에 걸친 리팩토링·버그 추적 시 Codex가 맥락을 자주 놓쳐, 응답자가 이런 작업에서는 Claude Code만 신뢰하는 상황.",
+        "expected_value": "멀티파일·다수 서비스 변경 작업에서 파일 탐색·컨벤션 이해·연속 수정까지 보다 자율적으로 처리하는 기능을 강화하면, 응답자와 같은 사용자가 복잡 작업에서도 OpenAI 도구를 사용할 수 있는 여지가 늘어날 가능성이 있다.",
+        "priority": "high",
+        "evidence_ids": [
+          "E002",
+          "E004"
+        ]
+      },
+      {
+        "opportunity": "승인 플로우 구조 재설계 및 자율 승인 범위 설정 기능",
+        "opportunity_type": "product",
+        "source_type": "derived_opportunity",
+        "problem_or_need": "현재 OpenAI 도구의 승인 플로우가 자주 끊기고 사용자가 계속 터미널 앞에서 컨펌해야 해 피로도가 크다고 인식된다.",
+        "expected_value": "승인 단계를 묶어 한 번에 허용하거나, 안전 범위 내에서 에이전트가 자율적으로 진행할 수 있는 정책·설정(예: 파일 범위, 테스트 실행 범위)을 제공하면, 반복 컨펌으로 인한 피로와 흐름 단절을 줄일 가능성이 있다.",
+        "priority": "high",
+        "evidence_ids": [
+          "E005",
+          "E006"
+        ]
+      },
+      {
+        "opportunity": "세션 간 장기 맥락 기억·복구 기능 설계",
+        "opportunity_type": "product",
+        "source_type": "explicit_user_request",
+        "problem_or_need": "세션이 끊기면 작업 맥락이 사라져 동일 설명을 반복해야 하고, 이로 인해 응답자는 큰 답답함을 느낀다.",
+        "expected_value": "프로젝트·브랜치·태스크 단위의 장기 맥락을 저장·복구하는 기능을 설계하면, 응답자가 말한 것처럼 현재 느끼는 답답함의 상당 부분을 줄이고 장기 작업에서의 재진입 비용을 낮출 가능성이 있다. 다만 실제 효과는 추가 검증이 필요하다.",
+        "priority": "high",
+        "evidence_ids": [
+          "E007"
+        ]
+      }
+    ],
+    "observer_intervention_analysis": [
+      {
+        "instruction_id": "ins_demo0001",
+        "instruction": "컨텍스트/에이전트 자율성 관점에서 구체적인 사례를 더 파고들어봐",
+        "applied_turn": 6,
+        "resulting_evidence_ids": [
+          "E004"
+        ],
+        "research_value": "high",
+        "impact": "관찰자 지시 이후 질문을 통해 5개 서비스에 걸친 인증 로직 변경 사례가 확보되었고, 이는 Claude의 자율성과 대규모 코드베이스 이해, Codex의 파일 경로 지정 필요성을 비교하는 핵심 Evidence로 작용했다."
+      }
+    ],
+    "researcher_attention": [
+      {
+        "topic": "OpenAI 도구에서 수동 코드 수정 부담의 실제 수준과 패턴",
+        "reason": "수동 수정 부담 관련 Slot이 전혀 커버되지 않아, OpenAI 코드 제안을 얼마나 자주·어떤 유형으로 수정하는지 추가 인터뷰에서 확인할 필요가 있다.",
+        "priority": "high"
+      },
+      {
+        "topic": "장기 기억 기능의 구체적인 사용 시나리오와 경계 조건",
+        "reason": "응답자는 장기 기억 기능을 강하게 요구하지만, 실제로 어떤 단위·규칙으로 맥락을 저장·복구해야 하는지 시나리오가 부족하다.",
+        "priority": "medium"
+      },
+      {
+        "topic": "승인 플로우의 세부 단계와 사용자 제어 수준에 대한 기대",
+        "reason": "승인 흐름 단절과 피로도가 큰 이슈로 언급되었으나, 어떤 단계는 자동화해도 괜찮다고 보는지, 어디까지는 필수로 확인하고 싶은지에 대한 세부 선호 정보가 필요하다.",
+        "priority": "medium"
+      },
+      {
+        "topic": "속도·비용에 대한 허용 범위와 실제 제약 사례",
+        "reason": "속도·비용은 감수 가능하다고 했지만, 어느 수준까지 허용 가능한지 또는 특정 상황에서 제약 요인이 된 경험이 있는지 추가 확인이 필요하다.",
+        "priority": "low"
+      }
+    ],
+    "analysis_metadata": {
+      "mode": "azure_openai"
+    },
+    "observer_interventions": [
+      {
+        "instruction_id": "ins_demo0001",
+        "instruction": "컨텍스트/에이전트 자율성 관점에서 구체적인 사례를 더 파고들어봐",
+        "status": "applied",
+        "applied_turn": 6,
+        "created_at": "2026-08-13T09:05:10+00:00",
+        "applied_at": "2026-08-13T09:05:42+00:00"
+      }
+    ],
+    "evidence": [
+      {
+        "evidence_id": "E001",
+        "turn_index": 1,
+        "speaker": "interviewee",
+        "quote": "요즘은 거의 Claude Code를 메인으로 쓰고 있어요. 그런데 회사에서 비교 평가 때문에 OpenAI Codex CLI도 최근 2주 정도 같이 써봤고, 가끔 Cursor도 곁들여 써요.",
+        "created_at": "2026-08-13T09:00:50+00:00"
+      },
+      {
+        "evidence_id": "E002",
+        "turn_index": 3,
+        "speaker": "interviewee",
+        "quote": "간단한 자동완성이나 짧은 스크립트는 아무거나 써도 상관없는데, 여러 파일에 걸친 리팩토링이나 버그 추적할 때는 무조건 Claude Code를 켭니다. Codex는 그 상황에서 맥락을 자꾸 놓치더라고요.",
+        "created_at": "2026-08-13T09:02:20+00:00"
+      },
+      {
+        "evidence_id": "E003",
+        "turn_index": 5,
+        "speaker": "interviewee",
+        "quote": "완전 공감해요. 순수 코드 생성 품질만 보면 Codex도 꿀리지 않는다고 생각하는데, 결과물까지 가는 '과정'이 Claude Code가 훨씬 매끄러워요. 제가 일일이 다음 스텝을 지시 안 해도 알아서 파일 찾아보고 테스트 돌려보고 하는 느낌이랄까.",
+        "created_at": "2026-08-13T09:04:15+00:00"
+      },
+      {
+        "evidence_id": "E004",
+        "turn_index": 7,
+        "speaker": "interviewee",
+        "quote": "예전에 5개 서비스에 걸친 인증 로직을 통째로 바꾼 적이 있는데, Claude Code는 관련 파일을 알아서 찾고 각 서비스별 컨벤션 차이까지 반영해서 고쳐줬어요. Codex CLI는 제가 파일 경로를 하나하나 짚어줘야 그나마 정확하게 고치더라고요.",
+        "created_at": "2026-08-13T09:06:50+00:00"
+      },
+      {
+        "evidence_id": "E005",
+        "turn_index": 9,
+        "speaker": "interviewee",
+        "quote": "컨텍스트 윈도우가 꽉 차면 갑자기 이전 지시를 까먹은 것처럼 굴 때가 제일 답답해요. 그리고 매번 승인 흐름이 툭툭 끊겨서, 제가 계속 터미널 앞에 붙어있어야 하는 느낌이에요.",
+        "created_at": "2026-08-13T09:08:35+00:00"
+      },
+      {
+        "evidence_id": "E006",
+        "turn_index": 11,
+        "speaker": "interviewee",
+        "quote": "저는 자율성이요. 속도나 비용은 감수할 수 있는데, 제가 옆에서 계속 컨펌해줘야 하는 구조 자체가 피로도가 커요.",
+        "created_at": "2026-08-13T09:10:05+00:00"
+      },
+      {
+        "evidence_id": "E007",
+        "turn_index": 13,
+        "speaker": "interviewee",
+        "quote": "세션이 끊겨도 작업 맥락을 스스로 복구하는 장기 기억 같은 거요. 그거 하나만 해결돼도 지금 느끼는 답답함의 8할은 없어질 것 같아요.",
+        "created_at": "2026-08-13T09:11:20+00:00"
+      }
+    ],
+    "metadata": {
+      "study_id": "study_c734391909fa",
+      "research_title": "OpenAI Codex vs Claude Code 사용자 선호도 리서치",
+      "duration_minutes": 10,
+      "question_count": 4,
+      "information_slot_count": 17,
+      "turn_count": 14,
+      "interviewee_turn_count": 7,
+      "instruction_count": 1
+    }
+  }
+}
