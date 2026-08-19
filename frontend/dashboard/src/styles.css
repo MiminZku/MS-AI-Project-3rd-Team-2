@@ -244,26 +244,13 @@ h2 {
   opacity: 0.5;
 }
 
-/* ===== 3-COLUMN LAYOUT ===== */
+/* ===== 2-COLUMN LAYOUT ===== */
 .monitor {
   display: grid;
-  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.7fr) minmax(320px, 1fr);
+  grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
   gap: 24px;
   padding: 24px 30px 60px;
   align-items: start;
-}
-
-.monitor.monitor--sidebar-collapsed {
-  grid-template-columns: 56px minmax(0, 1.7fr) minmax(320px, 1fr);
-}
-
-@media (max-width: 1200px) {
-  .monitor {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr);
-  }
-  .col-instructions {
-    grid-column: 1 / -1;
-  }
 }
 
 @media (max-width: 820px) {
@@ -272,7 +259,6 @@ h2 {
   }
 }
 
-.col-questions,
 .col-transcript,
 .col-instructions {
   display: flex;
@@ -314,25 +300,119 @@ h2 {
   padding: 14px 16px;
 }
 
-.sidebar-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding-top: 12px;
+.kebab-wrap {
+  position: relative;
+  margin-left: auto;
 }
 
-.rail-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
+.kebab-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
+  color: var(--text);
   font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.kebab-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  border: none;
+  background: transparent;
+  cursor: default;
+  padding: 0;
+}
+
+.kebab-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  min-width: 140px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.kebab-menu button {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.kebab-menu button:hover {
+  background: rgba(0, 113, 227, 0.08);
+  color: var(--primary);
+}
+
+.overlay-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  border: none;
+  background: rgba(0, 0, 0, 0.5);
+  cursor: default;
+  padding: 0;
+}
+
+.overlay-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 51;
+  width: min(360px, 88vw);
+  background: var(--panel);
+  border-right: 1px solid var(--panel-border);
+  box-shadow: 0 0 30px rgba(0, 0, 0, 0.4);
+  overflow-y: auto;
+}
+
+.overlay-panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--panel-border);
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+}
+
+.overlay-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.overlay-panel-body {
+  padding-top: 12px;
 }
 
 .panel {

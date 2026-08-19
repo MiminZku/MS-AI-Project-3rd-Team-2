@@ -67,8 +67,8 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
-  const [treeOpen, setTreeOpen] = useState(true);
-  const [linksOpen, setLinksOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<"tree" | "links" | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
@@ -246,106 +246,48 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             </button>
           ))}
         </div>
+        <div className="kebab-wrap">
+          <button
+            type="button"
+            className="kebab-btn"
+            title="질문 트리 / 세션 링크"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            ⋮
+          </button>
+          {menuOpen && (
+            <>
+              <button
+                type="button"
+                className="kebab-backdrop"
+                aria-label="메뉴 닫기"
+                onClick={() => setMenuOpen(false)}
+              />
+              <div className="kebab-menu">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePanel("tree");
+                    setMenuOpen(false);
+                  }}
+                >
+                  질문 트리
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActivePanel("links");
+                    setMenuOpen(false);
+                  }}
+                >
+                  세션 링크
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
-      <main className={`monitor ${treeOpen || linksOpen ? "" : "monitor--sidebar-collapsed"}`}>
-      <div className="col-questions">
-        {treeOpen || linksOpen ? (
-          <>
-            <section className="panel accordion">
-              <button type="button" className="accordion-head" onClick={() => setTreeOpen((v) => !v)}>
-                <div>
-                  <h2>질문 트리</h2>
-                  <div className="sub">답변 분기별 파생질문 트리</div>
-                </div>
-                <span className="accordion-caret">{treeOpen ? "▾" : "▸"}</span>
-              </button>
-              {treeOpen && (
-                <>
-                  <div className="accordion-actions">
-                    {role === "pm" ? (
-                      <button type="button" className="btn-sm solid" disabled title="곧 지원 예정">
-                        ＋ 질문 편집
-                      </button>
-                    ) : (
-                      <span className="role-chip" style={{ fontSize: "10px" }}>
-                        참관 전용
-                      </span>
-                    )}
-                  </div>
-                  <ol className="tree">
-                    {questions.map((question, index) => {
-                      const current = index === session?.current_question_index;
-                      const done = session != null && index < session.current_question_index;
-                      return (
-                        <li key={question.id} className={current ? "current" : done ? "done" : ""}>
-                          <span className="q-num">{index + 1}</span>
-                          <div className="q-body">
-                            {question.text}
-                            {Object.entries(question.branches).map(([condition, followUp]) => (
-                              <div key={condition} className="branch">
-                                <span className="cond">{condition}</span>
-                                {followUp}
-                              </div>
-                            ))}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ol>
-
-                  {timekeeper && (
-                    <div className={`timekeeper ${timekeeper.should_move_on ? "warn" : ""}`} style={{ margin: "0 16px 16px" }}>
-                      <strong>타임키퍼</strong>
-                      <p>{timekeeper.hint}</p>
-                    </div>
-                  )}
-                </>
-              )}
-            </section>
-
-            <section className="panel accordion">
-              <button type="button" className="accordion-head" onClick={() => setLinksOpen((v) => !v)}>
-                <div>
-                  <h2>세션 링크</h2>
-                  <div className="sub">인터뷰이 · 클라이언트 접속 링크</div>
-                </div>
-                <span className="accordion-caret">{linksOpen ? "▾" : "▸"}</span>
-              </button>
-              {linksOpen && (
-                <div className="p-body">
-                  {role === "pm" ? (
-                    <>
-                      {intervieweeUrl && (
-                        <p className="link-row">
-                          인터뷰이: <code>{intervieweeUrl}</code>
-                          <button className="ghost" onClick={() => navigator.clipboard.writeText(intervieweeUrl)}>
-                            복사
-                          </button>
-                        </p>
-                      )}
-                      <p className="link-row">
-                        클라이언트: <span className="muted">준비 중</span>
-                      </p>
-                    </>
-                  ) : (
-                    <p className="muted small">참관 전용 — 링크는 PM만 볼 수 있습니다.</p>
-                  )}
-                </div>
-              )}
-            </section>
-          </>
-        ) : (
-          <div className="sidebar-rail">
-            <button type="button" className="rail-btn" title="질문 트리 펼치기" onClick={() => setTreeOpen(true)}>
-              🌳
-            </button>
-            <button type="button" className="rail-btn" title="세션 링크 펼치기" onClick={() => setLinksOpen(true)}>
-              🔗
-            </button>
-          </div>
-        )}
-      </div>
-
+      <main className="monitor">
       <div className="col-transcript">
       <section className="panel">
         <header className="p-head">
@@ -576,6 +518,90 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         </div>
       )}
       </main>
+
+      {activePanel && (
+        <>
+          <button
+            type="button"
+            className="overlay-backdrop"
+            aria-label="패널 닫기"
+            onClick={() => setActivePanel(null)}
+          />
+          <div className="overlay-panel">
+            <div className="overlay-panel-head">
+              <h2>{activePanel === "tree" ? "질문 트리" : "세션 링크"}</h2>
+              <button type="button" className="overlay-close" onClick={() => setActivePanel(null)}>
+                ×
+              </button>
+            </div>
+
+            {activePanel === "tree" && (
+              <div className="overlay-panel-body">
+                <div className="accordion-actions">
+                  {role === "pm" ? (
+                    <button type="button" className="btn-sm solid" disabled title="곧 지원 예정">
+                      ＋ 질문 편집
+                    </button>
+                  ) : (
+                    <span className="role-chip" style={{ fontSize: "10px" }}>
+                      참관 전용
+                    </span>
+                  )}
+                </div>
+                <ol className="tree">
+                  {questions.map((question, index) => {
+                    const current = index === session?.current_question_index;
+                    const done = session != null && index < session.current_question_index;
+                    return (
+                      <li key={question.id} className={current ? "current" : done ? "done" : ""}>
+                        <span className="q-num">{index + 1}</span>
+                        <div className="q-body">
+                          {question.text}
+                          {Object.entries(question.branches).map(([condition, followUp]) => (
+                            <div key={condition} className="branch">
+                              <span className="cond">{condition}</span>
+                              {followUp}
+                            </div>
+                          ))}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+
+                {timekeeper && (
+                  <div className={`timekeeper ${timekeeper.should_move_on ? "warn" : ""}`} style={{ margin: "0 16px 16px" }}>
+                    <strong>타임키퍼</strong>
+                    <p>{timekeeper.hint}</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activePanel === "links" && (
+              <div className="overlay-panel-body p-body">
+                {role === "pm" ? (
+                  <>
+                    {intervieweeUrl && (
+                      <p className="link-row">
+                        인터뷰이: <code>{intervieweeUrl}</code>
+                        <button className="ghost" onClick={() => navigator.clipboard.writeText(intervieweeUrl)}>
+                          복사
+                        </button>
+                      </p>
+                    )}
+                    <p className="link-row">
+                      클라이언트: <span className="muted">준비 중</span>
+                    </p>
+                  </>
+                ) : (
+                  <p className="muted small">참관 전용 — 링크는 PM만 볼 수 있습니다.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </>
   );
 }
