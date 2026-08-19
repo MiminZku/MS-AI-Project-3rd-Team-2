@@ -398,22 +398,22 @@ h2 {
 .resp-stage {
   position: relative;
   aspect-ratio: 16 / 9;
-  border-radius: 12px;
+  border-radius: 20px;
   overflow: hidden;
-  background: linear-gradient(150deg, #22303f, #141c27);
+  background: var(--panel);
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 14px 16px 16px;
   text-align: center;
-  color: #9fb3c8;
+  color: var(--muted);
   font-size: 12.5px;
   line-height: 1.7;
 }
 
 .resp-stage b {
   display: block;
-  color: #dbe6f2;
+  color: var(--text-white);
   font-size: 13.5px;
   margin-bottom: 4px;
 }
@@ -437,6 +437,7 @@ h2 {
   height: 6px;
   border-radius: 50%;
   background: var(--success);
+  box-shadow: 0 0 8px var(--success);
   animation: blink 1.1s infinite;
 }
 
@@ -461,7 +462,7 @@ h2 {
 .rs-figure svg {
   width: 100%;
   height: 100%;
-  filter: drop-shadow(0 6px 22px rgba(87, 217, 163, 0.2));
+  filter: drop-shadow(0 6px 22px rgba(16, 185, 129, 0.25));
 }
 
 .rs-strip {
@@ -507,8 +508,8 @@ h2 {
 }
 
 .audio-seg button.on {
-  background: rgba(91, 77, 233, 0.85);
-  color: #fff;
+  background: rgba(0, 113, 227, 0.85);
+  color: var(--text-white);
   opacity: 1;
 }
 
@@ -519,7 +520,7 @@ h2 {
 
 .lang-toggle button {
   border: 1px solid var(--panel-border);
-  background: #fff;
+  background: var(--panel);
   border-radius: 8px;
   padding: 5px 10px;
   font-size: 10px;
@@ -528,9 +529,9 @@ h2 {
 }
 
 .lang-toggle button.active {
-  background: #eeeaff;
-  color: #5c4ee5;
-  border-color: #ded8ff;
+  background: rgba(0, 113, 227, 0.15);
+  color: var(--primary);
+  border-color: rgba(0, 113, 227, 0.4);
   opacity: 1;
 }
 
@@ -544,7 +545,7 @@ h2 {
 .wave span {
   width: 3px;
   border-radius: 2px;
-  background: var(--self, #1f9d6b);
+  background: var(--self, #10b981);
   animation: talk 1s ease-in-out infinite;
 }
 
@@ -587,7 +588,7 @@ h2 {
 
 .turn {
   padding: 12px 4px;
-  border-bottom: 1px solid #f0f2f6;
+  border-bottom: 1px solid var(--panel-border);
 }
 
 .turn:last-child {
@@ -606,13 +607,13 @@ h2 {
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 6px;
-  background: #eafaf2;
-  color: #178a5a;
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--success);
 }
 
 .turn.assistant strong {
-  background: #eef1fd;
-  color: #4356b8;
+  background: rgba(0, 113, 227, 0.15);
+  color: #5ac8fa;
 }
 
 .turn-head time {
@@ -624,16 +625,16 @@ h2 {
   margin: 4px 0 0;
   font-size: 13.5px;
   line-height: 1.62;
-  color: #2c3547;
+  color: var(--text);
 }
 
 .rationale {
   margin: 8px 0 2px;
   padding: 9px 12px;
   border-radius: 10px;
-  background: linear-gradient(180deg, #f6f4ff, #f1eeff);
-  border: 1px solid #e2ddff;
-  color: #4b4470;
+  background: rgba(0, 113, 227, 0.08);
+  border: 1px solid rgba(0, 113, 227, 0.2);
+  color: var(--text);
   font-size: 11.5px;
   line-height: 1.5;
 }
@@ -643,7 +644,7 @@ h2 {
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #6a5cf0;
+  color: var(--primary);
   margin-bottom: 3px;
 }
 
