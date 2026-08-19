@@ -250,6 +250,8 @@ h2 {
   grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
   gap: 24px;
   padding: 24px 30px 60px;
+  max-width: 1600px;
+  margin: 0 auto;
   align-items: start;
   transition: padding-left 0.18s ease;
 }
