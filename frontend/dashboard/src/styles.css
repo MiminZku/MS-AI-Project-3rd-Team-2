@@ -1,17 +1,17 @@
 @import "pretendard/dist/web/variable/pretendardvariable.css";
 
 :root {
-  color-scheme: dark;
-  --bg: #000000;
-  --panel: #1d1d1f;
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --text: #f5f5f7;
+  color-scheme: light;
+  --bg: #f5f5f7;
+  --panel: #ffffff;
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --text: #1d1d1f;
   --text-white: #ffffff;
-  --muted: #86868b;
+  --muted: #6e6e73;
   --primary: #0071e3;
-  --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
+  --success: #34c759;
+  --error: #ff3b30;
+  --warning: #ff9500;
   font-family: "Pretendard Variable", Pretendard, "SF Pro Display", -apple-system, "Segoe UI",
     "Malgun Gothic", sans-serif;
   letter-spacing: -0.015em;
