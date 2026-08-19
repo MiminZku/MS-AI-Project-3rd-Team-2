@@ -33,7 +33,10 @@ class RealtimeSTTClient:
         }
 
         try:
-            self.ws = await websockets.connect(url, extra_headers=headers)
+            try:
+                self.ws = await websockets.connect(url, additional_headers=headers)
+            except TypeError:
+                self.ws = await websockets.connect(url, extra_headers=headers)
             self.running = True
             logger.info(f"[{self.session_id}] 실시간 STT 웹소켓 연결 성공")
             
