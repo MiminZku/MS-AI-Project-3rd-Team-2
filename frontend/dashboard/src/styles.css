@@ -85,7 +85,7 @@ h2 {
 .role-switch {
   display: flex;
   border: 1px solid var(--panel-border);
-  border-radius: 9999px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -165,7 +165,7 @@ h2 {
 
 .sess-btn {
   border: none;
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 14px 24px;
   font-size: 15px;
   font-weight: 700;
@@ -214,7 +214,7 @@ h2 {
 .swg {
   display: flex;
   border: 1px solid var(--panel-border);
-  border-radius: 9999px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -369,7 +369,8 @@ h2 {
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 28px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 6px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -773,7 +774,7 @@ h2 {
   min-height: 88px;
   resize: vertical;
   border: 1px solid var(--panel-border);
-  border-radius: 20px;
+  border-radius: 10px;
   padding: 12px;
   outline: none;
   font-size: 12.5px;
@@ -793,7 +794,7 @@ h2 {
   background: var(--primary);
   color: var(--text-white);
   padding: 14px 24px;
-  border-radius: 28px;
+  border-radius: 8px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
@@ -898,7 +899,7 @@ h2 {
 .report-note {
   margin: 14px 16px;
   padding: 11px 13px;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
   font-size: 11.5px;
@@ -913,7 +914,7 @@ h2 {
 .report-highlight {
   margin: 0 16px 12px;
   padding: 10px 12px;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid var(--panel-border);
   font-size: 12px;
   line-height: 1.55;
@@ -974,7 +975,7 @@ label {
 .btn-sm {
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 6px 10px;
   font-size: 10.5px;
   cursor: pointer;
@@ -1007,7 +1008,8 @@ label {
   max-height: 82vh;
   overflow: auto;
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 6px rgba(0, 0, 0, 0.04);
   padding: 22px;
 }
 
@@ -1031,7 +1033,7 @@ label {
 
 .format-seg button {
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
   color: var(--muted);
@@ -1081,7 +1083,7 @@ label {
   gap: 9px;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
-  border-radius: 20px;
+  border-radius: 14px;
   padding: 10px 12px;
   margin-bottom: 9px;
   flex-wrap: wrap;
@@ -1108,7 +1110,7 @@ label {
 .btn-ghost {
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 9px 15px;
   font-size: 12px;
   cursor: pointer;
@@ -1123,7 +1125,7 @@ textarea {
   width: 100%;
   margin-top: 6px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid var(--panel-border);
   background: #000000;
   color: var(--text);
@@ -1146,7 +1148,7 @@ textarea {
 
 button {
   padding: 14px 24px;
-  border-radius: 28px;
+  border-radius: 8px;
   border: none;
   background: var(--primary);
   color: var(--text-white);
@@ -1177,7 +1179,7 @@ button:disabled {
   flex-wrap: wrap;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
-  border-radius: 20px;
+  border-radius: 14px;
   padding: 10px 12px;
 }
 
