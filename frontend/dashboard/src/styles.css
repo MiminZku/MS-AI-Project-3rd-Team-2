@@ -1,21 +1,20 @@
 @import "pretendard/dist/web/variable/pretendardvariable.css";
 
 :root {
-  color-scheme: light;
-  --bg: #eef1f6;
-  --panel: #fff;
-  --line: #e2e7ef;
-  --text: #1a2233;
-  --muted: #545b6b;
-  --primary: #5b4de9;
-  --primary2: #8172fb;
-  --live: #16a36a;
-  --danger: #db4b50;
-  --ok: #16a36a;
-  --warn: #d98c16;
-  --shadow: 0 10px 30px rgba(29, 38, 60, 0.06);
-  font-family: "Pretendard Variable", Pretendard, system-ui, -apple-system, "Segoe UI", "Malgun Gothic",
-    sans-serif;
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #1d1d1f;
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --text: #f5f5f7;
+  --text-white: #ffffff;
+  --muted: #86868b;
+  --primary: #0071e3;
+  --success: #10b981;
+  --error: #ef4444;
+  --warning: #f59e0b;
+  font-family: "Pretendard Variable", Pretendard, "SF Pro Display", -apple-system, "Segoe UI",
+    "Malgun Gothic", sans-serif;
+  letter-spacing: -0.015em;
 }
 
 * {
@@ -43,7 +42,7 @@ h2 {
 .topbar {
   height: 60px;
   background: #fff;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--panel-border);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -85,14 +84,14 @@ h2 {
 
 .role-switch {
   display: flex;
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
   overflow: hidden;
 }
 
 .role-switch button {
   border: 0;
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--panel-border);
   background: #fff;
   padding: 7px 12px;
   font-size: 11px;
@@ -113,7 +112,7 @@ h2 {
 .role-chip {
   font-size: 11px;
   color: var(--muted);
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   background: #fff;
   padding: 7px 11px;
   border-radius: 8px;
@@ -135,7 +134,7 @@ h2 {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--live);
+  background: var(--success);
   animation: pulse 2.2s infinite;
 }
 
@@ -185,7 +184,7 @@ h2 {
 
 .sess-btn.stop {
   background: #fff;
-  color: var(--danger);
+  color: var(--error);
   border: 1px solid #f0c3c5;
 }
 
@@ -196,7 +195,7 @@ h2 {
   gap: 10px;
   padding: 10px 20px;
   background: #fff;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--panel-border);
   flex-wrap: wrap;
   position: sticky;
   top: 60px;
@@ -213,7 +212,7 @@ h2 {
 
 .swg {
   display: flex;
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -225,7 +224,7 @@ h2 {
   font-size: 11px;
   font-weight: 700;
   color: var(--muted);
-  border-right: 1px solid var(--line);
+  border-right: 1px solid var(--panel-border);
 }
 
 .swg button:last-child {
@@ -279,7 +278,7 @@ h2 {
 
 .panel {
   background: var(--panel);
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   border-radius: 16px;
   box-shadow: var(--shadow);
   display: flex;
@@ -293,7 +292,7 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--line);
+  border-bottom: 1px solid var(--panel-border);
   gap: 10px;
 }
 
@@ -437,7 +436,7 @@ h2 {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--live);
+  background: var(--success);
   animation: blink 1.1s infinite;
 }
 
@@ -519,7 +518,7 @@ h2 {
 }
 
 .lang-toggle button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   background: #fff;
   border-radius: 8px;
   padding: 5px 10px;
@@ -653,7 +652,7 @@ h2 {
   width: 100%;
   min-height: 88px;
   resize: vertical;
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   border-radius: 11px;
   padding: 12px;
   outline: none;
@@ -687,7 +686,7 @@ h2 {
 }
 
 .quick button {
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   background: #fbfbfe;
   border-radius: 999px;
   padding: 6px 11px;
@@ -733,7 +732,7 @@ h2 {
 }
 
 .h-dot.applied {
-  background: var(--live);
+  background: var(--success);
 }
 
 .h-state {
@@ -794,7 +793,7 @@ h2 {
   margin: 0 16px 12px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   font-size: 12px;
   line-height: 1.55;
 }
@@ -852,7 +851,7 @@ label {
 }
 
 .btn-sm {
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   background: #fff;
   border-radius: 8px;
   padding: 6px 10px;
@@ -953,7 +952,7 @@ label {
 }
 
 .btn-ghost {
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   background: #fff;
   border-radius: 10px;
   padding: 9px 15px;
@@ -971,7 +970,7 @@ textarea {
   margin-top: 6px;
   padding: 10px 12px;
   border-radius: 10px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   background: #fff;
   color: var(--text);
   font: inherit;
@@ -1006,7 +1005,7 @@ button {
 
 button.ghost {
   background: #fff;
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   color: var(--text);
   font-weight: 600;
 }
@@ -1041,20 +1040,20 @@ button:disabled {
   font-size: 11px;
   padding: 3px 10px;
   border-radius: 999px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--panel-border);
   color: var(--muted);
   background: #fff;
 }
 
 .badge.connected {
-  color: var(--ok);
+  color: var(--success);
   border-color: #b9e6cc;
   background: #f3fbf7;
 }
 
 .badge.error,
 .badge.closed {
-  color: var(--danger);
+  color: var(--error);
   border-color: #f0c3c5;
   background: #fdeeee;
 }
@@ -1068,5 +1067,5 @@ button:disabled {
 }
 
 .error {
-  color: var(--danger);
+  color: var(--error);
 }
