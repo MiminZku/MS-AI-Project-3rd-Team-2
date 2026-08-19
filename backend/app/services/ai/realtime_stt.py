@@ -26,7 +26,8 @@ class RealtimeSTTClient:
         api_key = self.settings.azure_openai_api_key
         
         # Realtime API websocket URL 형식 (Preview)
-        url = f"{endpoint}/openai/realtime?api-version=2024-10-01-preview&deployment={self.deployment}"
+        # 특정 모델(gpt-realtime-whisper 등)에서는 api-version을 넣으면 HTTP 400 에러가 발생함
+        url = f"{endpoint}/openai/realtime?deployment={self.deployment}"
         
         headers = {
             "api-key": api_key
