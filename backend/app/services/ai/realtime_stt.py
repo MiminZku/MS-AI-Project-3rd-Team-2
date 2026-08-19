@@ -56,11 +56,25 @@ class RealtimeSTTClient:
             
             # 세션 초기화 (Translate 엔드포인트와 일반 Realtime 엔드포인트 분기)
             if is_translate:
-                instructions = f"You are a real-time speech translator. Translate speech from {self.source_lang} to {self.target_lang}. Output ONLY the translated text in {self.target_lang} without any explanations, filler words, or other languages."
+                target_code = "en"
+                t_lower = self.target_lang.lower()
+                if "ko" in t_lower or "korean" in t_lower:
+                    target_code = "ko"
+                elif "ja" in t_lower or "japanese" in t_lower:
+                    target_code = "ja"
+                elif "zh" in t_lower or "chinese" in t_lower:
+                    target_code = "zh"
+                elif "es" in t_lower or "spanish" in t_lower:
+                    target_code = "es"
+
                 update_payload = {
                     "type": "session.update",
                     "session": {
-                        "instructions": instructions
+                        "audio": {
+                            "output": {
+                                "language": target_code
+                            }
+                        }
                     }
                 }
             else:
