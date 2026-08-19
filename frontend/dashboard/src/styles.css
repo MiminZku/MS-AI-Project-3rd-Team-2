@@ -247,10 +247,14 @@ h2 {
 /* ===== 3-COLUMN LAYOUT ===== */
 .monitor {
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.5fr) minmax(340px, 0.95fr);
+  grid-template-columns: minmax(240px, 0.8fr) minmax(0, 1.7fr) minmax(320px, 1fr);
   gap: 24px;
   padding: 24px 30px 60px;
   align-items: start;
+}
+
+.monitor.monitor--sidebar-collapsed {
+  grid-template-columns: 56px minmax(0, 1.7fr) minmax(320px, 1fr);
 }
 
 @media (max-width: 1200px) {
@@ -275,6 +279,53 @@ h2 {
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+}
+
+.accordion-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 20px 24px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--panel-border);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.accordion-caret {
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.accordion-actions {
+  padding: 12px 24px 0;
+}
+
+.sidebar-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-top: 12px;
+}
+
+.rail-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--panel-border);
+  background: var(--panel);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .panel {
