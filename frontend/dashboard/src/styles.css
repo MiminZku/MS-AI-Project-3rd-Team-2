@@ -251,6 +251,13 @@ h2 {
   gap: 24px;
   padding: 24px 30px 60px;
   align-items: start;
+  transition: padding-left 0.18s ease;
+}
+
+/* 케밥 드로어가 열려있는 동안엔 콘텐츠를 오른쪽으로 밀어줘서 응답자 화면(영상)을 가리지 않게 함 */
+body:has(.kebab-wrap:hover) .monitor,
+body:has(.kebab-wrap.pinned) .monitor {
+  padding-left: calc(30px + min(360px, 88vw));
 }
 
 @media (max-width: 820px) {
