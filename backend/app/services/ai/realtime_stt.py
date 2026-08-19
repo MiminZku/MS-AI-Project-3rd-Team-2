@@ -26,10 +26,9 @@ class RealtimeSTTClient:
         api_key = self.settings.azure_openai_api_key
         
         # Azure OpenAI Realtime API (GA 표준 엔드포인트)
-        # 번역 모델(gpt-realtime-translate)은 /openai/v1/realtime/translations 엔드포인트를 사용
-        # 일반 STT 모델(gpt-realtime-whisper)은 /openai/v1/realtime 엔드포인트를 사용
-        path = "/openai/v1/realtime/translations" if "translate" in self.deployment else "/openai/v1/realtime"
-        url = f"{endpoint}{path}?model={self.deployment}&deployment={self.deployment}&api-key={api_key}"
+        is_translate = "translate" in self.deployment
+        path = "/openai/v1/realtime/translations" if is_translate else "/openai/v1/realtime"
+        url = f"{endpoint}{path}?model={self.deployment}"
         
         headers = {
             "api-key": api_key
@@ -45,32 +44,28 @@ class RealtimeSTTClient:
                 logger.info(f"[{self.session_id}] 실시간 STT 연결 성공 (websockets Legacy API)")
             self.running = True
             
-            # Determine system prompt based on deployment
-            system_prompt = "You are a helpful assistant."
-            if "translate" in self.deployment:
-                system_prompt = "You are a real-time translator. Translate whatever the user says into English. Output ONLY the English translation without any conversational filler."
-            else:
-                system_prompt = "You are a real-time transcriber. Transcribe whatever the user says in Korean. Output ONLY the Korean transcription without any conversational filler."
-
-            # 세션 초기화 (Text 모드로 설정)
-            update_payload = {
-                "type": "session.update",
-                "session": {
-                    "modalities": ["text"],
-                    "instructions": system_prompt,
-                    "input_audio_format": "pcm16",
-                    "output_audio_format": "pcm16",
-                    "turn_detection": {
-                        "type": "server_vad",
-                        "threshold": 0.5,
-                        "prefix_padding_ms": 300,
-                        "silence_duration_ms": 500
-                    },
-                    "input_audio_transcription": {
-                        "model": "whisper-1"
+            # 세션 초기화 (Translate 엔드포인트와 일반 Realtime 엔드포인트 분기)
+            if is_translate:
+                update_payload = {
+                    "type": "session.update",
+                    "session": {
+                        "instructions": "Translate whatever the user says into English accurately."
                     }
                 }
-            }
+            else:
+                update_payload = {
+                    "type": "session.update",
+                    "session": {
+                        "modalities": ["text"],
+                        "instructions": "You are a real-time transcriber. Transcribe whatever the user says in Korean.",
+                        "input_audio_format": "pcm16",
+                        "output_audio_format": "pcm16",
+                        "input_audio_transcription": {
+                            "model": "whisper-1"
+                        }
+                    }
+                }
+
             logger.info(f"[{self.session_id}] 전송: session.update ({self.deployment})")
             await self.ws.send(json.dumps(update_payload))
             
@@ -92,29 +87,25 @@ class RealtimeSTTClient:
                 if msg_type not in ["response.audio.delta", "input_audio_buffer.append"]:
                     logger.info(f"[{self.session_id}] 수신 이벤트: {msg_type}")
                 
-                if msg_type == "response.text.delta":
+                # 수신 이벤트 처리
+                if msg_type in ["response.text.delta", "session.output_transcript.delta", "response.audio_transcript.delta"]:
                     delta = data.get("delta", "")
                     self.current_text += delta
-                    # logger.info(f"[{self.session_id}] STT 조각: {delta} -> 누적: {self.current_text}")
                     await self.on_partial(self.current_text)
-                elif msg_type == "response.text.done":
-                    text = data.get("text", "")
-                    if text:
-                        self.current_text = text
-                    logger.info(f"[{self.session_id}] STT 완료: {self.current_text}")
-                    await self.on_final(self.current_text)
+                elif msg_type in ["response.text.done", "session.output_transcript.completed"]:
+                    text = data.get("text", "") or self.current_text
+                    logger.info(f"[{self.session_id}] 번역/전사 완료: {text}")
+                    await self.on_final(text)
                     self.current_text = ""
-                elif msg_type == "conversation.item.input_audio_transcription.partial":
-                    # Some implementations emit this
-                    text = data.get("transcript", "")
-                    logger.info(f"[{self.session_id}] STT Transcription Partial: {text}")
-                    await self.on_partial(text)
-                elif msg_type == "conversation.item.input_audio_transcription.completed":
-                    # Fallback for input audio transcription if enabled
-                    text = data.get("transcript", "")
-                    logger.info(f"[{self.session_id}] STT Transcription Completed: {text}")
-                    if "translate" not in self.deployment:
-                        await self.on_final(text)
+                elif msg_type in ["conversation.item.input_audio_transcription.partial", "session.input_transcript.delta"]:
+                    delta = data.get("transcript", "") or data.get("delta", "")
+                    self.current_text += delta
+                    await self.on_partial(self.current_text)
+                elif msg_type in ["conversation.item.input_audio_transcription.completed", "session.input_transcript.completed"]:
+                    text = data.get("transcript", "") or self.current_text
+                    logger.info(f"[{self.session_id}] 한국어 전사 완료: {text}")
+                    await self.on_final(text)
+                    self.current_text = ""
                 elif msg_type == "error":
                     logger.error(f"[{self.session_id}] Realtime API 에러: {data}")
         except websockets.exceptions.ConnectionClosed:
@@ -128,9 +119,9 @@ class RealtimeSTTClient:
         if not self.running or not self.ws:
             return
         
-        # Audio chunk 전송
+        event_type = "session.input_audio_buffer.append" if "translate" in self.deployment else "input_audio_buffer.append"
         await self.ws.send(json.dumps({
-            "type": "input_audio_buffer.append",
+            "type": event_type,
             "audio": base64_pcm
         }))
 
@@ -138,14 +129,17 @@ class RealtimeSTTClient:
         if not self.running or not self.ws:
             return
         
-        logger.info(f"[{self.session_id}] 마이크 끄기 - 발화 종료 신호(commit/create) 전송")
-        # 발화 종료 신호
-        await self.ws.send(json.dumps({
-            "type": "input_audio_buffer.commit"
-        }))
-        await self.ws.send(json.dumps({
-            "type": "response.create"
-        }))
+        logger.info(f"[{self.session_id}] 마이크 끄기 - 발화 종료 신호 전송")
+        if "translate" in self.deployment:
+            # Translate 세션에서는 별도의 response.create 없이 지속적으로 스트리밍 처리됨
+            pass
+        else:
+            await self.ws.send(json.dumps({
+                "type": "input_audio_buffer.commit"
+            }))
+            await self.ws.send(json.dumps({
+                "type": "response.create"
+            }))
 
     async def close(self):
         self.running = False
