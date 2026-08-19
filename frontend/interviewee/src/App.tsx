@@ -106,32 +106,21 @@ export default function App() {
     }
   }, [history]);
 
-  const handleRecordingComplete = async (blob: Blob) => {
-    if (!sessionId || sessionId === "default-session") {
-      console.log("Mock STT upload for default-session.");
-      return;
+  const handleAudioChunk = (base64PCM: string) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.chunk", data: base64PCM }));
     }
+  };
 
-    // HTTP base URL derived from WS_BASE_URL
-    const httpBaseUrl = WS_BASE_URL.replace("ws://", "http://").replace("wss://", "https://");
-    
-    try {
-      const formData = new FormData();
-      formData.append("audio", blob, "audio.webm");
+  const handleRecordingStart = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.start" }));
+    }
+  };
 
-      const res = await fetch(`${httpBaseUrl}/api/interview/${sessionId}/audio`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error(`Upload failed: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      console.log("STT success:", data);
-    } catch (err) {
-      console.error("Audio upload error:", err);
+  const handleRecordingStop = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.end" }));
     }
   };
 
@@ -371,7 +360,9 @@ export default function App() {
             isRecording={isRecording}
             onRecordingChange={setIsRecording}
             showMicOffAlert={showMicOffAlert}
-            onRecordingComplete={handleRecordingComplete}
+            onAudioChunk={handleAudioChunk}
+            onRecordingStart={handleRecordingStart}
+            onRecordingStop={handleRecordingStop}
           />
           <QuestionPromptBox question={question} />
         </div>

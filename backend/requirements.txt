@@ -21,3 +21,6 @@ azure-communication-identity>=1.5.0
 
 # 파일 업로드 (STT 오디오)
 python-multipart>=0.0.9
+
+# 실시간 스트리밍 클라이언트 (Azure OpenAI Realtime API 통신용)
+websockets>=12.0

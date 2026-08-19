@@ -10,32 +10,13 @@ from app.schemas.messages import server_message
 from app.services import orchestrator
 from app.services.connections import manager
 from app.services.store import get_store
-from app.services.ai.stt import get_transcriber
+from app.services.ai.realtime_stt import RealtimeSTTClient
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-@router.post("/api/interview/{session_id}/audio")
-async def handle_audio(session_id: str, audio: UploadFile = File(...)) -> dict:
-    store = get_store()
-    session = await store.get_session(session_id)
-    if not session or session.status != "running":
-        raise HTTPException(status_code=400, detail="유효하지 않은 세션이거나 진행 중이 아닙니다.")
-        
-    audio_bytes = await audio.read()
-    transcriber = get_transcriber()
-    
-    try:
-        text = await transcriber.transcribe(audio_bytes, mime_type=audio.content_type or "audio/webm")
-    except Exception as e:
-        logger.exception("STT 에러")
-        raise HTTPException(status_code=500, detail="음성 인식에 실패했습니다.")
-        
-    if not text.strip():
-        return {"status": "ignored", "reason": "empty transcript"}
-        
-    await orchestrator.handle_utterance(session, text)
-    return {"status": "success", "text": text}
+# Legacy POST API removed for Realtime STT
 
 
 @router.websocket("/ws/interview/{session_id}")
@@ -62,17 +43,54 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
         session_id, server_message("interviewee.connected", session_id=session_id)
     )
 
+    settings = get_settings()
+    stt_client = None
+    translate_client = None
+
+    async def on_stt_partial(text: str):
+        await manager.broadcast_to_observers(session_id, server_message("transcript.partial", lang="ko", text=text))
+        
+    async def on_stt_final(text: str):
+        await manager.broadcast_to_observers(session_id, server_message("transcript.final", lang="ko", text=text))
+        current = await store.get_session(session_id)
+        if current and text.strip():
+            await orchestrator.handle_utterance(current, text.strip())
+
+    async def on_translate_partial(text: str):
+        await manager.broadcast_to_observers(session_id, server_message("transcript.partial", lang="en", text=text))
+        
+    async def on_translate_final(text: str):
+        await manager.broadcast_to_observers(session_id, server_message("transcript.final", lang="en", text=text))
+
     try:
         while True:
             message = await websocket.receive_json()
             msg_type = message.get("type")
 
-            if msg_type == "utterance":
-                # TODO(MVP): 오디오 프레임 수신 + endpointing(C2) 후 STT 결과를 여기에 넣는다.
+            if msg_type == "audio.start":
+                # Initialize Realtime clients if not created
+                if not stt_client and settings.use_azure_openai:
+                    stt_client = RealtimeSTTClient(session_id, settings.azure_openai_realtime_stt_deployment, on_stt_partial, on_stt_final)
+                    await stt_client.connect()
+                if not translate_client and settings.use_azure_openai:
+                    translate_client = RealtimeSTTClient(session_id, settings.azure_openai_realtime_translate_deployment, on_translate_partial, on_translate_final)
+                    await translate_client.connect()
+                    
+            elif msg_type == "audio.chunk":
+                b64_data = message.get("data")
+                if b64_data:
+                    if stt_client: await stt_client.send_audio_chunk(b64_data)
+                    if translate_client: await translate_client.send_audio_chunk(b64_data)
+                    
+            elif msg_type == "audio.end":
+                if stt_client: await stt_client.commit_audio()
+                if translate_client: await translate_client.commit_audio()
+                
+            elif msg_type == "utterance":
+                # Fallback for text mode demo
                 text = (message.get("text") or "").strip()
                 if not text:
                     continue
-                # 세션은 매 턴 다시 읽는다 — 다른 인스턴스가 갱신했을 수 있으므로 (D4)
                 current = await store.get_session(session_id)
                 if current is None:
                     break
@@ -86,6 +104,11 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
     except Exception:
         logger.exception("인터뷰 소켓 오류 session=%s", session_id)
     finally:
+        if stt_client:
+            await stt_client.close()
+        if translate_client:
+            await translate_client.close()
+            
         manager.disconnect_interviewee(session_id, websocket)
         await manager.broadcast_to_observers(
             session_id, server_message("interviewee.disconnected", session_id=session_id)

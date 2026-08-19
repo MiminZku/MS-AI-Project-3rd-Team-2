@@ -62,6 +62,8 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [intervieweeOnline, setIntervieweeOnline] = useState(false);
   const [status, setStatus] = useState("connecting");
   const [draft, setDraft] = useState("");
+  const [liveTextKo, setLiveTextKo] = useState("");
+  const [liveTextEn, setLiveTextEn] = useState("");
   const [report, setReport] = useState<Report | null>(null);
   const [ending, setEnding] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -107,6 +109,14 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
           break;
         case "transcript.append":
           setTranscript((prev) => [...prev, message.turn]);
+          if (message.turn.speaker === "interviewee") {
+            setLiveTextKo("");
+            setLiveTextEn("");
+          }
+          break;
+        case "transcript.partial":
+          if (message.lang === "ko") setLiveTextKo(message.text);
+          if (message.lang === "en") setLiveTextEn(message.text);
           break;
         case "instruction.queued":
           setInstructions((prev) => [...prev, message.instruction]);
@@ -342,6 +352,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                       fill="rgba(120,220,180,.15)"
                     />
                   </svg>
+                )}
+                {/* 실시간 자막 UI */}
+                {(liveTextKo || liveTextEn) && (
+                  <div style={{ position: "absolute", bottom: "16px", left: "16px", right: "16px", background: "rgba(0,0,0,0.7)", color: "white", padding: "12px", borderRadius: "8px", fontSize: "14px", lineHeight: 1.5, zIndex: 10 }}>
+                    {liveTextKo && <div style={{ marginBottom: liveTextEn ? "4px" : 0 }}>{liveTextKo}</div>}
+                    {liveTextEn && <div style={{ color: "#ffd54f" }}>{liveTextEn}</div>}
+                  </div>
                 )}
               </div>
               <div className="rs-strip">
