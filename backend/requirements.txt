@@ -18,3 +18,6 @@ httpx>=0.27
 
 # WebRTC(ACS) 권한 토큰 발급용
 azure-communication-identity>=1.5.0
+
+# 파일 업로드 (STT 오디오)
+python-multipart>=0.0.9

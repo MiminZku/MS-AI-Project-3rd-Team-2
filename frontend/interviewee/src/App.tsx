@@ -105,6 +105,36 @@ export default function App() {
       console.log("Interview history updated:", history);
     }
   }, [history]);
+
+  const handleRecordingComplete = async (blob: Blob) => {
+    if (!sessionId || sessionId === "default-session") {
+      console.log("Mock STT upload for default-session.");
+      return;
+    }
+
+    // HTTP base URL derived from WS_BASE_URL
+    const httpBaseUrl = WS_BASE_URL.replace("ws://", "http://").replace("wss://", "https://");
+    
+    try {
+      const formData = new FormData();
+      formData.append("audio", blob, "audio.webm");
+
+      const res = await fetch(`${httpBaseUrl}/api/interview/${sessionId}/audio`, {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        throw new Error(`Upload failed: ${res.status}`);
+      }
+      
+      const data = await res.json();
+      console.log("STT success:", data);
+    } catch (err) {
+      console.error("Audio upload error:", err);
+    }
+  };
+
   const handleWelcomeStart = async () => {
     setIsExplainerOpen(false);
     setIsChecking(true);
@@ -341,6 +371,7 @@ export default function App() {
             isRecording={isRecording}
             onRecordingChange={setIsRecording}
             showMicOffAlert={showMicOffAlert}
+            onRecordingComplete={handleRecordingComplete}
           />
           <QuestionPromptBox question={question} />
         </div>

@@ -3,9 +3,10 @@ import { useState, useRef } from "react";
 interface MicButtonProps {
   isRecording: boolean;
   onRecordingChange: (isRecording: boolean) => void;
+  onRecordingComplete?: (blob: Blob) => void;
 }
 
-export default function MicButton({ isRecording, onRecordingChange }: MicButtonProps) {
+export default function MicButton({ isRecording, onRecordingChange, onRecordingComplete }: MicButtonProps) {
   const [errorMsg, setErrorMsg] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -32,6 +33,9 @@ export default function MicButton({ isRecording, onRecordingChange }: MicButtonP
         const audioUrl = URL.createObjectURL(audioBlob);
         console.log("Local recording finished. Audio Blob URL:", audioUrl);
         console.log("Audio Blob size:", audioBlob.size, "bytes");
+        if (onRecordingComplete) {
+          onRecordingComplete(audioBlob);
+        }
       };
 
       mediaRecorder.start();

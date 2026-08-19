@@ -7,6 +7,7 @@ interface RespondentMonitorProps {
   isRecording: boolean;
   onRecordingChange: (isRecording: boolean) => void;
   showMicOffAlert: boolean;
+  onRecordingComplete?: (blob: Blob) => void;
 }
 
 export default function RespondentMonitor({
@@ -14,6 +15,7 @@ export default function RespondentMonitor({
   isRecording,
   onRecordingChange,
   showMicOffAlert,
+  onRecordingComplete,
 }: RespondentMonitorProps) {
   const { videoRef, isCameraOn } = useSelfViewStream(isActive);
 
@@ -38,7 +40,7 @@ export default function RespondentMonitor({
       </div>
 
       <div className={`mic-banner ${showMicOffAlert ? "warning" : ""}`}>
-        <MicButton isRecording={isRecording} onRecordingChange={onRecordingChange} />
+        <MicButton isRecording={isRecording} onRecordingChange={onRecordingChange} onRecordingComplete={onRecordingComplete} />
         <div className="mic-banner-content">
           {showMicOffAlert ? (
             <p className="mic-banner-warning">

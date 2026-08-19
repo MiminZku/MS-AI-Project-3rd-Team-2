@@ -4,15 +4,38 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, UploadFile, File, HTTPException
 
 from app.schemas.messages import server_message
 from app.services import orchestrator
 from app.services.connections import manager
 from app.services.store import get_store
+from app.services.ai.stt import get_transcriber
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+@router.post("/api/interview/{session_id}/audio")
+async def handle_audio(session_id: str, audio: UploadFile = File(...)) -> dict:
+    store = get_store()
+    session = await store.get_session(session_id)
+    if not session or session.status != "running":
+        raise HTTPException(status_code=400, detail="유효하지 않은 세션이거나 진행 중이 아닙니다.")
+        
+    audio_bytes = await audio.read()
+    transcriber = get_transcriber()
+    
+    try:
+        text = await transcriber.transcribe(audio_bytes, mime_type=audio.content_type or "audio/webm")
+    except Exception as e:
+        logger.exception("STT 에러")
+        raise HTTPException(status_code=500, detail="음성 인식에 실패했습니다.")
+        
+    if not text.strip():
+        return {"status": "ignored", "reason": "empty transcript"}
+        
+    await orchestrator.handle_utterance(session, text)
+    return {"status": "success", "text": text}
 
 
 @router.websocket("/ws/interview/{session_id}")
