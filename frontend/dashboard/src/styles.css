@@ -363,7 +363,7 @@ h2 {
   padding: 12px 24px 0;
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-white);
+  color: var(--text);
 }
 
 .panel {
@@ -467,7 +467,7 @@ h2 {
   height: 20px;
   border-radius: 6px;
   background: rgba(0, 113, 227, 0.15);
-  color: #5ac8fa;
+  color: var(--primary);
   font-size: 10px;
   font-weight: 800;
   display: grid;
@@ -509,7 +509,7 @@ h2 {
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.06);
   color: var(--muted);
   margin-right: 6px;
 }
@@ -520,13 +520,13 @@ h2 {
   aspect-ratio: 16 / 9;
   border-radius: 20px;
   overflow: hidden;
-  background: var(--panel);
+  background: #1d1d1f;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 14px 16px 16px;
   text-align: center;
-  color: var(--muted);
+  color: #86868b;
   font-size: 12.5px;
   line-height: 1.7;
 }
@@ -733,7 +733,7 @@ h2 {
 
 .turn.assistant strong {
   background: rgba(0, 113, 227, 0.15);
-  color: #5ac8fa;
+  color: var(--primary);
 }
 
 .turn-head time {
@@ -780,12 +780,13 @@ h2 {
   font-size: 12.5px;
   line-height: 1.55;
   font-family: inherit;
-  background: #000000;
-  color: var(--text-white);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .composer textarea:focus {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 .composer > button {
@@ -885,7 +886,7 @@ h2 {
   content: "인터뷰 시작 후 사용할 수 있습니다";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.82);
+  background: rgba(255, 255, 255, 0.85);
   display: grid;
   place-items: center;
   text-align: center;
@@ -922,7 +923,7 @@ h2 {
 
 .report-highlight b {
   display: block;
-  color: var(--text-white);
+  color: var(--text);
   margin-bottom: 4px;
 }
 
@@ -1127,7 +1128,7 @@ textarea {
   padding: 10px 12px;
   border-radius: 8px;
   border: 1px solid var(--panel-border);
-  background: #000000;
+  background: var(--bg);
   color: var(--text);
   font: inherit;
   font-size: 12.5px;
@@ -1137,7 +1138,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 textarea {
