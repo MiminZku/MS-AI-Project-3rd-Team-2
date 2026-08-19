@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     azure_speech_region: str = ""
 
     # 실시간 웹소켓 모델 (GPT-4o Realtime 또는 GPT-Live-Transcribe)
+    azure_openai_realtime_api_version: str = "2026-06-01-preview"
     azure_openai_realtime_stt_deployment: str = "gpt-realtime-whisper"
     azure_openai_realtime_translate_deployment: str = "gpt-realtime-translate"
 
