@@ -14,8 +14,8 @@ from app.services.store import get_store
 
 
 router = APIRouter(
-    prefix="/studies",
-    tags=["studies"],
+    prefix="/projects",
+    tags=["projects"],
     dependencies=[
         Depends(require_admin)
     ],
