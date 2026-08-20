@@ -36,6 +36,14 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
   return response.json();
 }
 
+export async function listSessions(): Promise<Session[]> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions`, {
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`세션 목록 조회 실패 (${response.status})`);
+  return response.json();
+}
+
 export async function fetchSession(sessionId: string): Promise<SessionResponse> {
   const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
     headers: headers(),
