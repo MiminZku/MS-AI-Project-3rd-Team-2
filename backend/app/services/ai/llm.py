@@ -1,4 +1,4 @@
-﻿"""?ㅼ쓬 吏덈Ц ?앹꽦 + 遺꾧린 ?먮떒 (짠4.2). Azure OpenAI GPT-4o ?ъ슜.
+"""?ㅼ쓬 吏덈Ц ?앹꽦 + 遺꾧린 ?먮떒 (짠4.2). Azure OpenAI GPT-4o ?ъ슜.
 
 ?ㅺ? ?놁쑝硫??ㅽ뀅?쇰줈 ?대갚?쒕떎. ?ㅽ뀅?댁뼱??'李멸???吏??-> ?ㅼ쓬 吏덈Ц 諛섏쁺' ?먮쫫?
 洹몃?濡?愿李곕릺誘濡? Azure 由ъ냼???놁씠 CI/CD? ?뚯씠?꾨씪?몄쓣 癒쇱? 寃利앺븷 ???덈떎.
@@ -36,7 +36,7 @@ class QuestionGenerator(Protocol):
 
 
 class StubQuestionGenerator:
-    """Azure 誘몄뿰寃??곹깭?먯꽌 ?뚯씠?꾨씪?몄쓣 寃利앺븯湲??꾪븳 ?泥?援ы쁽."""
+    """Azure 미연결 상태에서 파이프라인을 검증하기 위한 스텁 구현."""
 
     async def generate(
         self,
@@ -50,21 +50,33 @@ class StubQuestionGenerator:
 
         if instruction is not None:
             return GeneratedQuestion(
-                text=f"諛⑷툑 留먯? 以묒뿉 沅곴툑??寃??덈뒗?곗슂, {instruction.text} 愿?⑦빐??議곌툑 ???ㅻ젮二쇱떆寃좎뼱??",
-                rationale=f"[STUB] 李멸???吏??'{instruction.text}'瑜??대쾲 ?댁뿉 二쇱엯?덉뒿?덈떎.",
+                text=f"방금 말씀 중에 궁금한 점이 있는데요, {instruction.text} 관련해서 조금 더 들려주시겠어요?",
+                rationale=f"[STUB] 참관자 지시 '{instruction.text}'를 이번 턴에 주입했습니다.",
                 next_question_index=index,
             )
+
+        # 직전 답변에 분기(Branch) 키워드가 매칭되는지 확인
+        last_turn = transcript[-1] if transcript else None
+        if last_turn and last_turn.speaker == "interviewee" and index < len(questions):
+            curr_q = questions[index]
+            for branch_k, branch_q in curr_q.branches.items():
+                if branch_k in last_turn.text:
+                    return GeneratedQuestion(
+                        text=branch_q,
+                        rationale=f"[STUB] 응답자의 키워드 '{branch_k}'에 매칭되어 파생 꼬리질문으로 전이했습니다.",
+                        next_question_index=index + 1,
+                    )
 
         if index < len(questions):
             return GeneratedQuestion(
                 text=questions[index].text,
-                rationale="[STUB] ?湲?以묒씤 李멸???吏?쒓? ?놁뼱 吏덈Ц 由ъ뒪???쒖꽌?濡?吏꾪뻾?덉뒿?덈떎.",
+                rationale="[STUB] 대기 중인 참관자 지시가 없어 질문 리스트 순서대로 진행했습니다.",
                 next_question_index=index + 1,
             )
 
         return GeneratedQuestion(
-            text="?ㅻ뒛 ?댁빞湲고빐二쇱떊 寃?以묒뿉 媛???꾩돩?좊뜕 寃쏀뿕???섎굹留???留먯??댁＜?쒓쿋?댁슂?",
-            rationale="[STUB] 吏덈Ц 由ъ뒪?몃? 紐⑤몢 ?뚯쭊??留덈Т由?吏덈Ц?쇰줈 ?꾪솚?덉뒿?덈떎.",
+            text="오늘 이야기해주신 것 중에 가장 아쉬웠던 경험을 하나만 더 말씀해주시겠어요?",
+            rationale="[STUB] 질문 리스트를 모두 소진해 마무리 질문으로 전환했습니다.",
             next_question_index=index,
         )
 

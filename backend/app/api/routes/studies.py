@@ -1,16 +1,19 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from app.api.deps import require_admin
+from app.schemas.session import QuestionNode
 from app.schemas.study import (
     ResearchStudy,
     ResearchStudyCreateRequest,
     ResearchStudyCreateResponse,
 )
+from app.services.ai.document_parser import get_document_parser
 from app.services.question_script import parse_question_script
 from app.services.report.slot_generator import get_slot_generator
 from app.services.store import get_store
+from app.services.storage import get_storage_service
 
 
 router = APIRouter(
@@ -74,6 +77,77 @@ async def create_study(
     return ResearchStudyCreateResponse(
         study=study
     )
+
+
+# =========================================================
+# Research Study 가이드라인 파일 업로드 및 자동 생성 (Word, PDF, MD)
+# =========================================================
+
+@router.post(
+    "/upload-guide",
+    response_model=ResearchStudyCreateResponse,
+    status_code=201,
+)
+async def upload_guide_file(
+    file: UploadFile = File(...),
+) -> ResearchStudyCreateResponse:
+    storage = get_storage_service()
+    parser = get_document_parser()
+    
+    content = await file.read()
+    filename = file.filename or "guide.md"
+    
+    # 1. 문서 파싱
+    raw_text = parser.extract_text_from_bytes(content, filename)
+    parsed = await parser.parse_guide(raw_text)
+    
+    # QuestionNode 변환
+    questions = [
+        QuestionNode(
+            id=f"q{q.order}",
+            order=q.order,
+            text=q.text,
+            branches=q.branches,
+        )
+        for q in parsed.questions
+    ]
+    
+    # 2. Information Slot 생성
+    slot_generator = get_slot_generator()
+    try:
+        information_slots = await slot_generator.generate(
+            title=parsed.title,
+            research_purpose=parsed.research_purpose,
+            question_script=raw_text,
+            questions=questions,
+        )
+    except Exception as e:
+        logger.warning("Information Slot 생성 건너뜀: %s", e)
+        information_slots = []
+        
+    study = ResearchStudy(
+        title=parsed.title,
+        research_purpose=parsed.research_purpose,
+        question_script=raw_text,
+        questions=questions,
+        information_slots=information_slots,
+    )
+    
+    # 3. Blob Storage에 원본 문서 업로드
+    try:
+        source_url = await storage.upload_file(
+            file_bytes=content,
+            filename=f"{study.id}/{filename}",
+            content_type=file.content_type or "application/octet-stream",
+            container_name="documents",
+        )
+    except Exception as e:
+        logger.warning("문서 Blob Storage 업로드 실패: %s", e)
+        
+    # 4. Cosmos DB 저장
+    await get_store().save_study(study)
+    
+    return ResearchStudyCreateResponse(study=study)
 
 
 # =========================================================
