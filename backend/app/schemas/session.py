@@ -53,6 +53,7 @@ class Turn(BaseModel):
     index: int
     speaker: Speaker
     text: str
+    text_en: str | None = None
     # AI 판단 근거. 참관자 전용이며 인터뷰이에게 절대 전송하지 않는다 (C5).
     rationale: str | None = None
     # 이 턴에 주입된 참관자 지시 id (있는 경우)
