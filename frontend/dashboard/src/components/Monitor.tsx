@@ -361,6 +361,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <span className="dot" />
                 {timerLabel}
               </span>
+              <button type="button" className="btn-sm" disabled title="곧 지원 예정 · 백엔드 연동 후 사용 가능">
+                ＋10분
+              </button>
               <span className={`badge ${status}`}>{status}</span>
             </div>
           </div>
