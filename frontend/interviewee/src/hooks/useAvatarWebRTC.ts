@@ -186,7 +186,7 @@ export function useAvatarWebRTC({
   }, [character, style, voice, cleanup]);
 
   const speak = useCallback(
-    async (text: string, customVoice?: string) => {
+    async (text: string, customVoice?: string, speedRate: number = 1.35) => {
       const synthesizer = avatarSynthesizerRef.current;
       if (!synthesizer) {
         console.warn("Avatar synthesizer is not ready yet.");
@@ -196,9 +196,13 @@ export function useAvatarWebRTC({
       try {
         setStatus("speaking");
         const activeVoice = customVoice || voice;
-        const spokenSsml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='ko-KR'><voice name='${activeVoice}'><mstts:leadingsilence-exact value='0'/>${htmlEncode(text)}</voice></speak>`;
+        // speedRate(예: 0.8, 1.0, 1.2, 1.4, 1.6) -> SSML rate 퍼센티지 변환
+        const ratePercent = Math.round((speedRate - 1) * 100);
+        const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
 
-        console.log("Avatar speak start:", text);
+        const spokenSsml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='ko-KR'><voice name='${activeVoice}'><mstts:leadingsilence-exact value='0'/><prosody rate='${rateStr}'>${htmlEncode(text)}</prosody></voice></speak>`;
+
+        console.log(`Avatar speak start (${speedRate}x, rate=${rateStr}):`, text);
         const result = await synthesizer.speakSsmlAsync(spokenSsml);
         if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
           console.log("Avatar speak completed.");

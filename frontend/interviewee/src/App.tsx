@@ -15,6 +15,19 @@ type Status = "idle" | "connecting" | "connected" | "closed" | "error";
 type SessionStatus = "created" | "running" | "ended";
 type EntryStep = "gromit" | "welcome" | "consent" | "waiting" | "running" | "ended";
 
+const DUMMY_QUESTIONS = [
+  "평소 업무나 일상에서 AI 도구를 얼마나 자주 사용하시나요?",
+  "주로 어떤 상황이나 업무에서 AI 도구가 가장 유용하다고 느끼셨나요?",
+  "반대로 AI 도구를 사용하면서 아쉬웠거나 불편했던 점이 있으셨나요?",
+  "마지막으로 앞으로 AI 인터뷰나 업무 도구에 바라는 점이 있다면 말씀해 주세요.",
+];
+
+const DUMMY_REACTIONS = [
+  "아, 그러셨군요! 자세한 경험 공유 감사드립니다. 그렇다면...",
+  "네, 충분히 공감되는 내용이네요. 그렇다면 이번에는...",
+  "솔직하고 구체적인 의견 감사합니다! 많은 도움이 되었습니다. 마지막으로...",
+];
+
 export default function App() {
   const [sessionId] = useState(sessionIdFromUrl);
   const [status, setStatus] = useState<Status>("idle");
@@ -32,8 +45,10 @@ export default function App() {
   const [isAgreedToPrivacy, setIsAgreedToPrivacy] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [title, setTitle] = useState(isDirectAvatarTest ? "AI 아바타 단독 테스트" : "");
-  const [question, setQuestion] = useState("평소 업무나 일상에서 AI 도구를 얼마나 자주 사용하시나요? 어떤 상황에서 가장 유용하다고 느끼셨는지 말씀해 주세요.");
+  const [title, setTitle] = useState(isDirectAvatarTest ? "AI 아바타 핑퐁 테스트" : "");
+  const [dummyQuestionIndex, setDummyQuestionIndex] = useState(0);
+  const [question, setQuestion] = useState(DUMMY_QUESTIONS[0]);
+  const [speechSpeed, setSpeechSpeed] = useState<number>(1.35); // 기본 1.4x 빠름(추천)
   const [history, setHistory] = useState<Turn[]>([]);
 
   // Constant audio level monitor when on running step
@@ -49,6 +64,10 @@ export default function App() {
     character: "lisa",
     voice: "ko-KR-SunHiNeural",
   });
+
+  const speakWithCurrentSpeed = (text: string) => {
+    avatar.speak(text, undefined, speechSpeed);
+  };
 
   // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 3s (단독 테스트 모드가 아닐 때만)
   useEffect(() => {
@@ -90,7 +109,7 @@ export default function App() {
         setOrbState("speaking");
 
         // Azure Avatar 실시간 발화 명령 전달
-        avatar.speak(message.turn.text);
+        speakWithCurrentSpeed(message.turn.text);
 
         // Simulation: switch to listening mode after AI finishes speaking
         setTimeout(() => {
@@ -103,7 +122,7 @@ export default function App() {
     };
 
     return () => socket.close();
-  }, [sessionId, avatar.speak]);
+  }, [sessionId, speechSpeed]);
 
   // 3. Handle transition to 'running' room when waiting and session is running
   useEffect(() => {
@@ -119,15 +138,44 @@ export default function App() {
     }
   }, [history]);
 
+  // 더미 질문 순차 진행 함수 (핑퐁 제어 및 맞장구 리액션)
+  const advanceDummyQuestion = () => {
+    const nextIdx = dummyQuestionIndex + 1;
+    if (nextIdx < DUMMY_QUESTIONS.length) {
+      setDummyQuestionIndex(nextIdx);
+      const rawQuestion = DUMMY_QUESTIONS[nextIdx];
+      const reactionPrefix = DUMMY_REACTIONS[nextIdx - 1] || "네, 말씀 감사합니다. 다음 질문입니다.";
+      
+      // 하단 텍스트 박스에는 본 질문 표시
+      setQuestion(rawQuestion);
+      setOrbState("speaking");
+      
+      // 아바타 음성은 "맞장구 + 다음 질문"으로 자연스럽게 발화
+      const fullSpeech = `${reactionPrefix} ${rawQuestion}`;
+      speakWithCurrentSpeed(fullSpeech);
+    } else {
+      // 모든 질문 종료
+      speakWithCurrentSpeed("솔직하고 정성스러운 답변 정말 감사드립니다! 모든 인터뷰 질문이 성공적으로 완료되었습니다.");
+      setTimeout(() => {
+        setSessionStatus("ended");
+        setEntryStep("ended");
+      }, 5000);
+    }
+  };
+
   const handleRecordingComplete = async (blob: Blob) => {
-    if (!sessionId || sessionId === "default-session") {
-      console.log("Mock STT upload for default-session.");
+    // 1. 개발자 모드 / 더미 테스트 모드일 때 자동 핑퐁 진행
+    if (!sessionId || sessionId === "default-session" || isDirectAvatarTest) {
+      console.log("Mock STT: 답변 수신 완료 -> 1.5초 후 다음 질문 핑퐁 진행");
+      setOrbState("listening");
+      setTimeout(() => {
+        advanceDummyQuestion();
+      }, 1200);
       return;
     }
 
-    // HTTP base URL derived from WS_BASE_URL
+    // 2. 백엔드 실세션 모드일 때 오디오 업로드
     const httpBaseUrl = WS_BASE_URL.replace("ws://", "http://").replace("wss://", "https://");
-    
     try {
       const formData = new FormData();
       formData.append("audio", blob, "audio.webm");
@@ -405,26 +453,42 @@ export default function App() {
             showMicOffAlert={showMicOffAlert}
             onRecordingComplete={handleRecordingComplete}
           />
-          <QuestionPromptBox question={question} />
+          <QuestionPromptBox
+            question={question}
+            speechSpeed={speechSpeed}
+            onSpeedChange={setSpeechSpeed}
+            onReplay={() => speakWithCurrentSpeed(question)}
+            isSpeaking={avatar.status === "speaking"}
+          />
         </div>
 
         {/* 개발 및 로컬 테스트용 컨트롤 바 */}
-        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12 }}>
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12, alignItems: "center" }}>
+          <span style={{ fontSize: "0.8rem", color: "#94a3b8" }}>
+            진행 상황: <strong>{dummyQuestionIndex + 1} / {DUMMY_QUESTIONS.length}</strong>
+          </span>
           <button
             className="btn-secondary"
             onClick={() => avatar.speak(question)}
             style={{ fontSize: "0.8rem", padding: "4px 10px" }}
           >
-            🔊 [테스트] 현재 질문 아바타 발화
+            🔊 현재 질문 다시 말하기
+          </button>
+          <button
+            className="btn-primary"
+            onClick={advanceDummyQuestion}
+            style={{ fontSize: "0.8rem", padding: "4px 12px", background: "#3b82f6" }}
+          >
+            ⏭️ 다음 질문으로 넘기기
           </button>
           <button
             className="btn-secondary"
             onClick={() => avatar.connect()}
             style={{ fontSize: "0.8rem", padding: "4px 10px" }}
           >
-            🔄 아바타 재연결
+            🔄 재연결
           </button>
-          {sessionId === "default-session" && (
+          {(sessionId === "default-session" || isDirectAvatarTest) && (
             <button className="btn-secondary dev-float-btn" onClick={() => setSessionStatus("ended")}>
               [개발자용] 종료 화면
             </button>
