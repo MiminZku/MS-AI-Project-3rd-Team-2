@@ -6,9 +6,9 @@
     "interviewee_name": "김민수",
     "interviewee_email": "minsu.kim@techcorp.io",
     "status": "completed",
-    "started_at": "2026-08-20T10:15:00Z",
-    "ended_at": "2026-08-20T10:26:30Z",
-    "duration_seconds": 690,
+    "started_at": "2026-08-20T10:16:00Z",
+    "ended_at": "2026-08-20T10:20:35Z",
+    "duration_seconds": 275,
     "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_kim_01/full_video.mp4",
     "individual_report_url": "https://staiitvteam2.blob.core.windows.net/reports/ses_dev_kim_01/interview_summary.pdf",
     "summary": "8년차 백엔드 시니어 개발자로서 멀티 모듈 리팩토링 및 대규모 코드베이스 파악 시 Claude Code의 자율적 파일 탐색(Grep/Glob)과 정교한 diff 제어력을 높게 평가함. OpenAI는 모델 성능은 뛰어나나 터미널 UX 및 에이전트 작업 승인 절차가 불완전하여 실무 이탈이 발생함을 확인.",
@@ -25,7 +25,11 @@
         "question_type": "main",
         "question_text": "현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합(예: Claude Code, Cursor, OpenAI API 기반 툴 등)을 사용하고 계시나요?",
         "answer_ko": "저는 터미널에서 Neovim이랑 tmux를 주로 쓰고, 복잡한 작업이나 전체 프로젝트 컨텍스트를 다룰 때는 Claude Code CLI를 메인으로 씁니다. 가끔 빠른 단일 함수 작성을 할 때만 Cursor나 Copilot을 씁니다.",
-        "ai_rationale": "인터뷰 도입부로써 참가자의 현재 주력 개발 툴체인을 파악하기 위해 질문 1을 진행함."
+        "answer_en": "I mainly use Neovim and tmux in the terminal, and when dealing with complex tasks or overall project context, I use Claude Code CLI as my primary tool. I only use Cursor or Copilot occasionally for quickly writing single functions.",
+        "started_at": "2026-08-20T10:16:05Z",
+        "ended_at": "2026-08-20T10:16:30Z",
+        "ai_rationale": "인터뷰 도입부로써 참가자의 현재 주력 개발 툴체인을 파악하기 위해 1번 메인 질문 진행.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 2,
@@ -33,7 +37,11 @@
         "question_type": "follow_up",
         "question_text": "평소 일상적인 코딩과 복잡한 리팩토링/디버깅 시 사용하는 툴이 다른가요?",
         "answer_ko": "네, 맞습니다. 일반적인 CRUD 작업은 단축키로 Cursor에서 바로 치는데, 여러 패키지에 걸친 DB 마이그레이션이나 리팩토링은 무조건 Claude Code로 작업합니다.",
-        "ai_rationale": "응답자가 도구를 혼용한다고 답변하여, 작업 복잡도별 툴 분기 기준을 심층 탐색."
+        "answer_en": "Yes, that's right. For routine CRUD tasks, I just type them out in Cursor with shortcuts, but for DB migrations or refactorings spanning multiple packages, I definitely work with Claude Code.",
+        "started_at": "2026-08-20T10:16:35Z",
+        "ended_at": "2026-08-20T10:17:05Z",
+        "ai_rationale": "응답자가 도구를 혼용한다고 답변하여, 작업 복잡도별 툴 분기 기준을 심층 탐색.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 3,
@@ -41,7 +49,11 @@
         "question_type": "main",
         "question_text": "개발자들 사이에서 '모델 성능은 OpenAI가 최고인데, 터미널 작업은 결국 Claude Code를 켜게 된다'는 이야기가 있습니다. 본인도 이 말에 공감하시나요? 공감하신다면 그 결정적인 이유가 무엇인가요?",
         "answer_ko": "완전 공감합니다. OpenAI o3-mini나 gpt-4o가 코딩 벤치마크 점수는 높을지 몰라도, 실제 터미널에서 대화형으로 작업할 때는 Claude Code가 압도적입니다. 일단 파일 검색(Glob)과 diff 검토 인터페이스가 터미널 워크플로우에 최적화되어 있어요.",
-        "ai_rationale": "핵심 조사 질문으로 진입하여 모델 스펙과 터미널 실사용 체감 간의 괴리 원인을 질문함."
+        "answer_en": "I completely agree. Even though OpenAI's o3-mini or gpt-4o might score higher on coding benchmarks, when working interactively in the actual terminal, Claude Code is overwhelming. First of all, its file search (Glob) and diff review interface are optimized for the terminal workflow.",
+        "started_at": "2026-08-20T10:17:10Z",
+        "ended_at": "2026-08-20T10:17:45Z",
+        "ai_rationale": "핵심 조사 질문으로 진입하여 모델 스펙과 터미널 실사용 체감 간의 괴리 원인을 질문함.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 4,
@@ -49,6 +61,9 @@
         "question_type": "observer_injected",
         "question_text": "방금 말씀하신 맥락에서, 대규모 코드베이스에서 Claude Code가 여러 파일 간의 종속성을 어떻게 파악했는지 구체적인 사례를 물어봐줘 관련해서 조금 더 구체적인 경험을 들려주실 수 있을까요?",
         "answer_ko": "최근 15개 마이크로서비스 간의 gRPC proto 정의를 바꾸는 작업이 있었는데, Claude Code는 제가 일일이 경로를 안 알려줘도 grep이랑 ripgrep으로 연관된 모듈을 스스로 찾아서 순서대로 패치해주더라고요. OpenAI CLI 툴들은 컨텍스트 윈도우가 터지거나 엉뚱한 파일을 수정해서 망친 적이 많았습니다.",
+        "answer_en": "Recently, I had to change gRPC proto definitions across 15 microservices. Claude Code automatically found related modules using grep and ripgrep without me specifying paths, and patched them in sequence. OpenAI CLI tools often blew up context windows or edited the wrong files, messing things up.",
+        "started_at": "2026-08-20T10:17:50Z",
+        "ended_at": "2026-08-20T10:18:40Z",
         "ai_rationale": "참관자(PM)의 긴급 지시('대규모 코드베이스에서 Claude Code가 여러 파일 간의 종속성을 어떻게 파악했는지 구체적인 사례를 물어봐줘')를 수신하여 자연스러운 후속 탐색 질문으로 즉시 변환 주입함.",
         "observer_instruction_id": "ins_1_01"
       },
@@ -58,7 +73,11 @@
         "question_type": "main",
         "question_text": "반대로, OpenAI 모델이나 관련 툴을 쓰면서 '아, 이 부분 때문에 결국 흐름이 끊긴다'거나 답답하다고 느꼈던 경험(Pain Point)은 무엇인가요?",
         "answer_ko": "OpenAI 도구들은 에이전트의 '자율성' 제어가 너무 투박합니다. 한 번에 너무 많은 코드를 한꺼번에 덮어쓰려고 하거나, 파일 수정 승인 단계가 터미널 친화적이지 않아서 작업 흐름이 뚝뚝 끊깁니다.",
-        "ai_rationale": "OpenAI 툴 사용 시 흐름이 끊기거나 답답했던 구체적인 병목 지점을 정조준 질문."
+        "answer_en": "OpenAI tools have very clunky controls for agent 'autonomy'. They try to overwrite too much code at once, and the file edit approval steps aren't terminal-friendly, which constantly interrupts my workflow.",
+        "started_at": "2026-08-20T10:18:45Z",
+        "ended_at": "2026-08-20T10:19:20Z",
+        "ai_rationale": "OpenAI 툴 사용 시 흐름이 끊기거나 답답했던 구체적인 병목 지점을 정조준 질문.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 6,
@@ -66,7 +85,11 @@
         "question_type": "follow_up",
         "question_text": "프롬프트 입력 및 결과물 검토 과정에서 불필요하게 수동 개입해야 했던 번거로움이 구체적으로 어떠셨나요?",
         "answer_ko": "네, 수동으로 롤백하거나 git diff를 따로 터미널 탭 열어서 확인해야 하는 번거로움이 제일 컸습니다. 속도보다는 이 '신뢰성과 제어감'의 차이가 결정적입니다.",
-        "ai_rationale": "수동 개입 및 컨텍스트 단절 문제에 대한 실제 작업 충격도를 심층 확인."
+        "answer_en": "Yes, the biggest hassle was having to manually roll back or open a separate terminal tab to check git diff. Rather than speed, this difference in 'reliability and sense of control' is crucial.",
+        "started_at": "2026-08-20T10:19:25Z",
+        "ended_at": "2026-08-20T10:19:55Z",
+        "ai_rationale": "수동 개입 및 컨텍스트 단절 문제에 대한 실제 작업 충격도를 심층 확인.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 7,
@@ -74,15 +97,19 @@
         "question_type": "main",
         "question_text": "만약 내일 당장 OpenAI가 터미널 기반 개발 경험을 혁신적으로 바꿀 단 하나의 기능을 내놓는다면, 어떤 모습이어야 할까요?",
         "answer_ko": "OpenAI도 터미널 내에서 git diff와 실시간 파일 트리를 완벽하게 인식하고, 단계별 승인(Interactive Diff Accept/Reject)이 가능한 CLI 전용 에이전트 인터페이스를 제공해야 합니다.",
-        "ai_rationale": "인터뷰 마무리 질문으로 향후 OpenAI 터미널 툴에 가장 바라는 핵심 기능 요구사항 수집."
+        "answer_en": "OpenAI must also provide a dedicated CLI agent interface that perfectly recognizes git diff and real-time file trees in the terminal, allowing interactive step-by-step diff accept/reject.",
+        "started_at": "2026-08-20T10:20:00Z",
+        "ended_at": "2026-08-20T10:20:30Z",
+        "ai_rationale": "인터뷰 마무리 질문으로 향후 OpenAI 터미널 툴에 가장 바라는 핵심 기능 요구사항 수집.",
+        "observer_instruction_id": null
       }
     ],
     "observer_instructions": [
       {
         "id": "ins_1_01",
         "text": "대규모 코드베이스에서 Claude Code가 여러 파일 간의 종속성을 어떻게 파악했는지 구체적인 사례를 물어봐줘",
-        "created_at": "2026-08-20T10:18:10Z",
-        "applied_at": "2026-08-20T10:18:30Z",
+        "created_at": "2026-08-20T10:17:46Z",
+        "applied_at": "2026-08-20T10:17:50Z",
         "applied_turn": 4
       }
     ]
@@ -94,9 +121,9 @@
     "interviewee_name": "박지은",
     "interviewee_email": "jieun.park@startup.kr",
     "status": "completed",
-    "started_at": "2026-08-20T10:30:00Z",
-    "ended_at": "2026-08-20T10:41:30Z",
-    "duration_seconds": 690,
+    "started_at": "2026-08-20T10:31:00Z",
+    "ended_at": "2026-08-20T10:35:35Z",
+    "duration_seconds": 275,
     "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_park_02/full_video.mp4",
     "individual_report_url": "https://staiitvteam2.blob.core.windows.net/reports/ses_dev_park_02/interview_summary.pdf",
     "summary": "2년차 풀스택 개발자로 빌드/타입 에러 발생 시 Claude Code의 '스스로 명령어를 실행하고 검증하는 자율 피드백 루프'를 극찬함. OpenAI 툴은 에러 로그 복사/붙여넣기 번거로움과 임시방편(as any) 코드 제안으로 신뢰도가 낮아짐.",
@@ -113,7 +140,11 @@
         "question_type": "main",
         "question_text": "현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합(예: Claude Code, Cursor, OpenAI API 기반 툴 등)을 사용하고 계시나요?",
         "answer_ko": "저는 VS Code 에디터 안에서 Cursor를 주로 쓰고 있었는데, 동료 추천으로 2주 전부터 Claude Code 터미널 버전을 병행하고 있습니다.",
-        "ai_rationale": "인터뷰 도입부로써 참가자의 현재 주력 개발 툴체인을 파악하기 위해 질문 1을 진행함."
+        "answer_en": "I was mainly using Cursor inside the VS Code editor, but starting two weeks ago upon a coworker's recommendation, I've been using the Claude Code terminal version alongside it.",
+        "started_at": "2026-08-20T10:31:05Z",
+        "ended_at": "2026-08-20T10:31:30Z",
+        "ai_rationale": "인터뷰 도입부로써 참가자의 현재 주력 개발 툴체인을 파악하기 위해 1번 메인 질문 진행.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 2,
@@ -121,7 +152,11 @@
         "question_type": "follow_up",
         "question_text": "평소 일상적인 코딩과 복잡한 리팩토링/디버깅 시 사용하는 툴이 다른가요?",
         "answer_ko": "네, 평소 컴포넌트 짤 때는 Cursor 단축키가 편한데, Next.js 15 버전 마이그레이션이나 복잡한 타입 에러 잡을 때는 Claude Code를 터미널에서 켜게 돼요.",
-        "ai_rationale": "응답자가 도구를 혼용한다고 답변하여, 작업 복잡도별 툴 분기 기준을 심층 탐색."
+        "answer_en": "Yes, Cursor shortcuts are convenient for normal component coding, but for Next.js 15 migration or tracking down complex type errors, I end up opening Claude Code in the terminal.",
+        "started_at": "2026-08-20T10:31:35Z",
+        "ended_at": "2026-08-20T10:32:05Z",
+        "ai_rationale": "응답자가 도구를 혼용한다고 답변하여, 작업 복잡도별 툴 분기 기준을 심층 탐색.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 3,
@@ -129,7 +164,11 @@
         "question_type": "main",
         "question_text": "개발자들 사이에서 '모델 성능은 OpenAI가 최고인데, 터미널 작업은 결국 Claude Code를 켜게 된다'는 이야기가 있습니다. 본인도 이 말에 공감하시나요? 공감하신다면 그 결정적인 이유가 무엇인가요?",
         "answer_ko": "네, 100% 공감해요! 모델 성능이 아무리 좋아도 터미널에서 작업할 때 에러 로그를 읽고 스스로 `npm run build`를 돌려보면서 테스트를 통과할 때까지 루프를 도는 경험은 Claude Code가 훨씬 매끄러워요.",
-        "ai_rationale": "핵심 조사 질문으로 진입하여 모델 스펙과 터미널 실사용 체감 간의 괴리 원인을 질문함."
+        "answer_en": "Yes, I 100% agree! No matter how good the raw model is, Claude Code provides a much smoother experience when reading terminal error logs and automatically running `npm run build` in a loop until tests pass.",
+        "started_at": "2026-08-20T10:32:10Z",
+        "ended_at": "2026-08-20T10:32:45Z",
+        "ai_rationale": "핵심 조사 질문으로 진입하여 모델 스펙과 터미널 실사용 체감 간의 괴리 원인을 질문함.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 4,
@@ -137,6 +176,9 @@
         "question_type": "observer_injected",
         "question_text": "방금 말씀하신 맥락에서, 타입스크립트 컴파일 에러나 빌드 실패 시 두 툴의 해결 방식 차이를 물어봐줘 관련해서 조금 더 구체적인 경험을 들려주실 수 있을까요?",
         "answer_ko": "Next.js 빌드 시 복잡한 Zod 스키마랑 Server Actions 타입 불일치 에러가 났을 때, OpenAI 툴은 에러 텍스트만 복붙하라고 하거나 엉뚱한 타입 단언(as any)을 남발했는데, Claude는 tsconfig와 전체 타입을 추적해서 근본적인 제네릭 문제를 고쳐줬어요.",
+        "answer_en": "When I had Next.js build errors with complex Zod schemas and Server Actions type mismatches, OpenAI tools told me to paste error logs or spammed `as any`, whereas Claude tracked tsconfig and overall types to fix the fundamental generic issues.",
+        "started_at": "2026-08-20T10:32:50Z",
+        "ended_at": "2026-08-20T10:33:40Z",
         "ai_rationale": "참관자(PM)의 긴급 지시('타입스크립트 컴파일 에러나 빌드 실패 시 두 툴의 해결 방식 차이를 물어봐줘')를 수신하여 자연스러운 후속 탐색 질문으로 즉시 변환 주입함.",
         "observer_instruction_id": "ins_2_01"
       },
@@ -146,7 +188,11 @@
         "question_type": "main",
         "question_text": "반대로, OpenAI 모델이나 관련 툴을 쓰면서 '아, 이 부분 때문에 결국 흐름이 끊긴다'거나 답답하다고 느꼈던 경험(Pain Point)은 무엇인가요?",
         "answer_ko": "OpenAI ChatGPT나 API 기반 툴은 제가 에러 로그를 일일이 복사해서 프롬프트에 붙여넣어야 하는 게 너무 귀찮았어요. 프롬프트 창 왔다 갔다 하다가 집중력이 깨집니다.",
-        "ai_rationale": "OpenAI 툴 사용 시 흐름이 끊기거나 답답했던 구체적인 병목 지점을 정조준 질문."
+        "answer_en": "With OpenAI ChatGPT or API tools, having to copy each error log and paste it into the prompt was so tedious. Switching back and forth between prompt windows broke my focus.",
+        "started_at": "2026-08-20T10:33:45Z",
+        "ended_at": "2026-08-20T10:34:20Z",
+        "ai_rationale": "OpenAI 툴 사용 시 흐름이 끊기거나 답답했던 구체적인 병목 지점을 정조준 질문.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 6,
@@ -154,7 +200,11 @@
         "question_type": "follow_up",
         "question_text": "프롬프트 입력 및 결과물 검토 과정에서 불필요하게 수동 개입해야 했던 번거로움이 구체적으로 어떠셨나요?",
         "answer_ko": "네, 맞아요. 복붙하는 번거로움과 이전 대화 맥락이 길어지면 앞서 말한 프로젝트 구조를 까먹는 컨텍스트 소실 문제가 제일 답답했어요.",
-        "ai_rationale": "수동 개입 및 컨텍스트 단절 문제에 대한 실제 작업 충격도를 심층 확인."
+        "answer_en": "Yes, exactly. The hassle of copying and pasting, plus the context loss where it forgets earlier project structures as conversation grows long, were the most frustrating aspects.",
+        "started_at": "2026-08-20T10:34:25Z",
+        "ended_at": "2026-08-20T10:34:55Z",
+        "ai_rationale": "수동 개입 및 컨텍스트 단절 문제에 대한 실제 작업 충격도를 심층 확인.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 7,
@@ -162,15 +212,19 @@
         "question_type": "main",
         "question_text": "만약 내일 당장 OpenAI가 터미널 기반 개발 경험을 혁신적으로 바꿀 단 하나의 기능을 내놓는다면, 어떤 모습이어야 할까요?",
         "answer_ko": "터미널에서 에러가 발생했을 때 백그라운드에서 즉시 에러 원인을 진단하고 원클릭으로 가이드해주는 자동 디버깅 에이전트가 나오면 좋겠어요.",
-        "ai_rationale": "인터뷰 마무리 질문으로 향후 OpenAI 터미널 툴에 가장 바라는 핵심 기능 요구사항 수집."
+        "answer_en": "I'd love to see an automated debugging agent that diagnoses terminal errors in the background immediately and guides fixes with one click.",
+        "started_at": "2026-08-20T10:35:00Z",
+        "ended_at": "2026-08-20T10:35:30Z",
+        "ai_rationale": "인터뷰 마무리 질문으로 향후 OpenAI 터미널 툴에 가장 바라는 핵심 기능 요구사항 수집.",
+        "observer_instruction_id": null
       }
     ],
     "observer_instructions": [
       {
         "id": "ins_2_01",
         "text": "타입스크립트 컴파일 에러나 빌드 실패 시 두 툴의 해결 방식 차이를 물어봐줘",
-        "created_at": "2026-08-20T10:33:10Z",
-        "applied_at": "2026-08-20T10:33:30Z",
+        "created_at": "2026-08-20T10:32:46Z",
+        "applied_at": "2026-08-20T10:32:50Z",
         "applied_turn": 4
       }
     ]
@@ -182,9 +236,9 @@
     "interviewee_name": "이성호",
     "interviewee_email": "sh.lee@dataworks.ai",
     "status": "completed",
-    "started_at": "2026-08-20T10:45:00Z",
-    "ended_at": "2026-08-20T10:56:30Z",
-    "duration_seconds": 690,
+    "started_at": "2026-08-20T10:46:00Z",
+    "ended_at": "2026-08-20T10:50:35Z",
+    "duration_seconds": 275,
     "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_lee_03/full_video.mp4",
     "individual_report_url": "https://staiitvteam2.blob.core.windows.net/reports/ses_dev_lee_03/interview_summary.pdf",
     "summary": "5년차 AI/ML 엔지니어로 SSH 원격 환경에서의 CLI 안정성과 토큰 캐싱 효율을 중시함. Claude Code의 깊은 컨텍스트 관리력은 인정하나 토큰 비용과 속도에 부담을 느낌. OpenAI가 고성능 공식 CLI와 비용 최적화 캐싱을 제공한다면 스위칭 의향이 높음.",
@@ -201,7 +255,11 @@
         "question_type": "main",
         "question_text": "현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합(예: Claude Code, Cursor, OpenAI API 기반 툴 등)을 사용하고 계시나요?",
         "answer_ko": "저는 로컬 GUI를 거의 안 쓰고 리모트 리눅스 서버에 SSH로 붙어서 작업합니다. CLI 기반 OpenAI 툴들과 Claude Code를 둘 다 설치해 두고 쓰고 있습니다.",
-        "ai_rationale": "인터뷰 도입부로써 참가자의 현재 주력 개발 툴체인을 파악하기 위해 질문 1을 진행함."
+        "answer_en": "I rarely use local GUIs and mostly SSH into remote Linux servers. I have both CLI-based OpenAI tools and Claude Code installed and use both.",
+        "started_at": "2026-08-20T10:46:05Z",
+        "ended_at": "2026-08-20T10:46:30Z",
+        "ai_rationale": "인터뷰 도입부로써 참가자의 현재 주력 개발 툴체인을 파악하기 위해 1번 메인 질문 진행.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 2,
@@ -209,7 +267,11 @@
         "question_type": "follow_up",
         "question_text": "평소 일상적인 코딩과 복잡한 리팩토링/디버깅 시 사용하는 툴이 다른가요?",
         "answer_ko": "스크립트 하나 짤 때는 OpenAI CLI를 쓰고, 프로젝트 전체 파이프라인 구조를 짤 때는 Claude Code를 씁니다.",
-        "ai_rationale": "응답자가 도구를 혼용한다고 답변하여, 작업 복잡도별 툴 분기 기준을 심층 탐색."
+        "answer_en": "I use OpenAI CLI when writing single scripts, and Claude Code when structuring overall project pipelines.",
+        "started_at": "2026-08-20T10:46:35Z",
+        "ended_at": "2026-08-20T10:47:05Z",
+        "ai_rationale": "응답자가 도구를 혼용한다고 답변하여, 작업 복잡도별 툴 분기 기준을 심층 탐색.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 3,
@@ -217,7 +279,11 @@
         "question_type": "main",
         "question_text": "개발자들 사이에서 '모델 성능은 OpenAI가 최고인데, 터미널 작업은 결국 Claude Code를 켜게 된다'는 이야기가 있습니다. 본인도 이 말에 공감하시나요? 공감하신다면 그 결정적인 이유가 무엇인가요?",
         "answer_ko": "공감 반, 불만 반입니다. Claude Code가 컨텍스트 파악과 멀티스텝 실행은 훨씬 뛰어난데, 비용(토큰) 소모가 너무 크고 속도가 느릴 때가 많아요. 반면 OpenAI는 응답 속도와 가격은 좋은데 터미널 CLI의 UX 완결성이 떨어집니다.",
-        "ai_rationale": "핵심 조사 질문으로 진입하여 모델 스펙과 터미널 실사용 체감 간의 괴리 원인을 질문함."
+        "answer_en": "I half agree and half disagree. Claude Code is much better at context comprehension and multi-step execution, but it consumes too many tokens and is often slow. On the other hand, OpenAI has great speed and pricing, but lacks complete terminal CLI UX.",
+        "started_at": "2026-08-20T10:47:10Z",
+        "ended_at": "2026-08-20T10:47:45Z",
+        "ai_rationale": "핵심 조사 질문으로 진입하여 모델 스펙과 터미널 실사용 체감 간의 괴리 원인을 질문함.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 4,
@@ -225,6 +291,9 @@
         "question_type": "observer_injected",
         "question_text": "방금 말씀하신 맥락에서, 원격 GPU 서버(SSH) 환경에서 CLI 툴 사용 시 토큰 비용과 속도 체감을 구체적으로 비교해줘 관련해서 조금 더 구체적인 경험을 들려주실 수 있을까요?",
         "answer_ko": "SSH 터미널에서 Claude Code는 매 턴마다 수만 토큰의 파일 트리를 다시 읽다 보니 API 비용이 순식간에 몇 달러씩 나가요. 반면 OpenAI는 가볍고 빠른데, 에이전트가 명령어를 실행할 때 위험 명령어 방지나 환경 변수 처리가 불안정합니다.",
+        "answer_en": "In SSH terminals, Claude Code re-reads tens of thousands of tokens of file trees every turn, draining several dollars in API fees quickly. OpenAI is lightweight and fast, but lacks stability in dangerous command prevention or environment variable handling during execution.",
+        "started_at": "2026-08-20T10:47:50Z",
+        "ended_at": "2026-08-20T10:48:40Z",
         "ai_rationale": "참관자(PM)의 긴급 지시('원격 GPU 서버(SSH) 환경에서 CLI 툴 사용 시 토큰 비용과 속도 체감을 구체적으로 비교해줘')를 수신하여 자연스러운 후속 탐색 질문으로 즉시 변환 주입함.",
         "observer_instruction_id": "ins_3_01"
       },
@@ -234,7 +303,11 @@
         "question_type": "main",
         "question_text": "반대로, OpenAI 모델이나 관련 툴을 쓰면서 '아, 이 부분 때문에 결국 흐름이 끊긴다'거나 답답하다고 느꼈던 경험(Pain Point)은 무엇인가요?",
         "answer_ko": "OpenAI의 가장 큰 문제는 공식 CLI 툴의 완성도 부족입니다. 서드파티 오픈소스 CLI에 의존하다 보니 버전 호환성이 깨지거나 토큰 스트리밍이 불안정합니다.",
-        "ai_rationale": "OpenAI 툴 사용 시 흐름이 끊기거나 답답했던 구체적인 병목 지점을 정조준 질문."
+        "answer_en": "OpenAI's biggest problem is the lack of a mature official CLI tool. Relying on third-party open-source CLIs leads to broken version compatibility and unstable token streaming.",
+        "started_at": "2026-08-20T10:48:45Z",
+        "ended_at": "2026-08-20T10:49:20Z",
+        "ai_rationale": "OpenAI 툴 사용 시 흐름이 끊기거나 답답했던 구체적인 병목 지점을 정조준 질문.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 6,
@@ -242,7 +315,11 @@
         "question_type": "follow_up",
         "question_text": "프롬프트 입력 및 결과물 검토 과정에서 불필요하게 수동 개입해야 했던 번거로움이 구체적으로 어떠셨나요?",
         "answer_ko": "네, 비용보다는 CLI 도구 자체의 안정성과 공식 지원 부족이 가장 아쉬웠습니다.",
-        "ai_rationale": "수동 개입 및 컨텍스트 단절 문제에 대한 실제 작업 충격도를 심층 확인."
+        "answer_en": "Yes, rather than cost, the lack of tool stability and official support was the most disappointing factor.",
+        "started_at": "2026-08-20T10:49:25Z",
+        "ended_at": "2026-08-20T10:49:55Z",
+        "ai_rationale": "수동 개입 및 컨텍스트 단절 문제에 대한 실제 작업 충격도를 심층 확인.",
+        "observer_instruction_id": null
       },
       {
         "turn_id": 7,
@@ -250,15 +327,19 @@
         "question_type": "main",
         "question_text": "만약 내일 당장 OpenAI가 터미널 기반 개발 경험을 혁신적으로 바꿀 단 하나의 기능을 내놓는다면, 어떤 모습이어야 할까요?",
         "answer_ko": "SSH 원격 환경에서도 초경량으로 동작하면서, 로컬/원격 토큰 캐싱을 완벽 지원하는 공식 고성능 OpenAI CLI를 만들어주면 바로 스위칭하겠습니다.",
-        "ai_rationale": "인터뷰 마무리 질문으로 향후 OpenAI 터미널 툴에 가장 바라는 핵심 기능 요구사항 수집."
+        "answer_en": "If OpenAI creates an official, high-performance CLI that operates ultra-lightweight in SSH environments and fully supports local/remote token caching, I'd switch immediately.",
+        "started_at": "2026-08-20T10:50:00Z",
+        "ended_at": "2026-08-20T10:50:30Z",
+        "ai_rationale": "인터뷰 마무리 질문으로 향후 OpenAI 터미널 툴에 가장 바라는 핵심 기능 요구사항 수집.",
+        "observer_instruction_id": null
       }
     ],
     "observer_instructions": [
       {
         "id": "ins_3_01",
         "text": "원격 GPU 서버(SSH) 환경에서 CLI 툴 사용 시 토큰 비용과 속도 체감을 구체적으로 비교해줘",
-        "created_at": "2026-08-20T10:48:10Z",
-        "applied_at": "2026-08-20T10:48:30Z",
+        "created_at": "2026-08-20T10:47:46Z",
+        "applied_at": "2026-08-20T10:47:50Z",
         "applied_turn": 4
       }
     ]
