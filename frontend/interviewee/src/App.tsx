@@ -9,6 +9,7 @@ import RespondentMonitor from "./components/RespondentMonitor";
 import QuestionPromptBox from "./components/QuestionPromptBox";
 import VideoPublisher from "./components/VideoPublisher";
 import { fetchRtcToken } from "./config";
+import { useAvatarWebRTC } from "./hooks/useAvatarWebRTC";
 
 type Status = "idle" | "connecting" | "connected" | "closed" | "error";
 type SessionStatus = "created" | "running" | "ended";
@@ -17,8 +18,10 @@ type EntryStep = "gromit" | "welcome" | "consent" | "waiting" | "running" | "end
 export default function App() {
   const [sessionId] = useState(sessionIdFromUrl);
   const [status, setStatus] = useState<Status>("idle");
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("created");
-  const [entryStep, setEntryStep] = useState<EntryStep>("gromit");
+  // URL 파라미터에 test=avatar 가 있거나 빠른 테스트 지원
+  const isDirectAvatarTest = new URLSearchParams(window.location.search).get("test") === "avatar";
+  const [entryStep, setEntryStep] = useState<EntryStep>(isDirectAvatarTest ? "running" : "gromit");
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(isDirectAvatarTest ? "running" : "created");
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
 
   // Flow states
@@ -29,7 +32,7 @@ export default function App() {
   const [isAgreedToPrivacy, setIsAgreedToPrivacy] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [title, setTitle] = useState("");
+  const [title, setTitle] = useState(isDirectAvatarTest ? "AI 아바타 단독 테스트" : "");
   const [question, setQuestion] = useState("평소 업무나 일상에서 AI 도구를 얼마나 자주 사용하시나요? 어떤 상황에서 가장 유용하다고 느끼셨는지 말씀해 주세요.");
   const [history, setHistory] = useState<Turn[]>([]);
 
@@ -40,12 +43,19 @@ export default function App() {
   const [orbState, setOrbState] = useState<"idle" | "speaking" | "listening">("idle");
   const socketRef = useRef<WebSocket | null>(null);
 
-  // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 4s
+  // Azure Avatar WebRTC 훅 연동
+  const avatar = useAvatarWebRTC({
+    autoConnect: entryStep === "running",
+    character: "lisa",
+    voice: "ko-KR-SunHiNeural",
+  });
+
+  // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 3s (단독 테스트 모드가 아닐 때만)
   useEffect(() => {
     if (entryStep === "gromit") {
       const timer = setTimeout(() => {
         setEntryStep("welcome");
-      }, 3000);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [entryStep]);
@@ -79,6 +89,9 @@ export default function App() {
         setHistory((prev) => [...prev, message.turn]);
         setOrbState("speaking");
 
+        // Azure Avatar 실시간 발화 명령 전달
+        avatar.speak(message.turn.text);
+
         // Simulation: switch to listening mode after AI finishes speaking
         setTimeout(() => {
           setOrbState("listening");
@@ -90,7 +103,7 @@ export default function App() {
     };
 
     return () => socket.close();
-  }, [sessionId]);
+  }, [sessionId, avatar.speak]);
 
   // 3. Handle transition to 'running' room when waiting and session is running
   useEffect(() => {
@@ -202,6 +215,19 @@ export default function App() {
               >
                 {isChecking ? "권한 확인 중..." : "시작하기"}
               </button>
+
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setSessionStatus("running");
+                  setEntryStep("running");
+                  setStatus("connected");
+                }}
+                style={{ marginTop: 12, border: "1px solid #3b82f6", color: "#60a5fa" }}
+              >
+                ⚡ [개발자용] 백룸 없이 아바타 화면 바로 테스트
+              </button>
+
               {errorMessage && <p className="error-alert">{errorMessage}</p>}
             </div>
           </div>
@@ -365,7 +391,13 @@ export default function App() {
         </header>
 
         <div className="monitor-grid">
-          <AvatarMonitor orbState={orbState} />
+          <AvatarMonitor
+            videoRef={avatar.videoRef}
+            status={avatar.status}
+            errorMessage={avatar.errorMessage}
+            onRetry={avatar.connect}
+            orbState={orbState}
+          />
           <RespondentMonitor
             isActive
             isRecording={isRecording}
@@ -376,11 +408,28 @@ export default function App() {
           <QuestionPromptBox question={question} />
         </div>
 
-        {sessionId === "default-session" && (
-          <button className="btn-secondary dev-float-btn" onClick={() => setSessionStatus("ended")}>
-            [개발자용] 종료 화면
+        {/* 개발 및 로컬 테스트용 컨트롤 바 */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginTop: 12 }}>
+          <button
+            className="btn-secondary"
+            onClick={() => avatar.speak(question)}
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+          >
+            🔊 [테스트] 현재 질문 아바타 발화
           </button>
-        )}
+          <button
+            className="btn-secondary"
+            onClick={() => avatar.connect()}
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+          >
+            🔄 아바타 재연결
+          </button>
+          {sessionId === "default-session" && (
+            <button className="btn-secondary dev-float-btn" onClick={() => setSessionStatus("ended")}>
+              [개발자용] 종료 화면
+            </button>
+          )}
+        </div>
 
         {/* Render headless VideoPublisher if we have the ACS token */}
         {rtcCreds && (
