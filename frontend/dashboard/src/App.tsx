@@ -35,7 +35,9 @@ export default function App() {
               </button>
             </div>
           )}
-          <span className="role-chip">{role === "pm" ? "PM · Observer" : "클라이언트 · Observer"}</span>
+          {sessionId && (
+            <span className="role-chip">{role === "pm" ? "PM · Observer" : "클라이언트 · Observer"}</span>
+          )}
 
           {topbarStatus && (
             <>

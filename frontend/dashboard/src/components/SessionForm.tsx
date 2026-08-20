@@ -1,6 +1,5 @@
-import { useState } from "react";
-import { createSession, fetchSession } from "../api";
-import { DEMO_SESSION } from "../demoData";
+import { useEffect, useState } from "react";
+import { createSession, fetchSession, listSessions } from "../api";
 import type { Session } from "../types";
 
 const SAMPLE_SCRIPT = `1. 배달앱을 얼마나 자주 쓰시나요?
@@ -9,19 +8,36 @@ const SAMPLE_SCRIPT = `1. 배달앱을 얼마나 자주 쓰시나요?
    [보통]   → 최소주문금액을 맞추려고 더 시킨 적은 있나요?
 3. 배달비가 오르면 어떻게 하시나요?`;
 
+const MOCK_PROJECTS = [
+  { id: "proj_delivery_ux", label: "배달앱 UX 사용성 조사" },
+  { id: "proj_subscription", label: "무료배달 구독제 만족도 조사" },
+] as const;
+
+const STATUS_LABEL: Record<Session["status"], string> = {
+  created: "대기",
+  running: "진행중",
+  ended: "종료",
+};
+
 interface Props {
   onCreated: (session: Session, intervieweeUrl: string) => void;
 }
 
 export default function SessionForm({ onCreated }: Props) {
-  const [title, setTitle] = useState("배달앱 사용성 인터뷰");
+  const [projectId, setProjectId] = useState("");
   const [duration, setDuration] = useState(60);
   const [language, setLanguage] = useState("ko");
-  const [joinId, setJoinId] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [created, setCreated] = useState<{ session: Session; intervieweeUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [sessions, setSessions] = useState<Session[]>([]);
+
+  useEffect(() => {
+    listSessions()
+      .then(setSessions)
+      .catch((cause) => console.error("세션 목록 조회 실패", cause));
+  }, []);
 
   const copyLink = async (url: string) => {
     await navigator.clipboard.writeText(url);
@@ -46,23 +62,6 @@ export default function SessionForm({ onCreated }: Props) {
       <section className="panel">
         <header className="p-head">
           <div>
-            <h2>목데이터 미리보기</h2>
-            <div className="sub">백엔드 연결 없이 화면만 확인</div>
-          </div>
-        </header>
-        <div className="p-body">
-          <p className="muted small" style={{ margin: "0 0 12px" }}>
-            백엔드가 아직 준비되지 않았을 때, 목데이터로 관리자 대시보드 화면만 확인합니다.
-          </p>
-          <button className="ghost" onClick={() => onCreated(DEMO_SESSION, "")}>
-            데모로 미리보기
-          </button>
-        </div>
-      </section>
-
-      <section className="panel">
-        <header className="p-head">
-          <div>
             <h2>새 인터뷰 세션</h2>
             <div className="sub">PM만 접근 · 생성 후 링크가 발급됩니다</div>
           </div>
@@ -71,8 +70,18 @@ export default function SessionForm({ onCreated }: Props) {
         {!created ? (
           <>
             <label>
-              세션 이름
-              <input value={title} onChange={(event) => setTitle(event.target.value)} />
+              프로젝트
+              <p className="desc">실제 프로젝트 연동은 백엔드 준비 중 — 지금은 목업 목록입니다.</p>
+              <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+                <option value="" disabled>
+                  프로젝트를 선택하세요
+                </option>
+                {MOCK_PROJECTS.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.label}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <div className="two">
@@ -80,6 +89,7 @@ export default function SessionForm({ onCreated }: Props) {
                 인터뷰 시간
                 <p className="desc">종료 예정 시각 계산에 사용됩니다</p>
                 <select value={duration} onChange={(event) => setDuration(Number(event.target.value))}>
+                  <option value={10}>10분</option>
                   <option value={30}>30분</option>
                   <option value={60}>60분</option>
                   <option value={90}>90분</option>
@@ -106,15 +116,13 @@ export default function SessionForm({ onCreated }: Props) {
             </label>
 
             <div className="form-actions">
-              <button className="ghost" disabled title="곧 지원 예정">
-                임시 저장
-              </button>
               <button
-                disabled={busy}
+                disabled={busy || !projectId}
                 onClick={() =>
                   run(async () => {
+                    const project = MOCK_PROJECTS.find((p) => p.id === projectId);
                     const result = await createSession({
-                      title,
+                      title: project?.label ?? "제목 없는 인터뷰",
                       duration_minutes: duration,
                       question_script: SAMPLE_SCRIPT,
                     });
@@ -159,31 +167,38 @@ export default function SessionForm({ onCreated }: Props) {
       <section className="panel">
         <header className="p-head">
           <div>
-            <h2>기존 세션 열기</h2>
-            <div className="sub">세션 ID로 다시 접속</div>
+            <h2>세션 목록</h2>
+            <div className="sub">이미 만든 세션에 다시 들어가기</div>
           </div>
         </header>
         <div className="p-body">
-          <label>
-            세션 ID
-            <input
-              value={joinId}
-              placeholder="ses_..."
-              onChange={(event) => setJoinId(event.target.value)}
-            />
-          </label>
-          <button
-            className="ghost"
-            disabled={busy || !joinId.trim()}
-            onClick={() =>
-              run(async () => {
-                const result = await fetchSession(joinId.trim());
-                onCreated(result.session, result.interviewee_url);
-              })
-            }
-          >
-            모니터링 시작
-          </button>
+          {sessions.length === 0 ? (
+            <p className="muted small">아직 생성된 세션이 없습니다.</p>
+          ) : (
+            sessions.map((session) => (
+              <button
+                key={session.id}
+                type="button"
+                className="link-row"
+                style={{ width: "100%", cursor: "pointer", textAlign: "left" }}
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    const result = await fetchSession(session.id);
+                    onCreated(result.session, result.interviewee_url);
+                  })
+                }
+              >
+                <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
+                  {STATUS_LABEL[session.status]}
+                </span>
+                <code>{session.title}</code>
+                <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
+                  {new Date(session.created_at).toLocaleString("ko-KR")}
+                </span>
+              </button>
+            ))
+          )}
         </div>
       </section>
 

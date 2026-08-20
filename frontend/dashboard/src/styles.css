@@ -1,17 +1,17 @@
 @import "pretendard/dist/web/variable/pretendardvariable.css";
 
 :root {
-  color-scheme: dark;
-  --bg: #000000;
-  --panel: #1d1d1f;
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --text: #f5f5f7;
+  color-scheme: light;
+  --bg: #f5f5f7;
+  --panel: #ffffff;
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --text: #1d1d1f;
   --text-white: #ffffff;
-  --muted: #86868b;
+  --muted: #6e6e73;
   --primary: #0071e3;
-  --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
+  --success: #34c759;
+  --error: #ff3b30;
+  --warning: #ff9500;
   font-family: "Pretendard Variable", Pretendard, "SF Pro Display", -apple-system, "Segoe UI",
     "Malgun Gothic", sans-serif;
   letter-spacing: -0.015em;
@@ -85,7 +85,7 @@ h2 {
 .role-switch {
   display: flex;
   border: 1px solid var(--panel-border);
-  border-radius: 9999px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -165,7 +165,7 @@ h2 {
 
 .sess-btn {
   border: none;
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 14px 24px;
   font-size: 15px;
   font-weight: 700;
@@ -214,7 +214,7 @@ h2 {
 .swg {
   display: flex;
   border: 1px solid var(--panel-border);
-  border-radius: 9999px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -250,7 +250,16 @@ h2 {
   grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
   gap: 24px;
   padding: 24px 30px 60px;
+  max-width: 1600px;
+  margin: 0 auto;
   align-items: start;
+  transition: padding-left 0.18s ease;
+}
+
+/* 케밥 드로어가 열려있는 동안엔 콘텐츠를 오른쪽으로 밀어줘서 응답자 화면(영상)을 가리지 않게 함 */
+body:has(.kebab-wrap:hover) .monitor,
+body:has(.kebab-wrap.pinned) .monitor {
+  padding-left: calc(30px + min(360px, 88vw));
 }
 
 @media (max-width: 820px) {
@@ -363,13 +372,14 @@ h2 {
   padding: 12px 24px 0;
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-white);
+  color: var(--text);
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 28px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 6px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -466,7 +476,7 @@ h2 {
   height: 20px;
   border-radius: 6px;
   background: rgba(0, 113, 227, 0.15);
-  color: #5ac8fa;
+  color: var(--primary);
   font-size: 10px;
   font-weight: 800;
   display: grid;
@@ -508,7 +518,7 @@ h2 {
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.06);
   color: var(--muted);
   margin-right: 6px;
 }
@@ -519,13 +529,13 @@ h2 {
   aspect-ratio: 16 / 9;
   border-radius: 20px;
   overflow: hidden;
-  background: var(--panel);
+  background: #1d1d1f;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 14px 16px 16px;
   text-align: center;
-  color: var(--muted);
+  color: #86868b;
   font-size: 12.5px;
   line-height: 1.7;
 }
@@ -732,7 +742,7 @@ h2 {
 
 .turn.assistant strong {
   background: rgba(0, 113, 227, 0.15);
-  color: #5ac8fa;
+  color: var(--primary);
 }
 
 .turn-head time {
@@ -773,18 +783,19 @@ h2 {
   min-height: 88px;
   resize: vertical;
   border: 1px solid var(--panel-border);
-  border-radius: 20px;
+  border-radius: 10px;
   padding: 12px;
   outline: none;
   font-size: 12.5px;
   line-height: 1.55;
   font-family: inherit;
-  background: #000000;
-  color: var(--text-white);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .composer textarea:focus {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 .composer > button {
@@ -793,7 +804,7 @@ h2 {
   background: var(--primary);
   color: var(--text-white);
   padding: 14px 24px;
-  border-radius: 28px;
+  border-radius: 8px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
@@ -884,7 +895,7 @@ h2 {
   content: "인터뷰 시작 후 사용할 수 있습니다";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.82);
+  background: rgba(255, 255, 255, 0.85);
   display: grid;
   place-items: center;
   text-align: center;
@@ -898,7 +909,7 @@ h2 {
 .report-note {
   margin: 14px 16px;
   padding: 11px 13px;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
   font-size: 11.5px;
@@ -913,7 +924,7 @@ h2 {
 .report-highlight {
   margin: 0 16px 12px;
   padding: 10px 12px;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid var(--panel-border);
   font-size: 12px;
   line-height: 1.55;
@@ -921,7 +932,7 @@ h2 {
 
 .report-highlight b {
   display: block;
-  color: var(--text-white);
+  color: var(--text);
   margin-bottom: 4px;
 }
 
@@ -974,7 +985,7 @@ label {
 .btn-sm {
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 6px 10px;
   font-size: 10.5px;
   cursor: pointer;
@@ -1007,7 +1018,8 @@ label {
   max-height: 82vh;
   overflow: auto;
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 6px rgba(0, 0, 0, 0.04);
   padding: 22px;
 }
 
@@ -1031,7 +1043,7 @@ label {
 
 .format-seg button {
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
   color: var(--muted);
@@ -1081,7 +1093,7 @@ label {
   gap: 9px;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
-  border-radius: 20px;
+  border-radius: 14px;
   padding: 10px 12px;
   margin-bottom: 9px;
   flex-wrap: wrap;
@@ -1108,7 +1120,7 @@ label {
 .btn-ghost {
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 9px 15px;
   font-size: 12px;
   cursor: pointer;
@@ -1123,9 +1135,9 @@ textarea {
   width: 100%;
   margin-top: 6px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid var(--panel-border);
-  background: #000000;
+  background: var(--bg);
   color: var(--text);
   font: inherit;
   font-size: 12.5px;
@@ -1135,7 +1147,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 textarea {
@@ -1146,7 +1159,7 @@ textarea {
 
 button {
   padding: 14px 24px;
-  border-radius: 28px;
+  border-radius: 8px;
   border: none;
   background: var(--primary);
   color: var(--text-white);
@@ -1177,7 +1190,7 @@ button:disabled {
   flex-wrap: wrap;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
-  border-radius: 20px;
+  border-radius: 14px;
   padding: 10px 12px;
 }
 

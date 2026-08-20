@@ -32,14 +32,13 @@ export interface TopbarStatus {
 }
 
 const FILE_FORMATS = [
-  { key: "json", label: "JSON", accept: ".json,application/json" },
-  { key: "pdf", label: "PDF", accept: ".pdf,application/pdf" },
+  { key: "md", label: "Markdown", accept: ".md,text/markdown" },
   {
     key: "word",
     label: "Word",
     accept: ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   },
-  { key: "md", label: "Markdown", accept: ".md,text/markdown" },
+  { key: "pdf", label: "PDF", accept: ".pdf,application/pdf" },
 ] as const;
 
 type FileFormat = (typeof FILE_FORMATS)[number]["key"];
@@ -83,11 +82,23 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [historyOpen, setHistoryOpen] = useState(false);
   const [drawerPinned, setDrawerPinned] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [fileFormat, setFileFormat] = useState<FileFormat>("json");
+  const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingGuide, setUploadingGuide] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
+  const kebabWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!drawerPinned) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (kebabWrapRef.current && !kebabWrapRef.current.contains(event.target as Node)) {
+        setDrawerPinned(false);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [drawerPinned]);
 
   useEffect(() => {
     if (sessionId !== DEMO_SESSION_ID) {
@@ -248,7 +259,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   return (
     <>
       <div className="tabbar">
-        <div className={`kebab-wrap ${drawerPinned ? "pinned" : ""}`}>
+        <div ref={kebabWrapRef} className={`kebab-wrap ${drawerPinned ? "pinned" : ""}`}>
           <button
             type="button"
             className="kebab-btn"
@@ -263,7 +274,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
               <div className="accordion-actions">
                 {role === "pm" ? (
                   <button type="button" className="btn-sm solid" onClick={() => setEditModalOpen(true)}>
-                    ＋ 질문 편집
+                    ＋ 질문 등록 및 편집
                   </button>
                 ) : (
                   <span className="role-chip" style={{ fontSize: "10px" }}>
@@ -351,6 +362,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <span className="dot" />
                 {timerLabel}
               </span>
+              <button type="button" className="btn-sm" disabled title="곧 지원 예정 · 백엔드 연동 후 사용 가능">
+                ＋10분
+              </button>
               <span className={`badge ${status}`}>{status}</span>
             </div>
           </div>
