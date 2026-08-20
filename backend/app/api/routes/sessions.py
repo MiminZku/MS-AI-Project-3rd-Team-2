@@ -38,6 +38,11 @@ async def create_session(payload: SessionCreateRequest) -> SessionCreateResponse
     return SessionCreateResponse(session=session, interviewee_url=_interviewee_url(session.id))
 
 
+@router.get("", response_model=list[Session])
+async def list_sessions() -> list[Session]:
+    return await get_store().list_sessions()
+
+
 @router.get("/{session_id}", response_model=SessionCreateResponse)
 async def get_session(session: Session = Depends(load_session)) -> SessionCreateResponse:
     return SessionCreateResponse(session=session, interviewee_url=_interviewee_url(session.id))

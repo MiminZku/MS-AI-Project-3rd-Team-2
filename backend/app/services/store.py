@@ -24,6 +24,7 @@ from app.schemas.session import Instruction, Session, Turn, utcnow
 class Store(Protocol):
     async def save_session(self, session: Session) -> None: ...
     async def get_session(self, session_id: str) -> Session | None: ...
+    async def list_sessions(self) -> list[Session]: ...
     async def append_turn(self, session_id: str, turn: Turn) -> None: ...
     async def get_transcript(self, session_id: str) -> list[Turn]: ...
     async def next_turn_index(self, session_id: str) -> int: ...
@@ -51,6 +52,9 @@ class InMemoryStore:
 
     async def get_session(self, session_id: str) -> Session | None:
         return self._sessions.get(session_id)
+
+    async def list_sessions(self) -> list[Session]:
+        return sorted(self._sessions.values(), key=lambda s: s.created_at, reverse=True)
 
     async def append_turn(self, session_id: str, turn: Turn) -> None:
         self._transcripts.setdefault(session_id, []).append(turn)
@@ -102,10 +106,20 @@ class RedisStore:
     async def save_session(self, session: Session) -> None:
         key = self._key(session.id)
         await self._redis.set(key, session.model_dump_json(), ex=self._ttl)
+        await self._redis.zadd("sessions:index", {session.id: session.created_at.timestamp()})
 
     async def get_session(self, session_id: str) -> Session | None:
         raw = await self._redis.get(self._key(session_id))
         return Session.model_validate_json(raw) if raw else None
+
+    async def list_sessions(self) -> list[Session]:
+        ids = await self._redis.zrevrange("sessions:index", 0, -1)
+        sessions = []
+        for session_id in ids:
+            session = await self.get_session(session_id)
+            if session is not None:
+                sessions.append(session)
+        return sessions
 
     async def append_turn(self, session_id: str, turn: Turn) -> None:
         key = self._key(session_id, ":transcript")
