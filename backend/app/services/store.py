@@ -53,6 +53,11 @@ class Store(Protocol):
     ) -> ResearchStudy | None:
         ...
 
+    async def list_studies(
+        self,
+    ) -> list[ResearchStudy]:
+        ...
+
     # -----------------------------------------------------
     # Session
     # -----------------------------------------------------
@@ -203,6 +208,15 @@ class InMemoryStore:
     ) -> ResearchStudy | None:
 
         return self._studies.get(study_id)
+
+
+    async def list_studies(
+        self,
+    ) -> list[ResearchStudy]:
+
+        studies = list(self._studies.values())
+        studies.sort(key=lambda s: s.created_at, reverse=True)
+        return studies
 
 
     # -----------------------------------------------------
@@ -477,6 +491,21 @@ class RedisStore:
             ResearchStudy
             .model_validate_json(raw)
         )
+
+
+    async def list_studies(
+        self,
+    ) -> list[ResearchStudy]:
+
+        keys = await self._redis.keys("study:*")
+        # filter out study:*:sessions
+        study_keys = [k for k in keys if not k.endswith(":sessions")]
+        if not study_keys:
+            return []
+        raws = await self._redis.mget(study_keys)
+        studies = [ResearchStudy.model_validate_json(r) for r in raws if r]
+        studies.sort(key=lambda s: s.created_at, reverse=True)
+        return studies
 
 
     # -----------------------------------------------------
@@ -848,7 +877,15 @@ def get_store() -> Store:
 
         settings = get_settings()
 
-        if settings.use_redis:
+        if settings.use_cosmos:
+            from app.services.cosmos_store import CosmosStore
+            _store = CosmosStore(
+                endpoint=settings.azure_cosmos_endpoint,
+                key=settings.azure_cosmos_key,
+                database_name=settings.azure_cosmos_database,
+            )
+
+        elif settings.use_redis:
 
             _store = RedisStore(
                 settings.redis_url,

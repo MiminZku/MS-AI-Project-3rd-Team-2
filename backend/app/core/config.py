@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     azure_storage_connection_string: str = ""
     azure_storage_container_name: str = "recordings"
 
+    # Azure Cosmos DB (NoSQL 데이터베이스)
+    azure_cosmos_endpoint: str = ""
+    azure_cosmos_key: str = ""
+    azure_cosmos_database: str = "InterviewDB"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
@@ -57,6 +62,10 @@ class Settings(BaseSettings):
     @property
     def use_redis(self) -> bool:
         return bool(self.redis_url)
+
+    @property
+    def use_cosmos(self) -> bool:
+        return bool(self.azure_cosmos_endpoint and self.azure_cosmos_key)
 
     @property
     def use_azure_openai(self) -> bool:

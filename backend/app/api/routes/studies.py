@@ -77,6 +77,19 @@ async def create_study(
 
 
 # =========================================================
+# Research Study 목록 조회 (전체 프로젝트 목록)
+# =========================================================
+
+@router.get(
+    "",
+    response_model=list[ResearchStudy],
+)
+async def list_studies() -> list[ResearchStudy]:
+
+    return await get_store().list_studies()
+
+
+# =========================================================
 # Research Study 조회
 # =========================================================
 
@@ -101,3 +114,25 @@ async def get_study(
     return ResearchStudyCreateResponse(
         study=study
     )
+
+
+# =========================================================
+# Research Study 산하 Sessions 목록 조회
+# =========================================================
+
+@router.get(
+    "/{study_id}/sessions",
+    response_model=list[Session],
+)
+async def list_study_sessions(
+    study_id: str,
+) -> list[Session]:
+
+    study = await get_store().get_study(study_id)
+    if study is None:
+        raise HTTPException(
+            status_code=404,
+            detail="ResearchStudy를 찾을 수 없습니다.",
+        )
+
+    return await get_store().list_sessions(study_id)
