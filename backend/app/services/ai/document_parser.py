@@ -102,7 +102,14 @@ AI 인터뷰어가 실시간 인터뷰에서 활용할 구조화된 질문 트�
    - text: 인터뷰이가 편안하게 답변할 수 있도록 정제된 실제 질문 문장 (구어체 친화적)
    - intent: 이 질문을 던지는 리서처의 핵심 의도 (무엇을 알아내려 하는가)
    - keywords: 질문과 관련된 핵심 키워드 3~5개
-   - branches: 문서에 명시된 Probing(탐색 갈래)이나 답변 방향(예: "긍정", "부정", "불편함", "비용부담", "UX관점" 등)에 따른 후속 꼬리질문 맵
+   - branches: 인터뷰이의 답변 내용이나 상황 조건에 따라 파생될 꼬리질문 딕셔너리 (키-값 쌍)
+     ⚠️ 중요: branches의 key는 "탐색 갈래 1" 같은 모호한 이름이 아니라, **"어떤 답변이나 상황일 때 이 질문을 하는지" 구체적인 조건/상황/관점**을 명시하세요.
+     예시:
+     - "일상 코딩과 리팩토링 툴이 다를 때": "평소 일상적인 코딩과 복잡한 리팩토링 시 사용하는 툴이 다른가요?"
+     - "UX/인터페이스 관점 선호": "터미널 환경에서 대화 흐름이나 멀티스텝 작업 처리가 어떻게 더 편리하다고 느끼시나요?"
+     - "컨텍스트 및 자율성 만족": "대규모 코드베이스 수정 시 Claude가 의도를 더 잘 파악한다고 느낀 구체적인 순간이 있나요?"
+     - "도구 개입 번거로움 경험": "결과물 검토 과정에서 불필요하게 개입해야 했던 번거로움이 있었나요?"
+     - "비용/속도/자율성 아쉬움": "속도, 비용, 혹은 자율성 중 어떤 요소가 가장 아쉬웠나요?"
 """
 
         try:
@@ -166,7 +173,17 @@ AI 인터뷰어가 실시간 인터뷰에서 활용할 구조화된 질문 트�
                     if cond_match:
                         branches[cond_match.group(1).strip()] = cond_match.group(2).strip()
                     else:
-                        branches[f"탐색 갈래 {len(branches)+1}"] = pl_clean
+                        # 질문 내용 자체에서 핵심 상황 요약 추출
+                        clean_branch_q = pl_clean.strip(" *\"'")
+                        if "일상적인 코딩" in clean_branch_q:
+                            cond_name = "일상 코딩과 리팩토링 툴이 다를 때"
+                        elif "불필요하게 개입" in clean_branch_q:
+                            cond_name = "수동 수정 및 개입 번거로움 경험 시"
+                        elif "속도, 비용" in clean_branch_q:
+                            cond_name = "속도/비용/자율성 아쉬움 언급 시"
+                        else:
+                            cond_name = f"심층 탐색 ({clean_branch_q[:15]}...)"
+                        branches[cond_name] = clean_branch_q
 
                 questions.append(ExtractedQuestion(
                     order=order,
