@@ -9,8 +9,7 @@
     "started_at": "2026-08-20T10:15:00Z",
     "ended_at": "2026-08-20T10:26:30Z",
     "duration_seconds": 690,
-    "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_kim_01/full_video.webm",
-    "audio_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_kim_01/audio_only.mp3",
+    "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_kim_01/full_video.mp4",
     "individual_report_url": "https://staiitvteam2.blob.core.windows.net/reports/ses_dev_kim_01/interview_summary.pdf",
     "summary": "8년차 백엔드 시니어 개발자로서 멀티 모듈 리팩토링 및 대규모 코드베이스 파악 시 Claude Code의 자율적 파일 탐색(Grep/Glob)과 정교한 diff 제어력을 높게 평가함. OpenAI는 모델 성능은 뛰어나나 터미널 UX 및 에이전트 작업 승인 절차가 불완전하여 실무 이탈이 발생함을 확인.",
     "key_insights": [
@@ -98,8 +97,7 @@
     "started_at": "2026-08-20T10:30:00Z",
     "ended_at": "2026-08-20T10:41:30Z",
     "duration_seconds": 690,
-    "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_park_02/full_video.webm",
-    "audio_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_park_02/audio_only.mp3",
+    "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_park_02/full_video.mp4",
     "individual_report_url": "https://staiitvteam2.blob.core.windows.net/reports/ses_dev_park_02/interview_summary.pdf",
     "summary": "2년차 풀스택 개발자로 빌드/타입 에러 발생 시 Claude Code의 '스스로 명령어를 실행하고 검증하는 자율 피드백 루프'를 극찬함. OpenAI 툴은 에러 로그 복사/붙여넣기 번거로움과 임시방편(as any) 코드 제안으로 신뢰도가 낮아짐.",
     "key_insights": [
@@ -187,8 +185,7 @@
     "started_at": "2026-08-20T10:45:00Z",
     "ended_at": "2026-08-20T10:56:30Z",
     "duration_seconds": 690,
-    "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_lee_03/full_video.webm",
-    "audio_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_lee_03/audio_only.mp3",
+    "video_recording_url": "https://staiitvteam2.blob.core.windows.net/recordings/ses_dev_lee_03/full_video.mp4",
     "individual_report_url": "https://staiitvteam2.blob.core.windows.net/reports/ses_dev_lee_03/interview_summary.pdf",
     "summary": "5년차 AI/ML 엔지니어로 SSH 원격 환경에서의 CLI 안정성과 토큰 캐싱 효율을 중시함. Claude Code의 깊은 컨텍스트 관리력은 인정하나 토큰 비용과 속도에 부담을 느낌. OpenAI가 고성능 공식 CLI와 비용 최적화 캐싱을 제공한다면 스위칭 의향이 높음.",
     "key_insights": [

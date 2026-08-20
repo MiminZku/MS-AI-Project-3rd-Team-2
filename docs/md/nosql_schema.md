@@ -88,8 +88,7 @@
   "duration_seconds": 1425, // 실제 진행 시간 (초)
 
   // 🎥 📁 멀티미디어 및 리포트 파일 경로 (Blob Storage)
-  "video_recording_url": "https://<storage>.blob.core.windows.net/recordings/ses_abd23ab2f362/full_video.mp4", // 화상 녹화 영상
-  "audio_recording_url": "https://<storage>.blob.core.windows.net/recordings/ses_abd23ab2f362/audio_only.mp3", // 음성 원본
+  "video_recording_url": "https://<storage>.blob.core.windows.net/recordings/ses_abd23ab2f362/full_video.mp4", // 화상 녹화 영상(음성 포함)
   "individual_report_url": "https://<storage>.blob.core.windows.net/reports/ses_abd23ab2f362/interview_summary.pdf", // 개별 인터뷰 요약 리포트
 
   // 🧠 LLM 자동 분석 결과 (인터뷰 종료 시 생성)
