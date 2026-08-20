@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     # Azure Communication Services (WebRTC)
     acs_connection_string: str = ""
 
+    # Azure Blob Storage (녹화 영상, 질문 파일, 리포트 저장용)
+    azure_storage_connection_string: str = ""
+    azure_storage_container_name: str = "recordings"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

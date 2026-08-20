@@ -42,6 +42,8 @@ class Session(BaseModel):
     created_at: datetime = Field(default_factory=utcnow)
     started_at: datetime | None = None
     ended_at: datetime | None = None
+    video_recording_url: str | None = None
+    audio_recording_url: str | None = None
 
     def covered_count(self) -> int:
         return min(self.current_question_index, len(self.questions))
