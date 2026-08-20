@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from app.api.deps import require_admin
-from app.schemas.session import QuestionNode
+from app.schemas.session import QuestionNode, Session
 from app.schemas.study import (
     ResearchStudy,
     ResearchStudyCreateRequest,

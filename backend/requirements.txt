@@ -30,3 +30,4 @@ azure-cosmos>=4.6.0
 azure-storage-blob>=12.20.0
 python-docx>=1.1.0
 pypdf>=4.0.0
+xlsxwriter>=3.1.0

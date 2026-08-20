@@ -76,7 +76,7 @@ class Store(Protocol):
 
     async def list_sessions(
         self,
-        study_id: str,
+        study_id: str | None = None,
     ) -> list[Session]:
         ...
 
@@ -241,17 +241,21 @@ class InMemoryStore:
 
     async def list_sessions(
         self,
-        study_id: str,
+        study_id: str | None = None,
     ) -> list[Session]:
 
-        sessions = [
-            session
-            for session in self._sessions.values()
-            if session.study_id == study_id
-        ]
+        if study_id:
+            sessions = [
+                session
+                for session in self._sessions.values()
+                if session.study_id == study_id
+            ]
+        else:
+            sessions = list(self._sessions.values())
 
         sessions.sort(
-            key=lambda session: session.created_at
+            key=lambda session: session.created_at,
+            reverse=True,
         )
 
         return sessions
@@ -571,16 +575,24 @@ class RedisStore:
 
     async def list_sessions(
         self,
-        study_id: str,
+        study_id: str | None = None,
     ) -> list[Session]:
 
-        session_ids = list(
-            await self._redis.smembers(
-                self._study_sessions_key(
-                    study_id
+        if study_id:
+            session_ids = list(
+                await self._redis.smembers(
+                    self._study_sessions_key(
+                        study_id
+                    )
                 )
             )
-        )
+        else:
+            keys = await self._redis.keys("session:*")
+            session_ids = [
+                k.replace("session:", "")
+                for k in keys
+                if not any(k.endswith(s) for s in (":transcript", ":queue", ":instructions", ":instr_order", ":report", ":sessions"))
+            ]
 
         if not session_ids:
             return []
@@ -598,14 +610,16 @@ class RedisStore:
             if raw
         ]
 
-        sessions = [
-            session
-            for session in sessions
-            if session.study_id == study_id
-        ]
+        if study_id:
+            sessions = [
+                session
+                for session in sessions
+                if session.study_id == study_id
+            ]
 
         sessions.sort(
-            key=lambda session: session.created_at
+            key=lambda session: session.created_at,
+            reverse=True,
         )
 
         return sessions

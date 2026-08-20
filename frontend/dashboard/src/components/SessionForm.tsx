@@ -36,7 +36,7 @@ export default function SessionForm({ onCreated }: Props) {
   useEffect(() => {
     listSessions()
       .then(setSessions)
-      .catch((cause) => console.error("세션 목록 조회 실패", cause));
+      .catch((cause: unknown) => console.error("세션 목록 조회 실패", cause));
   }, []);
 
   const copyLink = async (url: string) => {

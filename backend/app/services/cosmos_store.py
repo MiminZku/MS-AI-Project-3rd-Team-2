@@ -110,21 +110,26 @@ class CosmosStore:
             return Session.model_validate(item)
         return None
 
-    async def list_sessions(self, study_id: str) -> list[Session]:
+    async def list_sessions(self, study_id: str | None = None) -> list[Session]:
         await self._ensure_init()
-        query = "SELECT * FROM c WHERE c.project_id = @study_id OR c.study_id = @study_id"
-        params = [{"name": "@study_id", "value": study_id}]
+        if study_id:
+            query = "SELECT * FROM c WHERE c.project_id = @study_id OR c.study_id = @study_id"
+            params = [{"name": "@study_id", "value": study_id}]
+            kwargs = {"parameters": params, "partition_key": study_id}
+        else:
+            query = "SELECT * FROM c WHERE c.type = 'interview' OR IS_DEFINED(c.duration_minutes)"
+            kwargs = {}
+
         sessions = []
         async for item in self.interviews_container.query_items(
             query=query,
-            parameters=params,
-            partition_key=study_id,
+            **kwargs,
         ):
             try:
                 sessions.append(Session.model_validate(item))
             except Exception as e:
                 logger.warning("Session 문서 검증 실패 (id=%s): %s", item.get("id"), e)
-        sessions.sort(key=lambda s: s.created_at)
+        sessions.sort(key=lambda s: s.created_at, reverse=True)
         return sessions
 
     # -----------------------------------------------------
