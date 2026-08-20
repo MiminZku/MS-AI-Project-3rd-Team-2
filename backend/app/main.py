@@ -9,7 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, sessions, rtc
+from app.api.routes import health, sessions, studies, rtc
 from app.api.ws import interview, observer
 from app.core.config import get_settings
 from app.services.store import close_store, get_store
@@ -45,6 +45,8 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(sessions.router, prefix="/api")
+app.include_router(studies.router, prefix="/api")
+app.include_router(studies.router, prefix="/api", tags=["studies"], include_in_schema=False) # alias
 app.include_router(rtc.router, prefix="/api")
 app.include_router(interview.router)
 app.include_router(observer.router)

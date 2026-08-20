@@ -1,0 +1,154 @@
+{
+  "id": "study_c734391909fa",
+  "title": "OpenAI Codex vs Claude Code 사용자 선호도 리서치",
+  "research_purpose": "개발자가 AI 기반 코딩 도구를 선택하고 사용하는 과정에서 어떤 경험과 요인이 선호, 불편, 지속 사용 또는 전환 고려에 영향을 주는지 파악하고 제품 개선 기회를 도출한다.",
+  "question_script": "1. 현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합을 사용하고 계신가요?\n   - 툴 조합 언급됨: 평소 일상적인 코딩과 복잡한 리팩토링/디버깅 시 사용하는 툴이 다른가요?\n2. 개발자들 사이에서 '모델 성능은 OpenAI가 최고인데, 터미널 작업은 결국 Claude Code를 켜게 된다'는 이야기가 있습니다. 본인도 이 말에 공감하시나요? 공감하신다면 그 결정적인 이유가 무엇인가요?\n   - UX/인터페이스 관점: 터미널 환경에서 대화의 흐름이나 멀티스텝 작업 처리가 어떻게 더 편리하다고 느끼시나요?\n   - 컨텍스트/에이전트 자율성 관점: 대규모 코드베이스를 읽고 수정하는 과정에서 Claude가 의도를 더 잘 파악한다고 느끼는 구체적인 순간이 있나요?\n3. 반대로, OpenAI 모델이나 관련 툴을 쓰면서 '아, 이 부분 때문에 결국 흐름이 끊긴다'거나 답답하다고 느꼈던 경험은 무엇인가요?\n   - 번거로움: 프롬프트를 입력하고 결과물을 검토하는 과정에서 불필요하게 개입해야 하거나 수동으로 수정해야 했던 번거로움이 있었나요?\n   - 속도·비용·자율성: 속도, 비용(토큰), 혹은 에이전트의 자율성 중 어떤 요소가 가장 아쉬웠나요?\n4. 만약 내일 당장 OpenAI가 터미널 기반 개발 경험을 혁신적으로 바꿀 단 하나의 기능을 내놓는다면, 어떤 모습이어야 할까요?",
+  "questions": [
+    {
+      "id": "q1",
+      "order": 1,
+      "text": "현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합을 사용하고 계신가요? - 툴 조합 언급됨: 평소 일상적인 코딩과 복잡한 리팩토링/디버깅 시 사용하는 툴이 다른가요?",
+      "branches": {}
+    },
+    {
+      "id": "q2",
+      "order": 2,
+      "text": "개발자들 사이에서 '모델 성능은 OpenAI가 최고인데, 터미널 작업은 결국 Claude Code를 켜게 된다'는 이야기가 있습니다. 본인도 이 말에 공감하시나요? 공감하신다면 그 결정적인 이유가 무엇인가요? - UX/인터페이스 관점: 터미널 환경에서 대화의 흐름이나 멀티스텝 작업 처리가 어떻게 더 편리하다고 느끼시나요? - 컨텍스트/에이전트 자율성 관점: 대규모 코드베이스를 읽고 수정하는 과정에서 Claude가 의도를 더 잘 파악한다고 느끼는 구체적인 순간이 있나요?",
+      "branches": {}
+    },
+    {
+      "id": "q3",
+      "order": 3,
+      "text": "반대로, OpenAI 모델이나 관련 툴을 쓰면서 '아, 이 부분 때문에 결국 흐름이 끊긴다'거나 답답하다고 느꼈던 경험은 무엇인가요? - 번거로움: 프롬프트를 입력하고 결과물을 검토하는 과정에서 불필요하게 개입해야 하거나 수동으로 수정해야 했던 번거로움이 있었나요? - 속도·비용·자율성: 속도, 비용(토큰), 혹은 에이전트의 자율성 중 어떤 요소가 가장 아쉬웠나요?",
+      "branches": {}
+    },
+    {
+      "id": "q4",
+      "order": 4,
+      "text": "만약 내일 당장 OpenAI가 터미널 기반 개발 경험을 혁신적으로 바꿀 단 하나의 기능을 내놓는다면, 어떤 모습이어야 할까요?",
+      "branches": {}
+    }
+  ],
+  "information_slots": [
+    {
+      "slot_id": "current_ai_tool_stack",
+      "question_id": "q1",
+      "slot_name": "현재 사용 중인 AI 툴 조합",
+      "description": "터미널 및 IDE/에디터 등 개발 환경에서 동시에 사용하고 있는 AI 코딩 도구(예: OpenAI, Claude Code, 기타 코드 어시스턴트)의 구체적 조합과 각 툴의 주요 사용 맥락을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "task_based_tool_switching",
+      "question_id": "q1",
+      "slot_name": "업무 유형별 툴 분리 사용 여부",
+      "description": "일상적인 코딩, 코드 작성/리뷰, 복잡한 리팩토링, 디버깅, 대규모 코드 탐색 등 작업 유형에 따라 어떤 AI 툴을 선택·전환하는지와 그 기준을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "openai_vs_claude_terminal_agreement",
+      "question_id": "q2",
+      "slot_name": "OpenAI-모델우위 vs Claude-터미널우위 인식 공감도",
+      "description": "‘모델 성능은 OpenAI, 터미널 작업은 Claude’라는 서술에 대한 응답자의 공감 여부와 그 정도를 확인한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "claude_terminal_preference_reasons",
+      "question_id": "q2",
+      "slot_name": "Claude Code 터미널 선호의 결정적 이유",
+      "description": "터미널 작업 시 Claude Code를 선택하게 만드는 핵심 요인(예: 흐름 유지, 설정 편의, 자동화 수준 등)을 구체적으로 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "terminal_ux_flow_experience",
+      "question_id": "q2",
+      "slot_name": "터미널 환경에서의 대화 흐름 경험",
+      "description": "터미널에서 AI와 상호작용할 때 대화의 연속성, 맥락 유지, 명령-응답 흐름이 어떻게 느껴지는지와 OpenAI 대비 장단점을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "multistep_task_handling",
+      "question_id": "q2",
+      "slot_name": "멀티스텝 작업 처리 경험",
+      "description": "여러 단계가 연속되는 작업(예: 변경 제안→패치 생성→테스트 실행)을 수행할 때 Claude Code와 OpenAI가 각각 얼마나 자연스럽게 작업을 이어가거나 자동화하는지에 대한 경험을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "large_codebase_understanding",
+      "question_id": "q2",
+      "slot_name": "대규모 코드베이스 이해·편집 능력 인식",
+      "description": "프로젝트 전반 혹은 대규모 코드베이스를 읽고 수정하는 상황에서 Claude와 OpenAI의 코드 이해력, 의도 파악력, 설계 수준 이해에 대한 비교 인식을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "agent_autonomy_moments",
+      "question_id": "q2",
+      "slot_name": "에이전트 자율성 체감 순간",
+      "description": "Claude가 사용자의 의도나 목표를 스스로 이해하고 적절히 행동한다고 느꼈던 구체적인 상황(파일 탐색, 변경 범위 제안 등)을 수집한다.",
+      "importance": "medium"
+    },
+    {
+      "slot_id": "openai_flow_break_experiences",
+      "question_id": "q3",
+      "slot_name": "OpenAI 사용 중 흐름이 끊긴 경험",
+      "description": "터미널이나 개발 환경에서 OpenAI 기반 도구를 사용할 때 작업 흐름이 끊기거나 몰입이 방해되었다고 느낀 대표적인 상황과 맥락을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "openai_usability_frictions",
+      "question_id": "q3",
+      "slot_name": "OpenAI 사용 시 사용성/작업성 마찰 요인",
+      "description": "프롬프트 작성, 결과 검토, 수정 요청, 재실행 등 상호작용 과정에서 사용자가 불필요하게 개입하거나 반복해야 했던 번거로운 지점들을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "manual_edit_burden",
+      "question_id": "q3",
+      "slot_name": "수동 수정/보완 부담",
+      "description": "OpenAI가 생성한 코드나 제안을 실제 코드베이스에 적용할 때 사용자가 반복적으로 수동 수정·정정해야 했던 패턴과 그로 인한 피로도를 파악한다.",
+      "importance": "medium"
+    },
+    {
+      "slot_id": "performance_speed_pain",
+      "question_id": "q3",
+      "slot_name": "속도 관련 불만",
+      "description": "응답자가 OpenAI 도구의 응답 속도나 실행 지연 때문에 느낀 불편, 작업 중단, 우회 행동 등을 파악한다.",
+      "importance": "medium"
+    },
+    {
+      "slot_id": "cost_token_concerns",
+      "question_id": "q3",
+      "slot_name": "비용/토큰 소비에 대한 부담",
+      "description": "OpenAI 사용 시 토큰 사용량, 비용 구조로 인해 사용을 주저하거나 제한하게 만드는 요소와 그 영향 정도를 파악한다.",
+      "importance": "medium"
+    },
+    {
+      "slot_id": "openai_agent_autonomy_issues",
+      "question_id": "q3",
+      "slot_name": "OpenAI 에이전트 자율성에 대한 아쉬움",
+      "description": "OpenAI 기반 에이전트가 스스로 적절히 맥락을 이어가거나 작업을 진행하지 못해 사용자가 수동으로 세세히 지시해야 했던 불만 지점을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "ideal_terminal_feature",
+      "question_id": "q4",
+      "slot_name": "이상적인 터미널 기반 핵심 기능 아이디어",
+      "description": "응답자가 생각하는 ‘터미널 기반 개발 경험을 혁신적으로 바꿀 수 있는’ 단 하나의 핵심 기능이 무엇인지와 그 개념적 모습(무엇을 해주고, 어떻게 동작해야 하는지)을 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "ideal_feature_problem_focus",
+      "question_id": "q4",
+      "slot_name": "이상적 기능이 해결하려는 핵심 문제",
+      "description": "제안된 기능이 주로 어떤 문제(흐름 단절, 반복 작업, 코드 이해, 설정 번거로움 등)를 해결하려는 것인지와 그 문제의 심각도를 파악한다.",
+      "importance": "high"
+    },
+    {
+      "slot_id": "ideal_feature_usage_scenario",
+      "question_id": "q4",
+      "slot_name": "이상적 기능의 구체적 사용 시나리오",
+      "description": "해당 기능이 실제로 사용될 대표적인 상황, 단계별 상호작용 흐름, 기존 도구 대비 달라지는 작업 방식 등을 시나리오 형태로 파악한다.",
+      "importance": "medium"
+    }
+  ],
+  "created_at": "2026-08-18T02:11:11.678381Z"
+}

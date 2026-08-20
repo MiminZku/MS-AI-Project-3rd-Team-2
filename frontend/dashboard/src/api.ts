@@ -36,11 +36,20 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
   return response.json();
 }
 
-export async function listSessions(): Promise<Session[]> {
-  const response = await fetch(`${API_BASE_URL}/api/sessions`, {
-    headers: headers(),
+/** 워드/PDF/MD 질문 가이드라인 파일 업로드 및 자동 질문 트리 생성 */
+export async function uploadGuideFile(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const customHeaders: Record<string, string> = {};
+  if (ADMIN_TOKEN) customHeaders["X-Admin-Token"] = ADMIN_TOKEN;
+
+  const response = await fetch(`${API_BASE_URL}/api/projects/upload-guide`, {
+    method: "POST",
+    headers: customHeaders,
+    body: formData,
   });
-  if (!response.ok) throw new Error(`세션 목록 조회 실패 (${response.status})`);
+  if (!response.ok) throw new Error(`가이드라인 파일 파싱 실패 (${response.status})`);
   return response.json();
 }
 

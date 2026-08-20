@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { endSession, fetchReport, observerSocketUrl, fetchRtcToken } from "../api";
+import { endSession, fetchReport, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
 import VideoSubscriber from "./VideoSubscriber";
 import type { Instruction, Report, ServerMessage, Session, Turn } from "../types";
@@ -84,6 +84,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingGuide, setUploadingGuide] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
   const kebabWrapRef = useRef<HTMLDivElement | null>(null);
@@ -614,15 +615,37 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             {selectedFile && <p className="muted small">선택된 파일: {selectedFile.name}</p>}
 
             <p className="m-hint">
-              백엔드 연동 후 이 파일을 질문 트리(JSON) 구조로 변환합니다. 지금은 파일 선택까지만 가능합니다.
+              업로드한 문서를 AI가 자동 분석하여 실시간 질문 트리(JSON) 구조로 변환합니다.
             </p>
 
             <div className="modal-actions">
               <button type="button" className="btn-ghost" onClick={() => setEditModalOpen(false)}>
                 취소
               </button>
-              <button type="button" disabled title="곧 지원 예정 · 백엔드 연동 후 사용 가능">
-                적용
+              <button
+                type="button"
+                disabled={!selectedFile || uploadingGuide}
+                onClick={async () => {
+                  if (!selectedFile) return;
+                  setUploadingGuide(true);
+                  try {
+                    const result = await uploadGuideFile(selectedFile);
+                    alert(`✅ 가이드라인 분석 완료!\n주제: ${result.study.title}\n추출된 질문 수: ${result.study.questions.length}개`);
+                    if (session) {
+                      setSession({
+                        ...session,
+                        questions: result.study.questions,
+                      });
+                    }
+                    setEditModalOpen(false);
+                  } catch (e: any) {
+                    alert(`❌ 업로드 실패: ${e.message}`);
+                  } finally {
+                    setUploadingGuide(false);
+                  }
+                }}
+              >
+                {uploadingGuide ? "AI 파싱 중…" : "적용"}
               </button>
             </div>
           </div>
