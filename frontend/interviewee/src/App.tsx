@@ -248,7 +248,19 @@ export default function App() {
     }
   };
 
-  const handleRecordingComplete = async (blob: Blob) => {
+  const handleAudioChunk = (base64PCM: string) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.chunk", data: base64PCM }));
+    }
+  };
+
+  const handleRecordingStart = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.start" }));
+    }
+  };
+
+  const handleRecordingStop = () => {
     // 1. 개발자 모드 / 더미 테스트 모드일 때 자동 핑퐁 진행
     if (!sessionId || sessionId === "default-session" || isDirectAvatarTest) {
       console.log("Mock STT: 답변 수신 완료 -> 1.5초 후 다음 질문 핑퐁 진행");
@@ -259,27 +271,9 @@ export default function App() {
       return;
     }
 
-    // 2. 백엔드 실세션 모드일 때 오디오 업로드 (STT -> LLM 질문 생성 트리거)
-    const httpBaseUrl = WS_BASE_URL.replace("ws://", "http://").replace("wss://", "https://");
-    try {
-      setOrbState("speaking");
-      const formData = new FormData();
-      formData.append("audio", blob, "audio.webm");
-
-      const res = await fetch(`${httpBaseUrl}/api/interview/${sessionId}/audio`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error(`Upload failed: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      console.log("STT & LLM trigger success:", data);
-    } catch (err) {
-      console.error("Audio upload error:", err);
-      setOrbState("idle");
+    // 2. 백엔드 실세션 모드일 때 발화 종료 알림
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.end" }));
     }
   };
 
