@@ -33,6 +33,7 @@ class QuestionNode(BaseModel):
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: new_id("ses"))
+    study_id: str | None = None
     title: str = "제목 없는 인터뷰"
     status: SessionStatus = "created"
     duration_minutes: int = 20
@@ -41,6 +42,8 @@ class Session(BaseModel):
     created_at: datetime = Field(default_factory=utcnow)
     started_at: datetime | None = None
     ended_at: datetime | None = None
+    video_recording_url: str | None = None
+    audio_recording_url: str | None = None
 
     def covered_count(self) -> int:
         return min(self.current_question_index, len(self.questions))
@@ -50,6 +53,7 @@ class Turn(BaseModel):
     index: int
     speaker: Speaker
     text: str
+    text_en: str | None = None
     # AI 판단 근거. 참관자 전용이며 인터뷰이에게 절대 전송하지 않는다 (C5).
     rationale: str | None = None
     # 이 턴에 주입된 참관자 지시 id (있는 경우)
@@ -69,6 +73,7 @@ class Instruction(BaseModel):
 
 
 class SessionCreateRequest(BaseModel):
+    study_id: str | None = None
     title: str = "제목 없는 인터뷰"
     duration_minutes: int = 20
     # §4.2의 텍스트 포맷. 파싱해서 questions로 변환된다.

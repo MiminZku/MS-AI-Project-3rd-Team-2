@@ -554,7 +554,9 @@ export default function App() {
             isRecording={isRecording}
             onRecordingChange={setIsRecording}
             showMicOffAlert={showMicOffAlert}
-            onRecordingComplete={handleRecordingComplete}
+            onAudioChunk={handleAudioChunk}
+            onRecordingStart={handleRecordingStart}
+            onRecordingStop={handleRecordingStop}
           />
           <QuestionPromptBox
             question={question}
