@@ -15,7 +15,9 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get("session") ?? "",
   );
   const [intervieweeUrl, setIntervieweeUrl] = useState("");
-  const [role, setRole] = useState<Role>("pm");
+  const [role] = useState<Role>(
+    () => (new URLSearchParams(window.location.search).get("role") as Role) || "pm",
+  );
   const [topbarStatus, setTopbarStatus] = useState<TopbarStatus | null>(null);
 
   return (
@@ -25,20 +27,6 @@ export default function App() {
           <span className="glyph">AI</span>참관자 대시보드
         </div>
         <div className="top-right">
-          {sessionId && (
-            <div className="role-switch">
-              <button className={role === "pm" ? "on" : ""} onClick={() => setRole("pm")}>
-                PM 모드
-              </button>
-              <button className={role === "client" ? "on" : ""} onClick={() => setRole("client")}>
-                클라이언트 모드
-              </button>
-            </div>
-          )}
-          {sessionId && (
-            <span className="role-chip">{role === "pm" ? "PM · Observer" : "클라이언트 · Observer"}</span>
-          )}
-
           {topbarStatus && (
             <>
               {topbarStatus.role === "pm" && (topbarStatus.phase === "wait" || topbarStatus.phase === "joined") && (

@@ -1,4 +1,4 @@
-import type { Report, Session } from "./types";
+import type { Project, Report, Session } from "./types";
 
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -19,6 +19,7 @@ export interface CreateSessionInput {
   title: string;
   duration_minutes: number;
   question_script: string;
+  study_id?: string;
 }
 
 export interface SessionResponse {
@@ -50,6 +51,38 @@ export async function uploadGuideFile(file: File): Promise<any> {
     body: formData,
   });
   if (!response.ok) throw new Error(`가이드라인 파일 파싱 실패 (${response.status})`);
+  return response.json();
+}
+
+export interface CreateProjectInput {
+  title: string;
+  research_purpose: string;
+  question_script: string;
+}
+
+export async function listProjects(): Promise<Project[]> {
+  const response = await fetch(`${API_BASE_URL}/api/projects`, {
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`프로젝트 목록 조회 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function createProject(input: CreateProjectInput): Promise<{ study: Project }> {
+  const response = await fetch(`${API_BASE_URL}/api/projects`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(`프로젝트 생성 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function listProjectSessions(studyId: string): Promise<Session[]> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${studyId}/sessions`, {
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`프로젝트 세션 목록 조회 실패 (${response.status})`);
   return response.json();
 }
 
