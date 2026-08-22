@@ -80,25 +80,26 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [drawerPinned, setDrawerPinned] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<"tree" | "link" | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingGuide, setUploadingGuide] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
-  const kebabWrapRef = useRef<HTMLDivElement | null>(null);
+  const dockRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (!drawerPinned) return;
+    if (!activePanel) return;
     const handleOutsideClick = (event: MouseEvent) => {
-      if (kebabWrapRef.current && !kebabWrapRef.current.contains(event.target as Node)) {
-        setDrawerPinned(false);
+      if (dockRef.current && !dockRef.current.contains(event.target as Node)) {
+        setActivePanel(null);
       }
     };
     document.addEventListener("mousedown", handleOutsideClick);
     return () => document.removeEventListener("mousedown", handleOutsideClick);
-  }, [drawerPinned]);
+  }, [activePanel]);
 
   useEffect(() => {
     if (sessionId !== DEMO_SESSION_ID) {
@@ -259,16 +260,52 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   return (
     <>
       <div className="tabbar">
-        <div ref={kebabWrapRef} className={`kebab-wrap ${drawerPinned ? "pinned" : ""}`}>
+        <div ref={dockRef} className="dock-shell">
+        <div className="dock-edge-trigger" />
+        <div className="dock-wrap">
+        <div className="dock">
           <button
             type="button"
-            className="kebab-btn"
-            title="질문 트리 / 세션 링크 (클릭하면 고정)"
-            onClick={() => setDrawerPinned((v) => !v)}
+            className={`dock-icon tree ${activePanel === "tree" ? "on" : ""}`}
+            title="질문 트리 · 질문 등록/편집"
+            onClick={() => setActivePanel((v) => (v === "tree" ? null : "tree"))}
           >
-            ⋮
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="10" cy="3.6" r="1.6" fill="currentColor" stroke="none" />
+                <path d="M10 5.2V9" />
+                <path d="M5 15V9h10v6" />
+                <circle cx="5" cy="16.4" r="1.6" fill="currentColor" stroke="none" />
+                <circle cx="15" cy="16.4" r="1.6" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
           </button>
-          <div className="hover-drawer">
+          <button
+            type="button"
+            className={`dock-icon link ${activePanel === "link" ? "on" : ""}`}
+            title="세션 링크"
+            onClick={() => setActivePanel((v) => (v === "link" ? null : "link"))}
+          >
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7.5 13.5a3 3 0 0 1 0-4.24l2-2a3 3 0 0 1 4.24 4.24l-1 1" />
+                <path d="M12.5 6.5a3 3 0 0 1 0 4.24l-2 2a3 3 0 0 1-4.24-4.24l1-1" />
+              </svg>
+            </span>
+          </button>
+          <button type="button" className="dock-icon analysis" disabled title="분석 앱 연동 전 · URL 확정 후 연결">
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 16V11" />
+                <path d="M10 16V6" />
+                <path d="M16 16V13" />
+              </svg>
+            </span>
+          </button>
+        </div>
+        </div>
+
+          <div className={`dock-panel ${activePanel === "tree" ? "open" : ""}`}>
             <div className="hover-drawer-section">
               <div className="hover-drawer-label">• 질문 트리</div>
               <div className="accordion-actions">
@@ -310,7 +347,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 </div>
               )}
             </div>
+          </div>
 
+          <div className={`dock-panel ${activePanel === "link" ? "open" : ""}`}>
             <div className="hover-drawer-section">
               <div className="hover-drawer-label">• 세션 링크</div>
               <div className="p-body">
@@ -383,19 +422,18 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <span className="rs-dot" />
                 응답자 {intervieweeOnline ? "접속중" : "연결 끊김"}
               </span>
-              <div 
-                className="rs-figure" 
-                style={rtcCreds ? { 
-                  overflow: "hidden", 
-                  position: "relative", 
-                  width: "100%", 
-                  aspectRatio: "16 / 9", 
-                  height: "auto", 
-                  borderRadius: "12px", 
-                  background: "#000" 
-                } : { 
-                  overflow: "hidden", 
-                  position: "relative" 
+              <div
+                className="rs-figure"
+                style={rtcCreds ? {
+                  overflow: "hidden",
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "12px",
+                  background: "#000"
+                } : {
+                  overflow: "hidden",
+                  position: "relative"
                 }}
               >
                 {rtcCreds ? (
@@ -408,13 +446,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                       fill="rgba(120,220,180,.15)"
                     />
                   </svg>
-                )}
-                {/* 실시간 자막 UI */}
-                {(liveTextKo || liveTextEn) && (
-                  <div style={{ position: "absolute", bottom: "16px", left: "16px", right: "16px", background: "rgba(0,0,0,0.7)", color: "white", padding: "12px", borderRadius: "8px", fontSize: "14px", lineHeight: 1.5, zIndex: 10 }}>
-                    {liveTextKo && <div style={{ marginBottom: liveTextEn ? "4px" : 0 }}>{liveTextKo}</div>}
-                    {liveTextEn && <div style={{ color: "#ffd54f" }}>{liveTextEn}</div>}
-                  </div>
                 )}
               </div>
               <div className="rs-strip">
@@ -443,81 +474,19 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             </>
           )}
         </div>
+
+        {phase !== "wait" && (
+          <div className="caption-bar">
+            {liveTextKo && <div className="caption-line ko">{liveTextKo}</div>}
+            {liveTextEn && <div className="caption-line en">{liveTextEn}</div>}
+            {!liveTextKo && !liveTextEn && <div className="caption-line placeholder">자막 대기 중…</div>}
+          </div>
+        )}
       </section>
       </div>
 
-      {role === "pm" && (
-        <div className="col-instructions">
-          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
-            <header className="p-head">
-              <div>
-                <h2>실시간 지시</h2>
-                <div className="sub">다음 질문에 반영 · 응답자에게 노출 안 됨</div>
-              </div>
-            </header>
-            <div className="composer p-body">
-              <textarea
-                rows={3}
-                value={draft}
-                placeholder="예) 경쟁사 대비 장점을 물어봐"
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    sendInstruction();
-                  }
-                }}
-              />
-              <button onClick={sendInstruction} disabled={status !== "connected"}>
-                지시 보내기
-              </button>
-            </div>
-            <div className="quick">
-              {QUICK_INSTRUCTIONS.map((text) => (
-                <button key={text} onClick={() => setDraft(text)}>
-                  {text}
-                </button>
-              ))}
-            </div>
-            <p className="muted small" style={{ padding: "10px 16px 16px" }}>
-              응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
-            </p>
-
-            <button
-              type="button"
-              className="accordion-head accordion-head--sub"
-              onClick={() => setHistoryOpen((v) => !v)}
-            >
-              <h2>지시 이력</h2>
-              <span className="accordion-caret">{historyOpen ? "▾" : "▸"}</span>
-            </button>
-            {historyOpen && (
-              <div className="p-body">
-                <ul className="hist">
-                  {instructions.map((instruction) => (
-                    <li key={instruction.id} className="h-item">
-                      <time>
-                        {new Date(instruction.created_at).toLocaleTimeString("ko-KR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                      <span className={`h-dot ${instruction.status}`} />
-                      <div className="h-body">
-                        <div className={`h-state ${instruction.status}`}>
-                          {instruction.status === "applied" ? "반영됨" : "대기 중"}
-                        </div>
-                        <div className="h-text">{instruction.text}</div>
-                      </div>
-                    </li>
-                  ))}
-                  {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
-                </ul>
-              </div>
-            )}
-          </section>
-
-          <section className="panel">
+      <div className="col-instructions">
+        <section className="panel">
             <header className="p-head">
               <div>
                 <h2>실시간 진행 상황</h2>
@@ -580,9 +549,88 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 </pre>
               </div>
             )}
+        </section>
+
+        {role === "pm" && (
+          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
+            <button
+              type="button"
+              className="accordion-head"
+              onClick={() => setInstructionsOpen((v) => !v)}
+            >
+              <div>
+                <h2>실시간 지시</h2>
+                <div className="sub">다음 질문에 반영 · 응답자에게 노출 안 됨</div>
+              </div>
+              <span className="accordion-caret">{instructionsOpen ? "▾" : "▸"}</span>
+            </button>
+            {instructionsOpen && (
+              <>
+                <div className="composer p-body">
+                  <textarea
+                    rows={2}
+                    value={draft}
+                    placeholder="예) 경쟁사 대비 장점을 물어봐"
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        sendInstruction();
+                      }
+                    }}
+                  />
+                  <button onClick={sendInstruction} disabled={status !== "connected"}>
+                    지시 보내기
+                  </button>
+                </div>
+                <div className="quick">
+                  {QUICK_INSTRUCTIONS.map((text) => (
+                    <button key={text} onClick={() => setDraft(text)}>
+                      {text}
+                    </button>
+                  ))}
+                </div>
+                <p className="muted small" style={{ padding: "6px 16px 10px" }}>
+                  응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
+                </p>
+
+                <button
+                  type="button"
+                  className="accordion-head accordion-head--sub"
+                  onClick={() => setHistoryOpen((v) => !v)}
+                >
+                  <h2>지시 이력</h2>
+                  <span className="accordion-caret">{historyOpen ? "▾" : "▸"}</span>
+                </button>
+                {historyOpen && (
+                  <div className="p-body">
+                    <ul className="hist">
+                      {instructions.map((instruction) => (
+                        <li key={instruction.id} className="h-item">
+                          <time>
+                            {new Date(instruction.created_at).toLocaleTimeString("ko-KR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </time>
+                          <span className={`h-dot ${instruction.status}`} />
+                          <div className="h-body">
+                            <div className={`h-state ${instruction.status}`}>
+                              {instruction.status === "applied" ? "반영됨" : "대기 중"}
+                            </div>
+                            <div className="h-text">{instruction.text}</div>
+                          </div>
+                        </li>
+                      ))}
+                      {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
           </section>
-        </div>
-      )}
+        )}
+      </div>
       </main>
 
       {editModalOpen && (

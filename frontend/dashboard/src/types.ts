@@ -12,6 +12,7 @@ export interface QuestionNode {
 
 export interface Session {
   id: string;
+  study_id?: string | null;
   title: string;
   status: "created" | "running" | "ended";
   duration_minutes: number;
@@ -20,6 +21,16 @@ export interface Session {
   created_at: string;
   started_at: string | null;
   ended_at: string | null;
+}
+
+/** backend/app/schemas/study.py ResearchStudy 와 항상 같이 수정할 것. */
+export interface Project {
+  id: string;
+  title: string;
+  research_purpose: string;
+  question_script: string;
+  questions: QuestionNode[];
+  created_at: string;
 }
 
 export interface Turn {
