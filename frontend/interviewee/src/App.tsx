@@ -138,61 +138,21 @@ export default function App() {
     }
   }, [history]);
 
-  // 더미 질문 순차 진행 함수 (핑퐁 제어 및 맞장구 리액션)
-  const advanceDummyQuestion = () => {
-    const nextIdx = dummyQuestionIndex + 1;
-    if (nextIdx < DUMMY_QUESTIONS.length) {
-      setDummyQuestionIndex(nextIdx);
-      const rawQuestion = DUMMY_QUESTIONS[nextIdx];
-      const reactionPrefix = DUMMY_REACTIONS[nextIdx - 1] || "네, 말씀 감사합니다. 다음 질문입니다.";
-      
-      // 하단 텍스트 박스에는 본 질문 표시
-      setQuestion(rawQuestion);
-      setOrbState("speaking");
-      
-      // 아바타 음성은 "맞장구 + 다음 질문"으로 자연스럽게 발화
-      const fullSpeech = `${reactionPrefix} ${rawQuestion}`;
-      speakWithCurrentSpeed(fullSpeech);
-    } else {
-      // 모든 질문 종료
-      speakWithCurrentSpeed("솔직하고 정성스러운 답변 정말 감사드립니다! 모든 인터뷰 질문이 성공적으로 완료되었습니다.");
-      setTimeout(() => {
-        setSessionStatus("ended");
-        setEntryStep("ended");
-      }, 5000);
+  const handleAudioChunk = (base64PCM: string) => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.chunk", data: base64PCM }));
     }
   };
 
-  const handleRecordingComplete = async (blob: Blob) => {
-    // 1. 개발자 모드 / 더미 테스트 모드일 때 자동 핑퐁 진행
-    if (!sessionId || sessionId === "default-session" || isDirectAvatarTest) {
-      console.log("Mock STT: 답변 수신 완료 -> 1.5초 후 다음 질문 핑퐁 진행");
-      setOrbState("listening");
-      setTimeout(() => {
-        advanceDummyQuestion();
-      }, 1200);
-      return;
+  const handleRecordingStart = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.start" }));
     }
+  };
 
-    // 2. 백엔드 실세션 모드일 때 오디오 업로드
-    const httpBaseUrl = WS_BASE_URL.replace("ws://", "http://").replace("wss://", "https://");
-    try {
-      const formData = new FormData();
-      formData.append("audio", blob, "audio.webm");
-
-      const res = await fetch(`${httpBaseUrl}/api/interview/${sessionId}/audio`, {
-        method: "POST",
-        body: formData,
-      });
-
-      if (!res.ok) {
-        throw new Error(`Upload failed: ${res.status}`);
-      }
-      
-      const data = await res.json();
-      console.log("STT success:", data);
-    } catch (err) {
-      console.error("Audio upload error:", err);
+  const handleRecordingStop = () => {
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      socketRef.current.send(JSON.stringify({ type: "audio.end" }));
     }
   };
 
@@ -451,7 +411,9 @@ export default function App() {
             isRecording={isRecording}
             onRecordingChange={setIsRecording}
             showMicOffAlert={showMicOffAlert}
-            onRecordingComplete={handleRecordingComplete}
+            onAudioChunk={handleAudioChunk}
+            onRecordingStart={handleRecordingStart}
+            onRecordingStop={handleRecordingStop}
           />
           <QuestionPromptBox
             question={question}
