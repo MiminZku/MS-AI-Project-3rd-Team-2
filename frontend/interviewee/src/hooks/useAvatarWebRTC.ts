@@ -163,7 +163,7 @@ export function useAvatarWebRTC({
       const synthesizer = new SpeechSDK.AvatarSynthesizer(speechSynthesisConfig, avatarConfig);
       avatarSynthesizerRef.current = synthesizer;
 
-      synthesizer.avatarEventReceived = (_s, e) => {
+      synthesizer.avatarEventReceived = (_s: any, e: any) => {
         console.log("Avatar event:", e.description);
       };
 

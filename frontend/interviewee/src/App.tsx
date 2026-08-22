@@ -156,6 +156,26 @@ export default function App() {
     }
   };
 
+  // 더미 질문 순차 진행 함수 (로컬 테스트 및 핑퐁 제어)
+  const advanceDummyQuestion = () => {
+    const nextIdx = dummyQuestionIndex + 1;
+    if (nextIdx < DUMMY_QUESTIONS.length) {
+      setDummyQuestionIndex(nextIdx);
+      const rawQuestion = DUMMY_QUESTIONS[nextIdx];
+      const reactionPrefix = DUMMY_REACTIONS[nextIdx - 1] || "네, 말씀 감사합니다. 다음 질문입니다.";
+      setQuestion(rawQuestion);
+      setOrbState("speaking");
+      const fullSpeech = `${reactionPrefix} ${rawQuestion}`;
+      speakWithCurrentSpeed(fullSpeech);
+    } else {
+      speakWithCurrentSpeed("솔직하고 정성스러운 답변 정말 감사드립니다! 모든 인터뷰 질문이 성공적으로 완료되었습니다.");
+      setTimeout(() => {
+        setSessionStatus("ended");
+        setEntryStep("ended");
+      }, 5000);
+    }
+  };
+
   const handleWelcomeStart = async () => {
     setIsExplainerOpen(false);
     setIsChecking(true);
