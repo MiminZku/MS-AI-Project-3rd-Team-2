@@ -13,6 +13,7 @@ interface UseAvatarWebRTCOptions {
   character?: string;
   style?: string;
   voice?: string;
+  transparentBackground?: boolean;
 }
 
 function htmlEncode(text: string): string {
@@ -31,7 +32,8 @@ export function useAvatarWebRTC({
   autoConnect = false,
   character = "lisa",
   style = "casual-sitting",
-  voice = "ko-KR-SunHiNeural",
+  voice = "en-US-AvaMultilingualNeural",
+  transparentBackground = true,
 }: UseAvatarWebRTCOptions = {}) {
   const [status, setStatus] = useState<AvatarConnectionStatus>("disconnected");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -102,7 +104,8 @@ export function useAvatarWebRTC({
 
       const avatarConfig = new SpeechSDK.AvatarConfig(character, style, videoFormat);
       avatarConfig.customized = false;
-      avatarConfig.backgroundColor = "#FFFFFFFF"; // 불투명 화이트 (VP9 요구 방지)
+      // 투명 배경 매팅을 위해 크로마키 그린(#00FF00FF) 설정
+      avatarConfig.backgroundColor = transparentBackground ? "#00FF00FF" : "#1d1d1fFF";
       if (iceServerUrl) {
         avatarConfig.remoteIceServers = [
           {
@@ -183,7 +186,7 @@ export function useAvatarWebRTC({
       setStatus("error");
       setErrorMessage(err.message || "아바타 연결 중 오류가 발생했습니다.");
     }
-  }, [character, style, voice, cleanup]);
+  }, [character, style, voice, transparentBackground, cleanup]);
 
   const speak = useCallback(
     async (text: string, customVoice?: string, speedRate: number = 1.35) => {
@@ -195,12 +198,17 @@ export function useAvatarWebRTC({
 
       try {
         setStatus("speaking");
+        if (videoRef.current) {
+          videoRef.current.muted = false;
+          videoRef.current.volume = 1.0;
+          videoRef.current.play().catch(() => {});
+        }
         const activeVoice = customVoice || voice;
         // speedRate(예: 0.8, 1.0, 1.2, 1.4, 1.6) -> SSML rate 퍼센티지 변환
         const ratePercent = Math.round((speedRate - 1) * 100);
         const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
 
-        const spokenSsml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='ko-KR'><voice name='${activeVoice}'><mstts:leadingsilence-exact value='0'/><prosody rate='${rateStr}'>${htmlEncode(text)}</prosody></voice></speak>`;
+        const spokenSsml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${activeVoice}'><mstts:leadingsilence-exact value='0'/><prosody rate='${rateStr}'>${htmlEncode(text)}</prosody></voice></speak>`;
 
         console.log(`Avatar speak start (${speedRate}x, rate=${rateStr}):`, text);
         const result = await synthesizer.speakSsmlAsync(spokenSsml);

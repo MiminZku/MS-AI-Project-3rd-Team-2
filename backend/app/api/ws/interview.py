@@ -55,7 +55,13 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
     await websocket.send_json(
         server_message(
             "session.state",
-            session={"id": session.id, "title": session.title, "status": session.status},
+            session={
+                "id": session.id,
+                "title": session.title,
+                "status": session.status,
+                "duration_minutes": session.duration_minutes,
+                "questions": [q.model_dump(mode="json") for q in session.questions],
+            },
         )
     )
     await manager.broadcast_to_observers(

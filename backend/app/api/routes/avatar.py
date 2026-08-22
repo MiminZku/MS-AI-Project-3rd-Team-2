@@ -16,14 +16,14 @@ class AvatarTokenResponse(BaseModel):
     region: str
     character: str = "lisa"
     style: str = "casual-sitting"
-    voice: str = "ko-KR-SunHiNeural"
+    voice: str = "en-US-AvaMultilingualNeural"
 
 
 class CreateAvatarSessionRequest(BaseModel):
     sdp_offer: str
     character: str = "lisa"
     style: str = "casual-sitting"
-    voice: str = "ko-KR-SunHiNeural"
+    voice: str = "en-US-AvaMultilingualNeural"
 
 
 class CreateAvatarSessionResponse(BaseModel):
