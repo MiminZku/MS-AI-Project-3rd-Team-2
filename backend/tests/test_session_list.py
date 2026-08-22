@@ -22,7 +22,9 @@ def test_세션_목록은_최근_생성순으로_온다(client):
     assert ids.index(second_id) < ids.index(first_id)
 
 
-def test_세션이_하나도_없으면_빈_목록이_온다(client):
+def test_세션_목록_조회(client):
     response = client.get("/api/sessions")
     assert response.status_code == 200
-    assert response.json() == []
+    assert isinstance(response.json(), list)
+    assert any(item["id"] == "default-session" for item in response.json())
+
