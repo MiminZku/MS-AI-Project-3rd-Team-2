@@ -54,7 +54,7 @@ def render_for_prompt(nodes: list[QuestionNode], current_index: int) -> str:
     lines: list[str] = []
     for i, node in enumerate(nodes):
         marker = " <== 현재 진행 중" if i == current_index else ""
-        lines.append(f"{node.order}. {node.text}{marker}")
+        lines.append(f"[index: {i}] {node.order}. {node.text}{marker}")
         for condition, question in node.branches.items():
             lines.append(f"   [{condition}] -> {question}")
     return "\n".join(lines)
