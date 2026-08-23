@@ -161,9 +161,9 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
 
                 # 무음이거나 텍스트가 비어있어도 인터뷰 흐름이 멈추지 않도록 처리
                 if not full_text:
-                    full_text = "네, 답변을 완료했습니다."
-                    logger.info("STT 인식 텍스트 없음 - 기본 답변으로 진행: %s", session_id)
-                    await on_stt_final(full_text)
+                    full_text = "[음성 인식 실패 - STT 오류. 꼬리질문 없이 방금 전 질문을 그대로 다시 반복해서 물어보세요.]"
+                    logger.warning("STT 인식 텍스트 없음 - 재질문 요청 폴백으로 진행: %s", session_id)
+                    await on_stt_final("🎙️ (음성 인식에 실패했습니다.)")
 
                 raw_pcm_chunks.clear()
                 utterance_buffer.clear()

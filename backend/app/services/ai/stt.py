@@ -80,8 +80,22 @@ class GptTranscriber:
             logger.info("Azure OpenAI Whisper STT 성공: %s", text)
             return text
         except Exception as e:
-            logger.warning("Azure OpenAI Whisper STT 실패: %s", e)
-            return ""
+            logger.warning("Azure OpenAI Whisper STT (%s) 실패: %s", self._model, e)
+            try:
+                # 일반적인 whisper 모델명으로 다시 한번 시도
+                fallback_model = "whisper" if self._model != "whisper" else "whisper-1"
+                response = await self._client.audio.transcriptions.create(
+                    model=fallback_model,
+                    file=("audio.wav", audio),
+                    language="ko",
+                    response_format="text",
+                )
+                text = str(response).strip()
+                logger.info("Azure OpenAI Whisper STT (%s 폴백) 성공: %s", fallback_model, text)
+                return text
+            except Exception as e2:
+                logger.warning("Azure OpenAI Whisper STT (폴백 %s) 실패: %s", fallback_model, e2)
+                return ""
 
 
 class CompositeTranscriber:

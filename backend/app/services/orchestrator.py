@@ -261,6 +261,20 @@ async def handle_utterance(
         session
     )
 
+    # 대시보드 트리 UI 동기화를 위해 변경된 세션 상태 브로드캐스트
+    msg = server_message(
+        "session.state",
+        session={
+            "id": session.id,
+            "title": session.title,
+            "status": session.status,
+            "duration_minutes": session.duration_minutes,
+            "questions": [q.model_dump(mode="json") for q in session.questions],
+            "current_question_index": session.current_question_index,
+        },
+    )
+    await manager.broadcast_to_observers(session.id, msg)
+
     # -----------------------------------------------------
     # ⑥ 인터뷰이에게는 질문만
     # -----------------------------------------------------
