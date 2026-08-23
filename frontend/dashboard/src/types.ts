@@ -61,6 +61,7 @@ export interface Report {
 }
 
 export type ServerMessage =
+  | { type: "session.state"; session: Session }
   | {
       type: "session.snapshot";
       session: Session;

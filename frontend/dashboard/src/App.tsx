@@ -30,8 +30,12 @@ export default function App() {
           {topbarStatus && (
             <>
               {topbarStatus.role === "pm" && (topbarStatus.phase === "wait" || topbarStatus.phase === "joined") && (
-                <button className="sess-btn go" disabled title="곧 지원 예정 · 지금은 응답자 접속 시 자동 시작됩니다">
-                  인터뷰 시작
+                <button
+                  className="sess-btn go"
+                  disabled={topbarStatus.starting}
+                  onClick={topbarStatus.onStartSession}
+                >
+                  {topbarStatus.starting ? "시작 중..." : "인터뷰 시작"}
                 </button>
               )}
               {topbarStatus.role === "pm" && (topbarStatus.phase === "joined" || topbarStatus.phase === "live") && (

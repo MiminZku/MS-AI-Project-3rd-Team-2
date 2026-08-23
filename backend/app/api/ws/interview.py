@@ -31,7 +31,6 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
         return
 
     await manager.connect_interviewee(session_id, websocket)
-    session = await orchestrator.start_session_if_needed(session)
 
     await websocket.send_json(
         server_message(

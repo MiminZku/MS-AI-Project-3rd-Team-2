@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { endSession, fetchReport, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
+import { startSession, endSession, fetchReport, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
 import VideoSubscriber from "./VideoSubscriber";
 import type { Instruction, Report, ServerMessage, Session, Turn } from "../types";
@@ -25,8 +25,10 @@ export type Phase = "wait" | "joined" | "live" | "end";
 export interface TopbarStatus {
   role: Role;
   phase: Phase;
+  starting: boolean;
   ending: boolean;
   hasReport: boolean;
+  onStartSession: () => void;
   onEndSession: () => void;
   onOpenReport: () => void;
 }
@@ -74,6 +76,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [liveTextKo, setLiveTextKo] = useState("");
   const [liveTextEn, setLiveTextEn] = useState("");
   const [report, setReport] = useState<Report | null>(null);
+  const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
@@ -129,6 +132,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     socket.onmessage = (event) => {
       const message: ServerMessage = JSON.parse(event.data);
       switch (message.type) {
+        case "session.state":
+          setSession((prev) => (prev ? { ...prev, ...message.session } : (message.session as Session)));
+          break;
         case "session.snapshot":
           setSession(message.session);
           setTranscript(message.transcript);
@@ -211,6 +217,18 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     setDraft("");
   };
 
+  const handleStartSession = useCallback(async () => {
+    setStarting(true);
+    if (sessionId === DEMO_SESSION_ID) {
+      const startedAt = new Date().toISOString();
+      setSession((prev) => (prev ? { ...prev, status: "running", started_at: startedAt } : prev));
+    } else {
+      await startSession(sessionId).catch((err) => console.error("세션 시작 실패:", err));
+      setSession((prev) => (prev ? { ...prev, status: "running", started_at: new Date().toISOString() } : prev));
+    }
+    setStarting(false);
+  }, [sessionId]);
+
   const handleEndSession = useCallback(async () => {
     setEnding(true);
     if (sessionId === DEMO_SESSION_ID) {
@@ -247,12 +265,14 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     onStatusChange?.({
       role,
       phase,
+      starting,
       ending,
       hasReport: report != null,
+      onStartSession: handleStartSession,
       onEndSession: handleEndSession,
       onOpenReport: handleOpenReport,
     });
-  }, [role, phase, ending, report, handleEndSession, handleOpenReport, onStatusChange]);
+  }, [role, phase, starting, ending, report, handleStartSession, handleEndSession, handleOpenReport, onStatusChange]);
 
   // Monitor가 언마운트될 때만(세션 목록으로 돌아갈 때) 상단바 상태를 지운다.
   useEffect(() => () => onStatusChange?.(null), [onStatusChange]);
