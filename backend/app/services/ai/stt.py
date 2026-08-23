@@ -99,8 +99,8 @@ class CompositeTranscriber:
         if self.settings.use_azure_openai:
             try:
                 self.gpt_transcriber = GptTranscriber()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning(f"GptTranscriber 초기화 실패: {e}")
 
     async def transcribe(self, audio: bytes, *, mime_type: str = "audio/wav") -> str:
         if self.speech_transcriber:

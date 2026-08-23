@@ -144,12 +144,20 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                         try:
                             wav_bytes = pcm_to_wav(all_pcm, sample_rate=24000)
                             transcriber = get_transcriber()
-                            full_text = await transcriber.transcribe(wav_bytes, mime_type="audio/wav")
-                            if full_text:
-                                logger.info("폴백 STT 인식 성공: %s", full_text)
+                            fallback_text = await transcriber.transcribe(wav_bytes, mime_type="audio/wav")
+                            
+                            # 다시 한번 버퍼 확인 (fallback 진행 중에 Realtime 응답이 왔을 수 있음)
+                            full_text = " ".join(utterance_buffer).strip()
+                            
+                            if not full_text and fallback_text:
+                                logger.info("폴백 STT 인식 성공: %s", fallback_text)
+                                full_text = fallback_text
                                 await on_stt_final(full_text)
                         except Exception as e:
                             logger.warning("폴백 STT 전사 오류: %s", e)
+
+                if not full_text:
+                    full_text = " ".join(utterance_buffer).strip()
 
                 # 무음이거나 텍스트가 비어있어도 인터뷰 흐름이 멈추지 않도록 처리
                 if not full_text:
