@@ -149,6 +149,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
           }
           break;
         case "transcript.partial":
+        case "transcript.final":
           if (message.lang === "ko") setLiveTextKo(message.text);
           if (message.lang === "en") setLiveTextEn(message.text);
           break;

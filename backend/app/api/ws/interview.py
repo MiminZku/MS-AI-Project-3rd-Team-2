@@ -13,6 +13,8 @@ from app.services.store import get_store
 from app.services.ai.realtime_stt import RealtimeSTTClient
 from app.core.config import get_settings
 
+import asyncio
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
