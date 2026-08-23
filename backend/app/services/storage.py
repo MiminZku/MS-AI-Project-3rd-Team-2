@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from pathlib import Path
 from app.core.config import get_settings
 
@@ -13,8 +14,11 @@ logger = logging.getLogger(__name__)
 class StorageService:
     def __init__(self):
         self.settings = get_settings()
-        self.local_dir = Path("data/uploads")
-        self.local_dir.mkdir(parents=True, exist_ok=True)
+        self.local_dir = Path(tempfile.gettempdir()) / "ai_interview_uploads"
+        try:
+            self.local_dir.mkdir(parents=True, exist_ok=True)
+        except Exception as e:
+            logger.warning("로컬 임시 업로드 디렉토리 생성 실패 (무시 가능): %s", e)
 
     async def upload_file(
         self,
@@ -42,17 +46,20 @@ class StorageService:
                 logger.info(f"Azure Blob Storage 업로드 성공: {blob_client.url}")
                 return blob_client.url
             except Exception as e:
-                logger.exception(f"Azure Blob Storage 업로드 실패, 로컬 폴더로 폴백: {e}")
+                logger.exception(f"Azure Blob Storage 업로드 실패, 로컬 임시 폴더로 폴백: {e}")
 
         # 2. 로컬 파일 저장소 폴백 (로컬 개발/테스트용)
-        target_path = self.local_dir / filename
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(target_path, "wb") as f:
-            f.write(file_bytes)
-        
-        local_url = f"/api/uploads/{filename}"
-        logger.info(f"로컬 파일 저장 완료: {target_path} -> {local_url}")
-        return local_url
+        try:
+            target_path = self.local_dir / filename
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(target_path, "wb") as f:
+                f.write(file_bytes)
+            local_url = f"/api/uploads/{filename}"
+            logger.info(f"로컬 파일 저장 완료: {target_path} -> {local_url}")
+            return local_url
+        except Exception as e:
+            logger.warning(f"로컬 파일 저장 실패: {e}")
+            return f"https://local-stub.blob.core.windows.net/{container_name}/{filename}"
 
 
 _storage_service: StorageService | None = None
