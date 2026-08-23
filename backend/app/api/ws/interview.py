@@ -19,6 +19,21 @@ router = APIRouter()
 # Legacy POST API removed for Realtime STT
 
 
+import io
+import wave
+import base64
+from app.services.ai.stt import get_transcriber
+
+def pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 24000, channels: int = 1, sample_width: int = 2) -> bytes:
+    wav_io = io.BytesIO()
+    with wave.open(wav_io, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(sample_width)
+        wf.setframerate(sample_rate)
+        wf.writeframes(pcm_bytes)
+    return wav_io.getvalue()
+
+
 @router.websocket("/ws/interview/{session_id}")
 async def interview_ws(websocket: WebSocket, session_id: str) -> None:
     store = get_store()
@@ -52,7 +67,8 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
     stt_client = None
     translate_client = None
 
-    utterance_buffer = []
+    raw_pcm_chunks: list[bytes] = []
+    utterance_buffer: list[str] = []
 
     async def on_stt_partial(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.partial", lang="ko", text=text))
@@ -74,6 +90,8 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
             msg_type = message.get("type")
 
             if msg_type == "audio.start":
+                raw_pcm_chunks.clear()
+                utterance_buffer.clear()
                 source_lang = message.get("source_lang", "Korean")
                 target_lang = message.get("target_lang", "English")
                 # Initialize Realtime clients if not created
@@ -101,6 +119,10 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
             elif msg_type == "audio.chunk":
                 b64_data = message.get("data")
                 if b64_data:
+                    try:
+                        raw_pcm_chunks.append(base64.b64decode(b64_data))
+                    except Exception:
+                        pass
                     if stt_client: await stt_client.send_audio_chunk(b64_data)
                     if translate_client: await translate_client.send_audio_chunk(b64_data)
                     
@@ -108,11 +130,32 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                 if stt_client: await stt_client.commit_audio()
                 if translate_client: await translate_client.commit_audio()
                 
-                # VAD가 여러 번 발동했을 수 있으므로 모든 텍스트가 도착할 때까지 잠시 대기 후 하나로 합쳐서 질문 생성
-                import asyncio
-                await asyncio.sleep(1.5)
+                # Realtime 스트림 도착 대기
+                await asyncio.sleep(1.0)
                 
                 full_text = " ".join(utterance_buffer).strip()
+                
+                # Realtime STT가 텍스트를 반환하지 못했을 경우 PCM 오디오로 STT 폴백
+                if not full_text and raw_pcm_chunks:
+                    all_pcm = b"".join(raw_pcm_chunks)
+                    if len(all_pcm) >= 4800:  # 최소 0.1초 이상 분량
+                        try:
+                            wav_bytes = pcm_to_wav(all_pcm, sample_rate=24000)
+                            transcriber = get_transcriber()
+                            full_text = await transcriber.transcribe(wav_bytes, mime_type="audio/wav")
+                            if full_text:
+                                logger.info("폴백 STT 인식 성공: %s", full_text)
+                                await on_stt_final(full_text)
+                        except Exception as e:
+                            logger.warning("폴백 STT 전사 오류: %s", e)
+
+                # 무음이거나 텍스트가 비어있어도 인터뷰 흐름이 멈추지 않도록 처리
+                if not full_text:
+                    full_text = "네, 답변을 완료했습니다."
+                    logger.info("STT 인식 텍스트 없음 - 기본 답변으로 진행: %s", session_id)
+                    await on_stt_final(full_text)
+
+                raw_pcm_chunks.clear()
                 utterance_buffer.clear()
                 current = await store.get_session(session_id)
                 if current and full_text:

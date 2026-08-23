@@ -497,9 +497,23 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
 
         {phase !== "wait" && (
           <div className="caption-bar">
-            {liveTextKo && <div className="caption-line ko">{liveTextKo}</div>}
-            {liveTextEn && <div className="caption-line en">{liveTextEn}</div>}
-            {!liveTextKo && !liveTextEn && <div className="caption-line placeholder">자막 대기 중…</div>}
+            {liveTextEn && (
+              <div className="caption-line en">
+                <span className="caption-tag en">EN 번역</span>
+                <span className="caption-text">{liveTextEn}</span>
+              </div>
+            )}
+            {liveTextKo && (
+              <div className="caption-line ko">
+                <span className="caption-tag ko">KO 원문</span>
+                <span className="caption-text">{liveTextKo}</span>
+              </div>
+            )}
+            {!liveTextKo && !liveTextEn && (
+              <div className="caption-line placeholder">
+                🎙️ 응답자가 발화하면 실시간 번역 및 원문 STT 자막이 여기에 표시됩니다.
+              </div>
+            )}
           </div>
         )}
       </section>

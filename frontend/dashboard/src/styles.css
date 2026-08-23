@@ -742,27 +742,62 @@ body:has(.dock-panel.open) .monitor {
 
 .caption-bar {
   flex-shrink: 0;
-  min-height: 56px;
+  min-height: 60px;
   margin: 0 16px 16px;
   padding: 10px 14px;
   border-radius: 12px;
-  background: #1d1d1f;
+  background: rgba(22, 26, 35, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   color: #eaf0f8;
-  font-size: 13px;
+  font-size: 13.5px;
   line-height: 1.5;
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
+}
+
+.caption-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
 }
 
 .caption-line.en {
-  color: #ffd54f;
+  color: #ffe082;
+  font-weight: 500;
+}
+
+.caption-line.ko {
+  color: #e2e8f0;
+}
+
+.caption-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+
+.caption-tag.en {
+  background: rgba(255, 224, 130, 0.18);
+  color: #ffe082;
+  border: 1px solid rgba(255, 224, 130, 0.4);
+}
+
+.caption-tag.ko {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
 }
 
 .caption-line.placeholder {
   color: #86868b;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .rs-badge {
