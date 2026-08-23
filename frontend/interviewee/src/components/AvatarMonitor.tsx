@@ -143,35 +143,49 @@ export default function AvatarMonitor({
         backgroundPosition: "center",
       }}
     >
-      {/* 상단 라벨 & 상태 인디케이터 (좌상단 전용) */}
-      <div
-        className="monitor-header"
-        style={{
-          position: "absolute",
-          top: 12,
-          left: 12,
-          right: 12,
-          zIndex: 10,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          pointerEvents: "none",
-        }}
-      >
-        <div style={{ display: "flex", gap: 8, alignItems: "center", pointerEvents: "auto" }}>
+      {/* 상단 라벨 & 상태 인디케이터 (겹침 0% 유동형 뱃지 바) */}
+      <div className="monitor-top-bar">
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", pointerEvents: "auto" }}>
           <span className="monitor-tag">AI 모더레이터</span>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              background: "rgba(239, 68, 68, 0.2)",
+              border: "1px solid rgba(239, 68, 68, 0.45)",
+              color: "#fca5a5",
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              padding: "4px 8px",
+              borderRadius: "12px",
+              backdropFilter: "blur(6px)",
+              letterSpacing: "0.5px",
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#ef4444",
+                boxShadow: "0 0 8px #ef4444",
+              }}
+            />
+            LIVE
+          </span>
           {status === "connecting" && (
-            <span style={{ fontSize: "0.75rem", background: "rgba(0,0,0,0.6)", color: "#60a5fa", padding: "2px 8px", borderRadius: 4 }}>
+            <span style={{ fontSize: "0.75rem", background: "rgba(0,0,0,0.6)", color: "#60a5fa", padding: "4px 8px", borderRadius: 12, border: "1px solid rgba(96,165,250,0.3)" }}>
               아바타 연결 중...
             </span>
           )}
           {status === "speaking" && (
-            <span style={{ fontSize: "0.75rem", background: "rgba(34,197,94,0.8)", color: "#fff", padding: "2px 8px", borderRadius: 4 }}>
+            <span style={{ fontSize: "0.75rem", background: "rgba(34,197,94,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 12, fontWeight: 600, boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>
               말하는 중 🎙️
             </span>
           )}
           {status === "error" && (
-            <span style={{ fontSize: "0.75rem", background: "rgba(239,68,68,0.8)", color: "#fff", padding: "2px 8px", borderRadius: 4 }}>
+            <span style={{ fontSize: "0.75rem", background: "rgba(239,68,68,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 12 }}>
               연결 오류
             </span>
           )}
