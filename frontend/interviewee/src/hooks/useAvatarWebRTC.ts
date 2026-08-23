@@ -235,12 +235,28 @@ export function useAvatarWebRTC({
     };
   }, [autoConnect, connect, cleanup]);
 
+  const stopSpeaking = useCallback(async () => {
+    try {
+      if (videoRef.current) {
+        videoRef.current.muted = true;
+      }
+      setStatus("connected");
+      if (avatarSynthesizerRef.current) {
+        // 빈 SSML로 즉시 발화 인터럽트
+        await avatarSynthesizerRef.current.speakTextAsync(" ").catch(() => {});
+      }
+    } catch (e) {
+      console.warn("Error stopping avatar speaking:", e);
+    }
+  }, []);
+
   return {
     videoRef,
     status,
     errorMessage,
     connect,
     speak,
+    stopSpeaking,
     disconnect: cleanup,
   };
 }
