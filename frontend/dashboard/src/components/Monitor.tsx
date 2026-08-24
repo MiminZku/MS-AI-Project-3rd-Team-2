@@ -92,6 +92,8 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingGuide, setUploadingGuide] = useState(false);
+  const [drawerPinned, setDrawerPinned] = useState(false);
+  const { startRecording, stopAndUploadRecording } = useRemoteRecording();
   const socketRef = useRef<WebSocket | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
@@ -467,6 +469,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 ＋10분
               </button>
               <span className={`badge ${status}`}>{status}</span>
+              {actionError && <span className="error-text" style={{ color: "red", fontSize: "12px", marginLeft: "8px" }}>{actionError}</span>}
             </div>
           </div>
         </header>
