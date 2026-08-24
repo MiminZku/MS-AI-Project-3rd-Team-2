@@ -13,11 +13,11 @@ const roleCopy: Record<UserRole, { description: string; notice: string; emailLab
     submitLabel: "PM 대시보드 입장",
   },
   client: {
-    description: "승인된 조사 결과와 전달용 산출물을 확인하기 위해 접속합니다.",
-    notice: "실습 환경 안내 · 데모 기간엔 로그인이 되지 않아도 이용할 수 있음",
+    description: "PM이 전달한 Project Access ID로 하나의 조사 결과만 확인합니다.",
+    notice: "Client는 프로젝트 목록이나 관리 메뉴에 접근하지 않습니다.",
     emailLabel: "회사 이메일",
     passwordLabel: "접근 비밀번호",
-    submitLabel: "클라이언트 워크스페이스 입장",
+    submitLabel: "Project Access ID 입력",
   },
 };
 
@@ -30,7 +30,7 @@ export default function Login() {
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     login(activeRole);
-    navigate("/projects");
+    navigate(activeRole === "client" ? "/client/access" : "/projects");
   };
 
   return (
@@ -79,25 +79,39 @@ export default function Login() {
                 </button>
               </div>
 
-              <div className="login-credentials">
-                <label className="login-field">
-                  <span>{selectedRole.emailLabel}</span>
-                  <input autoComplete="email" name="email" placeholder="name@company.com" type="email" />
-                </label>
-                <label className="login-field">
-                  <span>{selectedRole.passwordLabel}</span>
-                  <input autoComplete="current-password" name="password" placeholder="비밀번호를 입력하세요" type="password" />
-                </label>
-              </div>
+              {activeRole === "pm" ? (
+                <div className="login-credentials">
+                  <label className="login-field">
+                    <span>{selectedRole.emailLabel}</span>
+                    <input autoComplete="email" name="email" placeholder="name@company.com" type="email" />
+                  </label>
+                  <label className="login-field">
+                    <span>{selectedRole.passwordLabel}</span>
+                    <input autoComplete="current-password" name="password" placeholder="비밀번호를 입력하세요" type="password" />
+                  </label>
+                </div>
+              ) : (
+                <div className="login-client-route-note">
+                  <KeyRoundIcon />
+                  <span>다음 화면에서 PM에게 전달받은 Project Access ID를 입력합니다.</span>
+                </div>
+              )}
 
               <Button className="login-submit-btn" size="md" type="submit" variant="primary">
                 {selectedRole.submitLabel}
               </Button>
             </form>
+            <Link className="login-client-access-link" to="/client/access">
+              Client 초대 링크가 있으신가요? <strong>Project Access ID로 접속</strong>
+            </Link>
             <p className="login-support">접근 권한이 없거나 초대 메일을 찾을 수 없나요? <a href="mailto:research@gromit.team">Research 운영팀에 문의</a></p>
           </section>
         </div>
       </section>
     </main>
   );
+}
+
+function KeyRoundIcon() {
+  return <ShieldCheck size={20} weight="duotone" aria-hidden="true" />;
 }

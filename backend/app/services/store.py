@@ -53,6 +53,12 @@ class Store(Protocol):
     ) -> ResearchStudy | None:
         ...
 
+    async def get_study_by_access_id(
+        self,
+        access_id: str,
+    ) -> ResearchStudy | None:
+        ...
+
     async def list_studies(
         self,
     ) -> list[ResearchStudy]:
@@ -208,6 +214,21 @@ class InMemoryStore:
     ) -> ResearchStudy | None:
 
         return self._studies.get(study_id)
+
+
+    async def get_study_by_access_id(
+        self,
+        access_id: str,
+    ) -> ResearchStudy | None:
+
+        return next(
+            (
+                study
+                for study in self._studies.values()
+                if study.access_id == access_id
+            ),
+            None,
+        )
 
 
     async def list_studies(
@@ -457,6 +478,14 @@ class RedisStore:
         return f"study:{study_id}:sessions"
 
 
+    def _study_access_key(
+        self,
+        access_id: str,
+    ) -> str:
+
+        return f"project-access:{access_id}"
+
+
     # -----------------------------------------------------
     # Research Study
     # -----------------------------------------------------
@@ -470,11 +499,19 @@ class RedisStore:
             study.id
         )
 
-        await self._redis.set(
+        pipe = self._redis.pipeline()
+        pipe.set(
             key,
             study.model_dump_json(),
             ex=self._ttl,
         )
+        if study.access_id:
+            pipe.set(
+                self._study_access_key(study.access_id),
+                study.id,
+                ex=self._ttl,
+            )
+        await pipe.execute()
 
 
     async def get_study(
@@ -495,6 +532,19 @@ class RedisStore:
             ResearchStudy
             .model_validate_json(raw)
         )
+
+
+    async def get_study_by_access_id(
+        self,
+        access_id: str,
+    ) -> ResearchStudy | None:
+
+        study_id = await self._redis.get(
+            self._study_access_key(access_id)
+        )
+        if not study_id:
+            return None
+        return await self.get_study(study_id)
 
 
     async def list_studies(

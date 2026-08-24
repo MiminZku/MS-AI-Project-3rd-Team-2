@@ -9,11 +9,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import health, sessions, studies, rtc, avatar
+from app.api.routes import health, sessions, studies, rtc, avatar, client_projects
 from app.api.ws import interview, observer
 from app.core.config import get_settings
 from app.schemas.session import Session, QuestionNode
 from app.schemas.study import ResearchStudy, InformationSlot
+from app.services.project_access import issue_project_access_id
 from app.services.store import close_store, get_store
 
 logger = logging.getLogger(__name__)
@@ -108,6 +109,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             for study in demo_studies:
                 await store.save_study(study)
             logger.info("기본 데모 프로젝트 %d건 Cosmos DB 시드 등록 완료", len(demo_studies))
+
+        # 기존 프로젝트도 Client 초대 흐름을 쓸 수 있도록 접속 ID를 보정한다.
+        for study in await store.list_studies():
+            if not study.access_id:
+                study.access_id = await issue_project_access_id(store)
+                await store.save_study(study)
     except Exception as e:
         logger.warning("데모 프로젝트 시드 등록 중 예외 (무시 가능): %s", e)
 
@@ -143,6 +150,7 @@ app.include_router(health.router)
 app.include_router(sessions.router, prefix="/api")
 app.include_router(studies.router, prefix="/api")
 app.include_router(studies.router, prefix="/api", tags=["studies"], include_in_schema=False) # alias
+app.include_router(client_projects.router, prefix="/api")
 app.include_router(rtc.router, prefix="/api")
 app.include_router(avatar.router, prefix="/api")
 app.include_router(interview.router)

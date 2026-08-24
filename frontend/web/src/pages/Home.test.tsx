@@ -12,6 +12,8 @@ it("keeps the shared home preview delivery-safe for clients while retaining PM o
     <MemoryRouter><RoleProvider initialRole="pm"><Home /></RoleProvider></MemoryRouter>,
   );
 
+  expect(clientMarkup).toContain("GROMIT");
+  expect(clientMarkup).toContain("인트로 건너뛰기");
   expect(clientMarkup).not.toContain("18 / 20");
   expect(clientMarkup).not.toContain("Live workspace");
   expect(clientMarkup).not.toContain("2 ready");

@@ -53,6 +53,11 @@ class ResearchStudy(BaseModel):
 
     title: str
 
+    # PM이 Client에게 전달하는 비추측형 프로젝트 접속 코드.
+    # 기존 프로젝트 문서는 마이그레이션 중일 수 있으므로 optional로 읽고,
+    # 새 프로젝트와 시작 시 보정되는 기존 프로젝트에는 항상 값이 저장된다.
+    access_id: str | None = None
+
     research_purpose: str
 
     # 기업/연구자가 입력한 원본 질문지

@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { RouterProvider, createBrowserRouter, Outlet } from "react-router-dom";
+import { RouterProvider, createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import RequirePmRole from "./auth/RequirePmRole";
 import RequireRole from "./auth/RequireRole";
 import { RoleProvider } from "./auth/RoleContext";
@@ -15,6 +15,8 @@ const Projects = lazy(() => import("./pages/Projects"));
 const ResearchResults = lazy(() => import("./pages/ResearchResults"));
 const ResearchSession = lazy(() => import("./pages/ResearchSession"));
 const Downloads = lazy(() => import("./pages/Downloads"));
+const ClientAccess = lazy(() => import("./pages/ClientAccess"));
+const ClientProject = lazy(() => import("./pages/ClientProject"));
 
 function ProductRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<div className="route-loading" role="status">Loading workspace…</div>}>{children}</Suspense>;
@@ -22,6 +24,9 @@ function ProductRoute({ children }: { children: ReactNode }) {
 
 const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
+  { path: "/client", element: <Navigate to="/client/access" replace /> },
+  { path: "/client/access", element: <ProductRoute><ClientAccess /></ProductRoute> },
+  { path: "/client/project/:projectId", element: <ProductRoute><ClientProject /></ProductRoute> },
   {
     element: <Layout />,
     children: [
@@ -32,10 +37,15 @@ const router = createBrowserRouter([
       {
         element: <RequireRole><Outlet /></RequireRole>,
         children: [
-          { path: "/projects", element: <ProductRoute><Projects /></ProductRoute> },
-          { path: "/projects/:projectId/results", element: <ProductRoute><ResearchResults /></ProductRoute> },
-          { path: "/projects/:projectId/sessions/:sessionId", element: <ProductRoute><ResearchSession /></ProductRoute> },
-          { path: "/downloads", element: <ProductRoute><Downloads /></ProductRoute> },
+          {
+            element: <RequirePmRole><Outlet /></RequirePmRole>,
+            children: [
+              { path: "/projects", element: <ProductRoute><Projects /></ProductRoute> },
+              { path: "/projects/:projectId/results", element: <ProductRoute><ResearchResults /></ProductRoute> },
+              { path: "/projects/:projectId/sessions/:sessionId", element: <ProductRoute><ResearchSession /></ProductRoute> },
+              { path: "/downloads", element: <ProductRoute><Downloads /></ProductRoute> },
+            ],
+          },
           {
             path: "/services",
             element: (

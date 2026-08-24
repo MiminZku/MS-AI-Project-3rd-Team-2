@@ -2008,6 +2008,54 @@ body {
   font-size: 11px;
 }
 
+.project-access-id-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+  max-width: 520px;
+  margin: 20px auto 0;
+  padding: 18px;
+  border: 1px solid rgba(0, 113, 227, 0.22);
+  border-radius: 16px;
+  background: linear-gradient(135deg, rgba(0, 113, 227, 0.09), rgba(0, 113, 227, 0.025));
+  text-align: left;
+}
+
+.project-access-id-card p {
+  margin: 0 0 5px;
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.project-access-id-card strong {
+  display: block;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.project-access-id-card code {
+  display: inline-block;
+  margin-top: 8px;
+  color: #005bb5;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+}
+
+.project-access-id-card button {
+  align-self: center;
+  white-space: nowrap;
+}
+
+.project-access-id-card small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
 .project-success-actions {
   margin-top: 30px;
   justify-content: center;
@@ -2050,6 +2098,14 @@ body {
 
   .project-success-actions > button,
   .project-create-actions > button {
+    width: 100%;
+  }
+
+  .project-access-id-card {
+    grid-template-columns: 1fr;
+  }
+
+  .project-access-id-card button {
     width: 100%;
   }
 }

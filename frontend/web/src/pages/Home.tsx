@@ -1,16 +1,20 @@
-import React from "react";
+import { useCallback, useState } from "react";
 import { useRole } from "../auth/RoleContext";
+import GromitIntro from "../components/GromitIntro";
 import DownloadCatalog from "../components/research/DownloadCatalog";
 import TopicList from "../components/research/TopicList";
 import { researchProjects } from "../mock/researchProjects";
 import ResearchCapabilities from "../sections/platform/ResearchCapabilities";
 import ResearchHero from "../sections/platform/ResearchHero";
 
-export const Home: React.FC = () => {
+export const Home = () => {
   const { role } = useRole();
+  const [introComplete, setIntroComplete] = useState(false);
+  const handleIntroComplete = useCallback(() => setIntroComplete(true), []);
 
   return (
-    <div className="research-home">
+    <div className={`research-home${introComplete ? " research-home--intro-complete" : ""}`}>
+      {!introComplete && <GromitIntro onComplete={handleIntroComplete} />}
       <ResearchHero />
       <section className="research-home__workspace">
         <div className="container">

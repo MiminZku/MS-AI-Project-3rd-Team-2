@@ -17,4 +17,6 @@ it("renders the full-size two-column dashboard login with credential fields", ()
   expect(markup).toContain('name="email"');
   expect(markup).toContain('name="password"');
   expect(markup).toContain("PM 대시보드 입장");
+  expect(markup).toContain('href="/client/access"');
+  expect(markup).toContain("Project Access ID");
 });

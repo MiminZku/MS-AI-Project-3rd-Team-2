@@ -29,6 +29,7 @@ export interface Session {
 export interface Project {
   id: string;
   title: string;
+  access_id?: string | null;
   research_purpose: string;
   question_script: string;
   questions: QuestionNode[];
