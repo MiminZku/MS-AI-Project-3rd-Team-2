@@ -123,10 +123,17 @@ class AzureOpenAIQuestionGenerator:
             logger.warning("GPT 응답 JSON 파싱 실패, 원문을 질문으로 사용: %s", content[:200])
             data = {"question": content.strip()}
 
+        next_idx = int(data.get("next_question_index", session.current_question_index))
+        # State Machine Guard: Prevent jumping backward or skipping multiple steps
+        if next_idx < session.current_question_index:
+            next_idx = session.current_question_index
+        elif next_idx > session.current_question_index + 1:
+            next_idx = session.current_question_index + 1
+
         return GeneratedQuestion(
             text=str(data.get("question", "")).strip() or "조금 더 자세히 말씀해 주시겠어요?",
             rationale=str(data.get("rationale", "")).strip(),
-            next_question_index=int(data.get("next_question_index", session.current_question_index)),
+            next_question_index=next_idx,
         )
 
 

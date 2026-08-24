@@ -57,4 +57,8 @@ def render_for_prompt(nodes: list[QuestionNode], current_index: int) -> str:
         lines.append(f"[index: {i}] {node.order}. {node.text}{marker}")
         for condition, question in node.branches.items():
             lines.append(f"   [{condition}] -> {question}")
+    
+    if current_index >= len(nodes):
+        lines.append(f"[index: {len(nodes)}] (대본 완료 - 마무리 멘트를 진행하고 인터뷰를 종료하세요) <== 현재 진행 중")
+        
     return "\n".join(lines)
