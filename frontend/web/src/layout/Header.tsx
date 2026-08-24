@@ -29,7 +29,11 @@ export const Header: React.FC = () => {
 
   const handlePrimaryAction = () => {
     setIsMobileMenuOpen(false);
-    navigate(isPm ? "/projects" : "/downloads");
+    if (isPm) {
+      window.location.href = "/dashboard/";
+    } else {
+      navigate("/downloads");
+    }
   };
 
   const handleLogout = () => {
@@ -55,7 +59,7 @@ export const Header: React.FC = () => {
           {role ? (
             <>
               <span className={`header-role-badge header-role-badge--${isPm ? "pm" : "client"}`}>{roleLabel}</span>
-              <Button variant="primary" size="sm" to={isPm ? "/projects" : "/downloads"}>
+              <Button variant="primary" size="sm" onClick={() => isPm ? (window.location.href = "/dashboard/") : navigate("/downloads")}>
                 {isPm ? "새 조사 만들기" : "전달 리포트"}
               </Button>
               <button type="button" className="header-logout" onClick={handleLogout} aria-label="로그아웃">로그아웃</button>

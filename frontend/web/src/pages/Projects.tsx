@@ -16,7 +16,7 @@ export default function Projects() {
           <p className="research-eyebrow">Research workspace</p>
           <div className="research-page-hero__row">
             <div><h1>프로젝트마다<br />독립적인 조사 공간.</h1><p>가이드, 인터뷰, 결과, 산출물을 주제별로 나누어 관리합니다.</p></div>
-            <Link className="research-button research-button--primary" to="/contact"><Plus size={18} weight="bold" />새 조사 만들기</Link>
+            <a className="research-button research-button--primary" href="/dashboard/"><Plus size={18} weight="bold" />새 조사 만들기</a>
           </div>
         </div>
       </section>
