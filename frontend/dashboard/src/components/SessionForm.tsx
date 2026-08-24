@@ -155,8 +155,21 @@ export default function SessionForm({ role, onCreated }: Props) {
   );
 }
 
+const FILE_FORMATS = [
+  { key: "md", label: "Markdown", accept: ".md,text/markdown" },
+  {
+    key: "word",
+    label: "Word",
+    accept: ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  },
+  { key: "pdf", label: "PDF", accept: ".pdf,application/pdf" },
+] as const;
+
+type FileFormat = (typeof FILE_FORMATS)[number]["key"];
+
 function NewProjectView({ onCreated }: { onCreated: (project: Project) => void }) {
   const [method, setMethod] = useState<"guide" | "manual">("guide");
+  const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [guideFile, setGuideFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const [purpose, setPurpose] = useState("");
@@ -178,16 +191,22 @@ function NewProjectView({ onCreated }: { onCreated: (project: Project) => void }
 
     setBusy(true);
     try {
-      const result = method === "guide"
-        ? await uploadGuideFile(guideFile as File)
-        : await createProject({
+      if (method === "guide") {
+        const result = await uploadGuideFile(guideFile as File);
+        alert(`✅ 가이드라인 분석 완료!\n주제: ${result.study.title}\n추출된 질문 수: ${result.study.questions.length}개`);
+        setCreated(result.study as Project);
+      } else {
+        const result = await createProject({
           title: title.trim(),
           research_purpose: purpose.trim(),
           question_script: questionScript.trim(),
         });
-      setCreated(result.study as Project);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+        setCreated(result.study as Project);
+      }
+    } catch (cause: any) {
+      const msg = cause instanceof Error ? cause.message : String(cause);
+      setError(msg);
+      alert(`❌ 프로젝트 생성/파싱 실패: ${msg}`);
     } finally {
       setBusy(false);
     }
@@ -232,17 +251,37 @@ function NewProjectView({ onCreated }: { onCreated: (project: Project) => void }
         </div>
 
         {method === "guide" ? (
-          <label className="guide-upload-field">
-            <span className="guide-upload-icon" aria-hidden="true">↑</span>
-            <strong>질문 가이드 파일을 올려주세요</strong>
-            <small>Word(.docx), PDF, Markdown(.md) · AI가 질문 트리를 생성합니다.</small>
-            <input
-              accept=".docx,.pdf,.md,text/markdown,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={(event) => setGuideFile(event.target.files?.[0] ?? null)}
-              type="file"
-            />
-            {guideFile && <span className="guide-file-name">선택된 파일: {guideFile.name}</span>}
-          </label>
+          <div style={{ marginTop: 16 }}>
+            <p className="m-sub" style={{ marginBottom: 8, fontSize: "0.88rem", color: "var(--muted, #888)" }}>파일로 질문지를 가져올 형식을 선택하세요</p>
+            <div className="format-seg" style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              {FILE_FORMATS.map((format) => (
+                <button
+                  key={format.key}
+                  type="button"
+                  className={fileFormat === format.key ? "on" : ""}
+                  onClick={() => {
+                    setFileFormat(format.key);
+                    setGuideFile(null);
+                  }}
+                >
+                  {format.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="guide-upload-field">
+              <span className="guide-upload-icon" aria-hidden="true">↑</span>
+              <strong>질문 가이드 파일을 올려주세요</strong>
+              <small>{fileFormat.toUpperCase()} 형식 · AI가 질문 트리를 생성합니다.</small>
+              <input
+                key={fileFormat}
+                type="file"
+                accept={FILE_FORMATS.find((f) => f.key === fileFormat)?.accept}
+                onChange={(event) => setGuideFile(event.target.files?.[0] ?? null)}
+              />
+              {guideFile && <span className="guide-file-name">선택된 파일: {guideFile.name}</span>}
+            </label>
+          </div>
         ) : (
           <div className="project-manual-fields">
             <label>
@@ -262,7 +301,7 @@ function NewProjectView({ onCreated }: { onCreated: (project: Project) => void }
 
         <div className="form-actions project-create-actions">
           <button disabled={busy} onClick={submit} type="button">
-            {busy ? "프로젝트를 준비하는 중…" : "새 프로젝트 만들기"}
+            {busy ? "AI 파싱 중…" : "새 프로젝트 만들기"}
           </button>
         </div>
         {error && <p className="error">{error}</p>}
