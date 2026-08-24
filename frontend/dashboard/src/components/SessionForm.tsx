@@ -8,6 +8,11 @@ import {
   uploadGuideFile,
 } from "../api";
 import type { Project, Session } from "../types";
+import {
+  formatSessionReference,
+  normalizeParticipantId,
+  validateParticipantId,
+} from "../lib/sessionIdentity";
 
 const STATUS_LABEL: Record<Session["status"], string> = {
   created: "대기",
@@ -20,6 +25,42 @@ type View = "new-project" | "new-session" | "session-list" | null;
 interface Props {
   role: "pm" | "client";
   onCreated: (session: Session, intervieweeUrl: string) => void;
+}
+
+export function SessionListRows({
+  sessions,
+  busy,
+  onOpen,
+}: {
+  sessions: Session[];
+  busy: boolean;
+  onOpen: (session: Session) => void;
+}) {
+  return (
+    <>
+      {sessions.map((session) => {
+        const ended = session.status === "ended";
+        return (
+          <button
+            key={session.id}
+            type="button"
+            className="link-row"
+            style={{ width: "100%", cursor: ended ? "not-allowed" : "pointer", textAlign: "left" }}
+            disabled={busy || ended}
+            onClick={() => onOpen(session)}
+          >
+            <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
+              {STATUS_LABEL[session.status]}
+            </span>
+            <code>{formatSessionReference(session.id)}</code>
+            <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
+              {new Date(session.created_at).toLocaleString("ko-KR")}
+            </span>
+          </button>
+        );
+      })}
+    </>
+  );
 }
 
 export default function SessionForm({ role, onCreated }: Props) {
@@ -230,7 +271,7 @@ function NewProjectView({ onCreated }: { onCreated: (project: Project) => void }
   );
 }
 
-function NewSessionView({
+export function NewSessionView({
   projects,
   presetProjectId,
   onCreated,
@@ -240,7 +281,7 @@ function NewSessionView({
   onCreated: (session: Session, intervieweeUrl: string) => void;
 }) {
   const [projectId, setProjectId] = useState(presetProjectId);
-  const [sessionName, setSessionName] = useState("");
+  const [participantId, setParticipantId] = useState("");
   const [duration, setDuration] = useState(60);
   const [language, setLanguage] = useState("ko");
   const [busy, setBusy] = useState(false);
@@ -255,12 +296,16 @@ function NewSessionView({
   };
 
   const submit = async () => {
-    setBusy(true);
     setError("");
+    const participantIdError = validateParticipantId(participantId);
+    if (participantIdError) {
+      setError(participantIdError);
+      return;
+    }
+    setBusy(true);
     try {
-      const project = projects.find((p) => p.id === projectId);
       const result = await createSession({
-        title: sessionName.trim() || project?.title || "제목 없는 인터뷰",
+        title: normalizeParticipantId(participantId),
         duration_minutes: duration,
         study_id: projectId,
         question_script: "",
@@ -302,13 +347,15 @@ function NewSessionView({
             </label>
 
             <label>
-              인터뷰 세션 이름
-              <p className="desc">프로젝트 하나에 인터뷰가 여러 개 붙을 수 있어 구분용 이름을 붙입니다</p>
+              참가자 ID
+              <p className="desc">실명 대신 인터뷰 참여자를 구분하는 익명 ID를 입력하세요 (예: INT-001)</p>
               <input
                 type="text"
-                value={sessionName}
-                onChange={(event) => setSessionName(event.target.value)}
-                placeholder="예) 3번째 참가자 - 김OO"
+                value={participantId}
+                onChange={(event) => setParticipantId(event.target.value)}
+                placeholder="INT-001"
+                autoCapitalize="characters"
+                maxLength={40}
               />
             </label>
 
@@ -438,27 +485,7 @@ function SessionListView({
           <p className="muted small">이 프로젝트엔 아직 생성된 세션이 없습니다.</p>
         )}
 
-        {sessions.map((session) => {
-          const ended = session.status === "ended";
-          return (
-            <button
-              key={session.id}
-              type="button"
-              className="link-row"
-              style={{ width: "100%", cursor: ended ? "not-allowed" : "pointer", textAlign: "left" }}
-              disabled={busy || ended}
-              onClick={() => open(session)}
-            >
-              <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
-                {STATUS_LABEL[session.status]}
-              </span>
-              <code>{session.title}</code>
-              <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
-                {new Date(session.created_at).toLocaleString("ko-KR")}
-              </span>
-            </button>
-          );
-        })}
+        <SessionListRows sessions={sessions} busy={busy} onOpen={open} />
         {error && <p className="error">{error}</p>}
       </div>
     </section>
