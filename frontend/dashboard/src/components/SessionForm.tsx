@@ -1,25 +1,85 @@
-import { useState } from "react";
-import { createSession, fetchSession } from "../api";
-import { DEMO_SESSION } from "../demoData";
-import type { Session } from "../types";
+import { useEffect, useState } from "react";
+import { createSession, fetchSession, listProjects, listProjectSessions } from "../api";
+import type { Project, Session } from "../types";
 
-const SAMPLE_SCRIPT = `1. 배달앱을 얼마나 자주 쓰시나요?
-2. 최소주문금액에 대해 어떻게 느끼시나요?
-   [부담됨] → 그 때문에 주문을 포기한 경험이 있나요?
-   [보통]   → 최소주문금액을 맞추려고 더 시킨 적은 있나요?
-3. 배달비가 오르면 어떻게 하시나요?`;
+const STATUS_LABEL: Record<Session["status"], string> = {
+  created: "대기",
+  running: "진행중",
+  ended: "종료",
+};
+
+type View = "new-session" | "session-list" | null;
 
 interface Props {
   onCreated: (session: Session, intervieweeUrl: string) => void;
 }
 
 export default function SessionForm({ onCreated }: Props) {
-  const [title, setTitle] = useState("배달앱 사용성 인터뷰");
+  const [view, setView] = useState<View>(null);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [presetProjectId] = useState(() => new URLSearchParams(window.location.search).get("project") ?? "");
+
+  useEffect(() => {
+    listProjects()
+      .then(setProjects)
+      .catch((cause: unknown) => console.error("프로젝트 목록 조회 실패", cause));
+  }, []);
+
+  if (view === null) {
+    return (
+      <main className="form-page picker">
+        <div className="dock">
+          <button type="button" className="dock-icon session" title="새 인터뷰 세션" onClick={() => setView("new-session")}>
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="10" cy="10" r="8" />
+                <path d="M8.2 6.8l5 3.2-5 3.2V6.8z" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
+            <span className="dock-icon-label">새 인터뷰 세션</span>
+          </button>
+          <button type="button" className="dock-icon list" title="세션 목록" onClick={() => setView("session-list")}>
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 5.5h12M4 10h12M4 14.5h9" />
+              </svg>
+            </span>
+            <span className="dock-icon-label">세션 목록</span>
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  return (
+    <main className="form-page">
+      <button type="button" className="ghost back-to-picker" onClick={() => setView(null)}>
+        ← 뒤로
+      </button>
+
+      {view === "new-session" && (
+        <NewSessionView projects={projects} presetProjectId={presetProjectId} onCreated={onCreated} />
+      )}
+      {view === "session-list" && <SessionListView projects={projects} onCreated={onCreated} />}
+    </main>
+  );
+}
+
+function NewSessionView({
+  projects,
+  presetProjectId,
+  onCreated,
+}: {
+  projects: Project[];
+  presetProjectId: string;
+  onCreated: (session: Session, intervieweeUrl: string) => void;
+}) {
+  const [projectId, setProjectId] = useState(presetProjectId);
+  const [sessionName, setSessionName] = useState("");
   const [duration, setDuration] = useState(60);
   const [language, setLanguage] = useState("ko");
-  const [joinId, setJoinId] = useState("");
-  const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [created, setCreated] = useState<{ session: Session; intervieweeUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -29,11 +89,18 @@ export default function SessionForm({ onCreated }: Props) {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  const run = async (task: () => Promise<void>) => {
+  const submit = async () => {
     setBusy(true);
     setError("");
     try {
-      await task();
+      const project = projects.find((p) => p.id === projectId);
+      const result = await createSession({
+        title: sessionName.trim() || project?.title || "제목 없는 인터뷰",
+        duration_minutes: duration,
+        study_id: projectId,
+        question_script: "",
+      });
+      setCreated({ session: result.session, intervieweeUrl: result.interviewee_url });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
     } finally {
@@ -42,37 +109,42 @@ export default function SessionForm({ onCreated }: Props) {
   };
 
   return (
-    <main className="form-page">
-      <section className="panel">
-        <header className="p-head">
-          <div>
-            <h2>목데이터 미리보기</h2>
-            <div className="sub">백엔드 연결 없이 화면만 확인</div>
-          </div>
-        </header>
-        <div className="p-body">
-          <p className="muted small" style={{ margin: "0 0 12px" }}>
-            백엔드가 아직 준비되지 않았을 때, 목데이터로 관리자 대시보드 화면만 확인합니다.
-          </p>
-          <button className="ghost" onClick={() => onCreated(DEMO_SESSION, "")}>
-            데모로 미리보기
-          </button>
+    <section className="panel">
+      <header className="p-head">
+        <div>
+          <h2>새 인터뷰 세션</h2>
+          <div className="sub">PM만 접근 · 생성 후 링크가 발급됩니다</div>
         </div>
-      </section>
-
-      <section className="panel">
-        <header className="p-head">
-          <div>
-            <h2>새 인터뷰 세션</h2>
-            <div className="sub">PM만 접근 · 생성 후 링크가 발급됩니다</div>
-          </div>
-        </header>
-        <div className="p-body">
+      </header>
+      <div className="p-body">
         {!created ? (
           <>
             <label>
-              세션 이름
-              <input value={title} onChange={(event) => setTitle(event.target.value)} />
+              프로젝트
+              {projects.length === 0 && (
+                <p className="desc">등록된 프로젝트가 없습니다 — 프로젝트 관리 포털에서 먼저 만들어주세요.</p>
+              )}
+              <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+                <option value="" disabled>
+                  프로젝트를 선택하세요
+                </option>
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>
+                    {project.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label>
+              인터뷰 세션 이름
+              <p className="desc">프로젝트 하나에 인터뷰가 여러 개 붙을 수 있어 구분용 이름을 붙입니다</p>
+              <input
+                type="text"
+                value={sessionName}
+                onChange={(event) => setSessionName(event.target.value)}
+                placeholder="예) 3번째 참가자 - 김OO"
+              />
             </label>
 
             <div className="two">
@@ -80,6 +152,7 @@ export default function SessionForm({ onCreated }: Props) {
                 인터뷰 시간
                 <p className="desc">종료 예정 시각 계산에 사용됩니다</p>
                 <select value={duration} onChange={(event) => setDuration(Number(event.target.value))}>
+                  <option value={10}>10분</option>
                   <option value={30}>30분</option>
                   <option value={60}>60분</option>
                   <option value={90}>90분</option>
@@ -97,32 +170,9 @@ export default function SessionForm({ onCreated }: Props) {
               </label>
             </div>
 
-            <label>
-              질문 리스트
-              <p className="desc">
-                질문은 세션 생성 후 백룸 콘솔의 [＋ 질문 편집]에서 입력합니다. 인터뷰 진행 중에도 수정할 수
-                있습니다.
-              </p>
-            </label>
-
             <div className="form-actions">
-              <button className="ghost" disabled title="곧 지원 예정">
-                임시 저장
-              </button>
-              <button
-                disabled={busy}
-                onClick={() =>
-                  run(async () => {
-                    const result = await createSession({
-                      title,
-                      duration_minutes: duration,
-                      question_script: SAMPLE_SCRIPT,
-                    });
-                    setCreated({ session: result.session, intervieweeUrl: result.interviewee_url });
-                  })
-                }
-              >
-                세션 생성
+              <button disabled={busy || !projectId} onClick={submit}>
+                인터뷰 세션 생성 →
               </button>
             </div>
           </>
@@ -153,41 +203,99 @@ export default function SessionForm({ onCreated }: Props) {
             </div>
           </>
         )}
-        </div>
-      </section>
+        {error && <p className="error">{error}</p>}
+      </div>
+    </section>
+  );
+}
 
-      <section className="panel">
-        <header className="p-head">
-          <div>
-            <h2>기존 세션 열기</h2>
-            <div className="sub">세션 ID로 다시 접속</div>
-          </div>
-        </header>
-        <div className="p-body">
-          <label>
-            세션 ID
-            <input
-              value={joinId}
-              placeholder="ses_..."
-              onChange={(event) => setJoinId(event.target.value)}
-            />
-          </label>
-          <button
-            className="ghost"
-            disabled={busy || !joinId.trim()}
-            onClick={() =>
-              run(async () => {
-                const result = await fetchSession(joinId.trim());
-                onCreated(result.session, result.interviewee_url);
-              })
-            }
-          >
-            모니터링 시작
-          </button>
-        </div>
-      </section>
+function SessionListView({
+  projects,
+  onCreated,
+}: {
+  projects: Project[];
+  onCreated: (session: Session, intervieweeUrl: string) => void;
+}) {
+  const [projectId, setProjectId] = useState("");
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
-      {error && <p className="error">{error}</p>}
-    </main>
+  useEffect(() => {
+    if (!projectId) {
+      setSessions([]);
+      return;
+    }
+    setLoading(true);
+    listProjectSessions(projectId)
+      .then(setSessions)
+      .catch((cause: unknown) => console.error("세션 목록 조회 실패", cause))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  const open = async (session: Session) => {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await fetchSession(session.id);
+      onCreated(result.session, result.interviewee_url);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="panel">
+      <header className="p-head">
+        <div>
+          <h2>세션 목록</h2>
+          <div className="sub">프로젝트를 선택하면 그 프로젝트의 인터뷰들이 표시됩니다</div>
+        </div>
+      </header>
+      <div className="p-body">
+        <label>
+          프로젝트
+          <select value={projectId} onChange={(event) => setProjectId(event.target.value)}>
+            <option value="">프로젝트를 선택하세요</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.title}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        {loading && <p className="muted small">불러오는 중…</p>}
+        {!loading && projectId && sessions.length === 0 && (
+          <p className="muted small">이 프로젝트엔 아직 생성된 세션이 없습니다.</p>
+        )}
+
+        {sessions.map((session) => {
+          const ended = session.status === "ended";
+          return (
+            <button
+              key={session.id}
+              type="button"
+              className="link-row"
+              style={{ width: "100%", cursor: ended ? "not-allowed" : "pointer", textAlign: "left" }}
+              disabled={busy || ended}
+              onClick={() => open(session)}
+            >
+              <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
+                {STATUS_LABEL[session.status]}
+              </span>
+              <code>{session.title}</code>
+              <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
+                {new Date(session.created_at).toLocaleString("ko-KR")}
+              </span>
+            </button>
+          );
+        })}
+        {error && <p className="error">{error}</p>}
+      </div>
+    </section>
   );
 }

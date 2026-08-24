@@ -10,6 +10,7 @@ interface RespondentMonitorProps {
   onAudioChunk?: (base64PCM: string) => void;
   onRecordingStart?: () => void;
   onRecordingStop?: () => void;
+  onEndInterview?: () => void;
 }
 
 export default function RespondentMonitor({
@@ -20,12 +21,41 @@ export default function RespondentMonitor({
   onAudioChunk,
   onRecordingStart,
   onRecordingStop,
+  onEndInterview,
 }: RespondentMonitorProps) {
   const { videoRef, isCameraOn } = useSelfViewStream(isActive);
 
   return (
     <section className="monitor monitor-self">
-      <span className="monitor-tag">나 (응답자)</span>
+      {/* 상단 바: 좌측에 나 (응답자) 라벨, 우측에 빨간색 인터뷰 종료 버튼 */}
+      <div className="monitor-top-bar">
+        <span className="monitor-tag">나 (응답자)</span>
+        {onEndInterview && (
+          <button
+            onClick={onEndInterview}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              background: "rgba(239, 68, 68, 0.2)",
+              border: "1px solid rgba(239, 68, 68, 0.6)",
+              color: "#fca5a5",
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              padding: "4px 12px",
+              borderRadius: "14px",
+              cursor: "pointer",
+              backdropFilter: "blur(8px)",
+              transition: "all 0.2s ease",
+              boxShadow: "0 2px 10px rgba(239, 68, 68, 0.25)",
+            }}
+            title="인터뷰를 종료하고 퇴장합니다"
+          >
+            <span>🚪</span>
+            <span>인터뷰 종료</span>
+          </button>
+        )}
+      </div>
 
       <div className="self-video-wrapper">
         <video

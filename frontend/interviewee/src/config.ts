@@ -8,7 +8,8 @@ export const WS_BASE_URL: string =
 /** 응답자는 대시보드가 발급한 ?session=... 링크로 들어온다. 
  * 로컬 개발 편의를 위해 파라미터가 없는 경우 'default-session'으로 폴백한다. */
 export function sessionIdFromUrl(): string {
-  const urlSession = new URLSearchParams(window.location.search).get("session");
+  const params = new URLSearchParams(window.location.search);
+  const urlSession = params.get("session") || params.get("session_id");
   if (urlSession) {
     localStorage.setItem("interview_session_id", urlSession);
     return urlSession;

@@ -40,16 +40,23 @@ class Settings(BaseSettings):
     azure_openai_realtime_stt_deployment: str = "gpt-realtime-whisper"
     azure_openai_realtime_translate_deployment: str = "gpt-realtime-translate"
 
+    # STT 모델 (D8): gpt-transcribe | gpt-live-transcribe
+    stt_model: str = "gpt-transcribe"
+
     # D5: 타임키퍼 폴링 주기(초)
     timekeeper_interval_seconds: int = 60
 
     # Azure Communication Services (WebRTC)
     acs_connection_string: str = ""
 
-    # Empty connection string keeps local development self-contained by
-    # writing recordings under backend/data/recordings.
+    # Azure Blob Storage (녹화 영상, 질문 파일, 리포트 저장용)
     azure_storage_connection_string: str = ""
-    azure_storage_recordings_container: str = "recordings"
+    azure_storage_container_name: str = "recordings"
+
+    # Azure Cosmos DB (NoSQL 데이터베이스)
+    azure_cosmos_endpoint: str = ""
+    azure_cosmos_key: str = ""
+    azure_cosmos_database: str = "InterviewDB"
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -58,6 +65,10 @@ class Settings(BaseSettings):
     @property
     def use_redis(self) -> bool:
         return bool(self.redis_url)
+
+    @property
+    def use_cosmos(self) -> bool:
+        return bool(self.azure_cosmos_endpoint and self.azure_cosmos_key)
 
     @property
     def use_azure_openai(self) -> bool:

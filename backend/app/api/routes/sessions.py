@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 
 from app.api.deps import load_session, require_admin
@@ -19,6 +19,7 @@ from app.services.question_script import parse_question_script
 from app.services.recordings import RecordingUploadResponse, save_recording
 from app.services.store import get_store
 from app.schemas.messages import server_message
+from app.services.storage import get_storage_service
 
 
 router = APIRouter(
@@ -135,6 +136,19 @@ async def create_session(
 
 
 # =========================================================
+# Session 목록 조회 (전체 세션 목록)
+# =========================================================
+
+@router.get(
+    "",
+    response_model=list[Session],
+)
+async def list_sessions() -> list[Session]:
+
+    return await get_store().list_sessions()
+
+
+# =========================================================
 # Session 조회
 # =========================================================
 
@@ -187,6 +201,23 @@ async def get_instructions(
 
     return await get_store().list_instructions(
         session.id
+    )
+
+
+# =========================================================
+# Session 시작 (PM 수동 시작)
+# =========================================================
+
+@router.post(
+    "/{session_id}/start",
+    response_model=Session,
+)
+async def start_session_endpoint(
+    session: Session = Depends(load_session),
+) -> Session:
+
+    return await orchestrator.start_session(
+        session
     )
 
 
@@ -280,3 +311,40 @@ async def get_report(
         )
 
     return report
+
+
+# =========================================================
+# Recording 업로드 (영상/음성 녹화 파일 저장)
+# =========================================================
+
+@router.post(
+    "/{session_id}/recording",
+    status_code=200,
+)
+async def upload_recording(
+    file: UploadFile = File(...),
+    session: Session = Depends(load_session),
+) -> dict:
+    storage = get_storage_service()
+    content = await file.read()
+
+    # 확장자 유지 (.webm / .mp4 / .wav 등)
+    ext = file.filename.split(".")[-1] if file.filename and "." in file.filename else "webm"
+    target_filename = f"{session.id}/recording.{ext}"
+
+    url = await storage.upload_file(
+        file_bytes=content,
+        filename=target_filename,
+        content_type=file.content_type or "video/webm",
+        container_name="recordings",
+    )
+
+    session.video_recording_url = url
+    await get_store().save_session(session)
+
+    return {
+        "session_id": session.id,
+        "video_recording_url": url,
+        "size_bytes": len(content),
+        "status": "uploaded",
+    }

@@ -51,12 +51,12 @@ def test_참관자_지시가_다음_질문에_주입되고_한_번만_소비된�
             assert "rationale" not in question["turn"]
             assert "경쟁사 대비 장점을 물어봐" in question["turn"]["text"]
 
-            observer_events = [observer.receive_json() for _ in range(3)]
+            observer_events = [observer.receive_json() for _ in range(4)]
             types = [event["type"] for event in observer_events]
-            assert types == ["transcript.append", "transcript.append", "instruction.applied"]
+            assert types == ["transcript.append", "session.state", "transcript.append", "instruction.applied"]
             # 참관자에게는 근거가 보인다
-            assert observer_events[1]["turn"]["rationale"]
-            assert observer_events[2]["instruction"]["status"] == "applied"
+            assert observer_events[2]["turn"]["rationale"]
+            assert observer_events[3]["instruction"]["status"] == "applied"
 
             # 두 번째 턴: 큐가 비었으므로 지시 재주입 없이 질문 리스트로 진행 (C4)
             interviewee.send_json({"type": "utterance", "text": "그건 좀 부담됐어요."})

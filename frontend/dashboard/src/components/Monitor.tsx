@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { endSession, fetchReport, observerSocketUrl, fetchRtcToken, startSession } from "../api";
+import { startSession, endSession, fetchReport, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
 import { useRemoteRecording } from "../hooks/useRemoteRecording";
 import VideoSubscriber from "./VideoSubscriber";
@@ -35,14 +35,13 @@ export interface TopbarStatus {
 }
 
 const FILE_FORMATS = [
-  { key: "json", label: "JSON", accept: ".json,application/json" },
-  { key: "pdf", label: "PDF", accept: ".pdf,application/pdf" },
+  { key: "md", label: "Markdown", accept: ".md,text/markdown" },
   {
     key: "word",
     label: "Word",
     accept: ".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   },
-  { key: "md", label: "Markdown", accept: ".md,text/markdown" },
+  { key: "pdf", label: "PDF", accept: ".pdf,application/pdf" },
 ] as const;
 
 type FileFormat = (typeof FILE_FORMATS)[number]["key"];
@@ -87,14 +86,27 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [historyOpen, setHistoryOpen] = useState(false);
-  const [drawerPinned, setDrawerPinned] = useState(false);
+  const [instructionsOpen, setInstructionsOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<"tree" | "link" | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
-  const [fileFormat, setFileFormat] = useState<FileFormat>("json");
+  const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadingGuide, setUploadingGuide] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
-  const { recordingError, startRecording, stopAndUploadRecording } = useRemoteRecording();
+  const dockRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!activePanel) return;
+    const handleOutsideClick = (event: MouseEvent) => {
+      if (dockRef.current && !dockRef.current.contains(event.target as Node)) {
+        setActivePanel(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [activePanel]);
 
   useEffect(() => {
     if (sessionId !== DEMO_SESSION_ID) {
@@ -124,6 +136,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     socket.onmessage = (event) => {
       const message: ServerMessage = JSON.parse(event.data);
       switch (message.type) {
+        case "session.state":
+          setSession((prev) => (prev ? { ...prev, ...message.session } : (message.session as Session)));
+          break;
         case "session.snapshot":
           setSession(message.session);
           setTranscript(message.transcript);
@@ -138,6 +153,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
           }
           break;
         case "transcript.partial":
+        case "transcript.final":
           if (message.lang === "ko") setLiveTextKo(message.text);
           if (message.lang === "en") setLiveTextEn(message.text);
           break;
@@ -231,23 +247,16 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   };
 
   const handleStartSession = useCallback(async () => {
-    if (!intervieweeOnline || starting || session?.status !== "created") return;
     setStarting(true);
-    setActionError(null);
-    try {
-      if (sessionId === DEMO_SESSION_ID) {
-        setSession((prev) => (prev ? { ...prev, status: "running", started_at: new Date().toISOString() } : prev));
-      } else {
-        setSession(await startSession(sessionId));
-      }
-      setRecordingRequested(true);
-    } catch (error) {
-      console.error("Failed to start interview", error);
-      setActionError("인터뷰를 시작하지 못했습니다. 다시 시도해 주세요.");
-    } finally {
-      setStarting(false);
+    if (sessionId === DEMO_SESSION_ID) {
+      const startedAt = new Date().toISOString();
+      setSession((prev) => (prev ? { ...prev, status: "running", started_at: startedAt } : prev));
+    } else {
+      await startSession(sessionId).catch((err) => console.error("세션 시작 실패:", err));
+      setSession((prev) => (prev ? { ...prev, status: "running", started_at: new Date().toISOString() } : prev));
     }
-  }, [intervieweeOnline, session?.status, sessionId, starting]);
+    setStarting(false);
+  }, [sessionId]);
 
   const handleEndSession = useCallback(async () => {
     setEnding(true);
@@ -313,22 +322,58 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   return (
     <>
       <div className="tabbar">
-        <div ref={drawerRef} className={`kebab-wrap ${drawerPinned ? "pinned" : ""}`}>
+        <div ref={dockRef} className="dock-shell">
+        <div className="dock-edge-trigger" />
+        <div className="dock-wrap">
+        <div className="dock">
           <button
             type="button"
-            className="kebab-btn"
-            title="질문 트리 / 세션 링크 (클릭하면 고정)"
-            onClick={() => setDrawerPinned((v) => !v)}
+            className={`dock-icon tree ${activePanel === "tree" ? "on" : ""}`}
+            title="질문 트리 · 질문 등록/편집"
+            onClick={() => setActivePanel((v) => (v === "tree" ? null : "tree"))}
           >
-            ⋮
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="10" cy="3.6" r="1.6" fill="currentColor" stroke="none" />
+                <path d="M10 5.2V9" />
+                <path d="M5 15V9h10v6" />
+                <circle cx="5" cy="16.4" r="1.6" fill="currentColor" stroke="none" />
+                <circle cx="15" cy="16.4" r="1.6" fill="currentColor" stroke="none" />
+              </svg>
+            </span>
           </button>
-          <div className="hover-drawer">
+          <button
+            type="button"
+            className={`dock-icon link ${activePanel === "link" ? "on" : ""}`}
+            title="세션 링크"
+            onClick={() => setActivePanel((v) => (v === "link" ? null : "link"))}
+          >
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M7.5 13.5a3 3 0 0 1 0-4.24l2-2a3 3 0 0 1 4.24 4.24l-1 1" />
+                <path d="M12.5 6.5a3 3 0 0 1 0 4.24l-2 2a3 3 0 0 1-4.24-4.24l1-1" />
+              </svg>
+            </span>
+          </button>
+          <button type="button" className="dock-icon analysis" disabled title="분석 앱 연동 전 · URL 확정 후 연결">
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4 16V11" />
+                <path d="M10 16V6" />
+                <path d="M16 16V13" />
+              </svg>
+            </span>
+          </button>
+        </div>
+        </div>
+
+          <div className={`dock-panel ${activePanel === "tree" ? "open" : ""}`}>
             <div className="hover-drawer-section">
               <div className="hover-drawer-label">• 질문 트리</div>
               <div className="accordion-actions">
                 {role === "pm" ? (
                   <button type="button" className="btn-sm solid" onClick={() => setEditModalOpen(true)}>
-                    ＋ 질문 편집
+                    ＋ 질문 등록 및 편집
                   </button>
                 ) : (
                   <span className="role-chip" style={{ fontSize: "10px" }}>
@@ -364,7 +409,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 </div>
               )}
             </div>
+          </div>
 
+          <div className={`dock-panel ${activePanel === "link" ? "open" : ""}`}>
             <div className="hover-drawer-section">
               <div className="hover-drawer-label">• 세션 링크</div>
               <div className="p-body">
@@ -416,6 +463,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <span className="dot" />
                 {timerLabel}
               </span>
+              <button type="button" className="btn-sm" disabled title="곧 지원 예정 · 백엔드 연동 후 사용 가능">
+                ＋10분
+              </button>
               <span className={`badge ${status}`}>{status}</span>
             </div>
           </div>
@@ -434,19 +484,18 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <span className="rs-dot" />
                 응답자 {intervieweeOnline ? "접속중" : "연결 끊김"}
               </span>
-              <div 
-                className="rs-figure" 
-                style={rtcCreds ? { 
-                  overflow: "hidden", 
-                  position: "relative", 
-                  width: "100%", 
-                  aspectRatio: "16 / 9", 
-                  height: "auto", 
-                  borderRadius: "12px", 
-                  background: "#000" 
-                } : { 
-                  overflow: "hidden", 
-                  position: "relative" 
+              <div
+                className="rs-figure"
+                style={rtcCreds ? {
+                  overflow: "hidden",
+                  position: "relative",
+                  width: "100%",
+                  height: "100%",
+                  borderRadius: "12px",
+                  background: "#000"
+                } : {
+                  overflow: "hidden",
+                  position: "relative"
                 }}
               >
                 {rtcCreds ? (
@@ -487,88 +536,33 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             </>
           )}
         </div>
-        {(liveTextKo || liveTextEn) && (
-          <section className="live-transcript" aria-live="polite" aria-label="실시간 대본">
-            {liveTextKo && <p>{liveTextKo}</p>}
-            {liveTextEn && <p className="translation">{liveTextEn}</p>}
-          </section>
+
+        {phase !== "wait" && (
+          <div className="caption-bar">
+            {liveTextEn && (
+              <div className="caption-line en">
+                <span className="caption-tag en">EN 번역</span>
+                <span className="caption-text">{liveTextEn}</span>
+              </div>
+            )}
+            {liveTextKo && (
+              <div className="caption-line ko">
+                <span className="caption-tag ko">KO 원문</span>
+                <span className="caption-text">{liveTextKo}</span>
+              </div>
+            )}
+            {!liveTextKo && !liveTextEn && (
+              <div className="caption-line placeholder">
+                🎙️ 응답자가 발화하면 실시간 번역 및 원문 STT 자막이 여기에 표시됩니다.
+              </div>
+            )}
+          </div>
         )}
-        {(actionError || recordingError) && <p className="recording-error" role="alert">{actionError ?? recordingError}</p>}
       </section>
       </div>
 
-      {role === "pm" && (
-        <div className="col-instructions">
-          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
-            <header className="p-head">
-              <div>
-                <h2>실시간 지시</h2>
-                <div className="sub">다음 질문에 반영 · 응답자에게 노출 안 됨</div>
-              </div>
-            </header>
-            <div className="composer p-body">
-              <textarea
-                rows={3}
-                value={draft}
-                placeholder="예) 경쟁사 대비 장점을 물어봐"
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" && !event.shiftKey) {
-                    event.preventDefault();
-                    sendInstruction();
-                  }
-                }}
-              />
-              <button onClick={sendInstruction} disabled={status !== "connected"}>
-                지시 보내기
-              </button>
-            </div>
-            <div className="quick">
-              {QUICK_INSTRUCTIONS.map((text) => (
-                <button key={text} onClick={() => setDraft(text)}>
-                  {text}
-                </button>
-              ))}
-            </div>
-            <p className="muted small" style={{ padding: "10px 16px 16px" }}>
-              응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
-            </p>
-
-            <button
-              type="button"
-              className="accordion-head accordion-head--sub"
-              onClick={() => setHistoryOpen((v) => !v)}
-            >
-              <h2>지시 이력</h2>
-              <span className="accordion-caret">{historyOpen ? "▾" : "▸"}</span>
-            </button>
-            {historyOpen && (
-              <div className="p-body">
-                <ul className="hist">
-                  {instructions.map((instruction) => (
-                    <li key={instruction.id} className="h-item">
-                      <time>
-                        {new Date(instruction.created_at).toLocaleTimeString("ko-KR", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </time>
-                      <span className={`h-dot ${instruction.status}`} />
-                      <div className="h-body">
-                        <div className={`h-state ${instruction.status}`}>
-                          {instruction.status === "applied" ? "반영됨" : "대기 중"}
-                        </div>
-                        <div className="h-text">{instruction.text}</div>
-                      </div>
-                    </li>
-                  ))}
-                  {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
-                </ul>
-              </div>
-            )}
-          </section>
-
-          <section className="panel">
+      <div className="col-instructions">
+        <section className="panel">
             <header className="p-head">
               <div>
                 <h2>실시간 진행 상황</h2>
@@ -631,9 +625,88 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 </pre>
               </div>
             )}
+        </section>
+
+        {role === "pm" && (
+          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
+            <button
+              type="button"
+              className="accordion-head"
+              onClick={() => setInstructionsOpen((v) => !v)}
+            >
+              <div>
+                <h2>실시간 지시</h2>
+                <div className="sub">다음 질문에 반영 · 응답자에게 노출 안 됨</div>
+              </div>
+              <span className="accordion-caret">{instructionsOpen ? "▾" : "▸"}</span>
+            </button>
+            {instructionsOpen && (
+              <>
+                <div className="composer p-body">
+                  <textarea
+                    rows={2}
+                    value={draft}
+                    placeholder="예) 경쟁사 대비 장점을 물어봐"
+                    onChange={(event) => setDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault();
+                        sendInstruction();
+                      }
+                    }}
+                  />
+                  <button onClick={sendInstruction} disabled={status !== "connected"}>
+                    지시 보내기
+                  </button>
+                </div>
+                <div className="quick">
+                  {QUICK_INSTRUCTIONS.map((text) => (
+                    <button key={text} onClick={() => setDraft(text)}>
+                      {text}
+                    </button>
+                  ))}
+                </div>
+                <p className="muted small" style={{ padding: "6px 16px 10px" }}>
+                  응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
+                </p>
+
+                <button
+                  type="button"
+                  className="accordion-head accordion-head--sub"
+                  onClick={() => setHistoryOpen((v) => !v)}
+                >
+                  <h2>지시 이력</h2>
+                  <span className="accordion-caret">{historyOpen ? "▾" : "▸"}</span>
+                </button>
+                {historyOpen && (
+                  <div className="p-body">
+                    <ul className="hist">
+                      {instructions.map((instruction) => (
+                        <li key={instruction.id} className="h-item">
+                          <time>
+                            {new Date(instruction.created_at).toLocaleTimeString("ko-KR", {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </time>
+                          <span className={`h-dot ${instruction.status}`} />
+                          <div className="h-body">
+                            <div className={`h-state ${instruction.status}`}>
+                              {instruction.status === "applied" ? "반영됨" : "대기 중"}
+                            </div>
+                            <div className="h-text">{instruction.text}</div>
+                          </div>
+                        </li>
+                      ))}
+                      {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
+                    </ul>
+                  </div>
+                )}
+              </>
+            )}
           </section>
-        </div>
-      )}
+        )}
+      </div>
       </main>
 
       {editModalOpen && (
@@ -666,15 +739,37 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             {selectedFile && <p className="muted small">선택된 파일: {selectedFile.name}</p>}
 
             <p className="m-hint">
-              백엔드 연동 후 이 파일을 질문 트리(JSON) 구조로 변환합니다. 지금은 파일 선택까지만 가능합니다.
+              업로드한 문서를 AI가 자동 분석하여 실시간 질문 트리(JSON) 구조로 변환합니다.
             </p>
 
             <div className="modal-actions">
               <button type="button" className="btn-ghost" onClick={() => setEditModalOpen(false)}>
                 취소
               </button>
-              <button type="button" disabled title="곧 지원 예정 · 백엔드 연동 후 사용 가능">
-                적용
+              <button
+                type="button"
+                disabled={!selectedFile || uploadingGuide}
+                onClick={async () => {
+                  if (!selectedFile) return;
+                  setUploadingGuide(true);
+                  try {
+                    const result = await uploadGuideFile(selectedFile);
+                    alert(`✅ 가이드라인 분석 완료!\n주제: ${result.study.title}\n추출된 질문 수: ${result.study.questions.length}개`);
+                    if (session) {
+                      setSession({
+                        ...session,
+                        questions: result.study.questions,
+                      });
+                    }
+                    setEditModalOpen(false);
+                  } catch (e: any) {
+                    alert(`❌ 업로드 실패: ${e.message}`);
+                  } finally {
+                    setUploadingGuide(false);
+                  }
+                }}
+              >
+                {uploadingGuide ? "AI 파싱 중…" : "적용"}
               </button>
             </div>
           </div>

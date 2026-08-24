@@ -12,10 +12,19 @@ export interface Turn {
   created_at: string;
 }
 
+export interface QuestionNode {
+  id: string;
+  order: number;
+  text: string;
+  branches?: Record<string, string>;
+}
+
 export interface SessionBrief {
   id: string;
   title: string;
   status: "created" | "running" | "ended";
+  duration_minutes?: number;
+  questions?: QuestionNode[];
 }
 
 export type ServerMessage =

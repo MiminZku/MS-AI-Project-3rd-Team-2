@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@azure/communication-calling": "^1.43.1",
+    "@azure/communication-common": "^2.5.0",
     "@azure/communication-react": "^1.33.0",
+    "microsoft-cognitiveservices-speech-sdk": "^1.51.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },

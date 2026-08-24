@@ -1,4 +1,4 @@
-import type { Report, Session } from "./types";
+import type { Project, Report, Session } from "./types";
 
 export const API_BASE_URL: string =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -23,6 +23,7 @@ export interface CreateSessionInput {
   title: string;
   duration_minutes: number;
   question_script: string;
+  study_id?: string;
 }
 
 export interface SessionResponse {
@@ -40,11 +41,77 @@ export async function createSession(input: CreateSessionInput): Promise<SessionR
   return response.json();
 }
 
+/** 워드/PDF/MD 질문 가이드라인 파일 업로드 및 자동 질문 트리 생성 */
+export async function uploadGuideFile(file: File): Promise<any> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const customHeaders: Record<string, string> = {};
+  if (ADMIN_TOKEN) customHeaders["X-Admin-Token"] = ADMIN_TOKEN;
+
+  const response = await fetch(`${API_BASE_URL}/api/projects/upload-guide`, {
+    method: "POST",
+    headers: customHeaders,
+    body: formData,
+  });
+  if (!response.ok) throw new Error(`가이드라인 파일 파싱 실패 (${response.status})`);
+  return response.json();
+}
+
+export interface CreateProjectInput {
+  title: string;
+  research_purpose: string;
+  question_script: string;
+}
+
+export async function listProjects(): Promise<Project[]> {
+  const response = await fetch(`${API_BASE_URL}/api/projects`, {
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`프로젝트 목록 조회 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function createProject(input: CreateProjectInput): Promise<{ study: Project }> {
+  const response = await fetch(`${API_BASE_URL}/api/projects`, {
+    method: "POST",
+    headers: headers(),
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error(`프로젝트 생성 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function listProjectSessions(studyId: string): Promise<Session[]> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${studyId}/sessions`, {
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`프로젝트 세션 목록 조회 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function listSessions(): Promise<Session[]> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions`, {
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`세션 목록 조회 실패 (${response.status})`);
+  return response.json();
+}
+
 export async function fetchSession(sessionId: string): Promise<SessionResponse> {
   const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
     headers: headers(),
   });
   if (!response.ok) throw new Error(`세션 조회 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function startSession(sessionId: string): Promise<Session> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/start`, {
+    method: "POST",
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`세션 시작 실패 (${response.status})`);
   return response.json();
 }
 
@@ -54,6 +121,7 @@ export async function endSession(sessionId: string): Promise<Session> {
     headers: headers(),
   });
   if (!response.ok) throw new Error(`세션 종료 실패 (${response.status})`);
+
   return response.json();
 }
 

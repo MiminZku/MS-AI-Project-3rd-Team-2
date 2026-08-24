@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { WS_BASE_URL, sessionIdFromUrl } from "./config";
-import type { ServerMessage, Turn } from "./types";
+import type { ServerMessage, Turn, QuestionNode } from "./types";
 import WaitingScreen from "./components/WaitingScreen";
 import PermissionExplainerModal from "./components/PermissionExplainerModal";
 import { useAudioLevelMonitor } from "./hooks/useAudioLevelMonitor";
@@ -9,16 +9,49 @@ import RespondentMonitor from "./components/RespondentMonitor";
 import QuestionPromptBox from "./components/QuestionPromptBox";
 import VideoPublisher from "./components/VideoPublisher";
 import { fetchRtcToken } from "./config";
+import { useAvatarWebRTC } from "./hooks/useAvatarWebRTC";
 
 type Status = "idle" | "connecting" | "connected" | "closed" | "error";
 type SessionStatus = "created" | "running" | "ended";
 type EntryStep = "gromit" | "welcome" | "consent" | "waiting" | "running" | "ended";
 
+const INTRO_SELF_REQUEST =
+  "본격적인 질문에 앞서, 하시는 일이나 관심 분야 등 간단한 자기소개를 부탁드려도 될까요?";
+
+const DUMMY_QUESTIONS = [
+  INTRO_SELF_REQUEST,
+  "평소 업무나 일상에서 AI 도구를 얼마나 자주 사용하고 계신가요?",
+  "주로 어떤 상황이나 업무에서 AI 도구가 가장 유용하다고 느끼셨나요?",
+  "반대로 AI 도구를 사용하시면서 아쉬웠거나 불편했던 점이 있으셨나요?",
+  "마지막으로 앞으로 AI 인터뷰나 업무 도구에 바라는 점이 있다면 편하게 말씀해 주세요.",
+];
+
+const DUMMY_REACTIONS = [
+  "소개 말씀 감사드립니다! 말씀해 주신 내용을 바탕으로 대화를 편안하게 이어가겠습니다. 그럼 첫 번째 질문입니다.",
+  "아, 그러셨군요! 자세한 경험 공유 감사드립니다. 그렇다면...",
+  "네, 충분히 공감되는 내용이네요. 그렇다면 이번에는...",
+  "솔직하고 구체적인 의견 정말 감사드립니다! 많은 도움이 되었습니다. 마지막 질문입니다.",
+];
+
+interface OpeningParams {
+  title?: string;
+  durationMinutes?: number;
+}
+
+function buildOpeningSpeech({ title, durationMinutes = 15 }: OpeningParams): string {
+  const projectTitle = title ? `"${title}" 조사` : "오늘 인터뷰";
+  const durationText = durationMinutes ? `약 ${durationMinutes}분 동안 ` : "";
+
+  return `안녕하세요! 오늘 ${projectTitle}에 소중한 시간 내어 참여해 주셔서 진심으로 감사드립니다. 저는 오늘 대화를 진행할 AI 모더레이터입니다. 본 인터뷰는 ${durationText}AI와 나누는 편안한 대화로 진행되며, AI 진행 특성상 대화 호흡이 다소 매끄럽지 못할 수 있는 점 미리 양해 부탁드립니다. 오늘 질문에는 정해진 정답이나 오답이 전혀 없으니, 평소 느끼고 경험하신 생각을 편안하고 솔직하게 말씀해 주시면 됩니다. 본격적인 질문에 앞서, 하시는 일이나 관심 분야 등 간단한 자기소개를 부탁드려도 될까요?`;
+}
+
 export default function App() {
   const [sessionId] = useState(sessionIdFromUrl);
-  const [status, setStatus] = useState<Status>("idle");
-  const [sessionStatus, setSessionStatus] = useState<SessionStatus>("created");
-  const [entryStep, setEntryStep] = useState<EntryStep>("gromit");
+  const [, setStatus] = useState<Status>("idle");
+  // URL 파라미터에 test=avatar 가 있거나 빠른 테스트 지원
+  const isDirectAvatarTest = new URLSearchParams(window.location.search).get("test") === "avatar";
+  const [entryStep, setEntryStep] = useState<EntryStep>(isDirectAvatarTest ? "running" : "gromit");
+  const [sessionStatus, setSessionStatus] = useState<SessionStatus>(isDirectAvatarTest ? "running" : "created");
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
 
   // Flow states
@@ -29,9 +62,14 @@ export default function App() {
   const [isAgreedToPrivacy, setIsAgreedToPrivacy] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [title, setTitle] = useState("");
-  const [question, setQuestion] = useState("평소 업무나 일상에서 AI 도구를 얼마나 자주 사용하시나요? 어떤 상황에서 가장 유용하다고 느끼셨는지 말씀해 주세요.");
+  const [title, setTitle] = useState(isDirectAvatarTest ? "AI 도구 사용 경험 인터뷰" : "");
+  const [durationMinutes, setDurationMinutes] = useState<number>(15);
+  const [sessionQuestions, setSessionQuestions] = useState<QuestionNode[]>([]);
+  const [dummyQuestionIndex, setDummyQuestionIndex] = useState(0);
+  const [question, setQuestion] = useState(DUMMY_QUESTIONS[0]);
+  const [speechSpeed, setSpeechSpeed] = useState<number>(1.25); // 기본 1.25x 빠름(추천)
   const [history, setHistory] = useState<Turn[]>([]);
+  const [isWaitingForAdditional, setIsWaitingForAdditional] = useState(false);
 
   // Constant audio level monitor when on running step
   const isVoiceDetected = useAudioLevelMonitor(entryStep === "running");
@@ -39,13 +77,61 @@ export default function App() {
 
   const [orbState, setOrbState] = useState<"idle" | "speaking" | "listening">("idle");
   const socketRef = useRef<WebSocket | null>(null);
+  const hasSpokenIntroRef = useRef(false);
+  const wrapUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSpokenEndRef = useRef(false);
+  const hasActuallySpokenRef = useRef(false);
 
-  // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 4s
+  // 마이크가 켜져 있는 동안 실제 사람 목소리가 감지되었는지 실시간 추적
+  useEffect(() => {
+    if (isRecording && isVoiceDetected) {
+      hasActuallySpokenRef.current = true;
+    }
+  }, [isRecording, isVoiceDetected]);
+
+  // Azure Avatar WebRTC 훅 연동 (Lisa 아바타 & 다국어 음성)
+  const avatar = useAvatarWebRTC({
+    autoConnect: entryStep === "running",
+    character: "lisa",
+    style: "casual-sitting",
+    voice: "en-US-AvaMultilingualNeural",
+  });
+
+  const speakWithCurrentSpeed = (text: string) => {
+    avatar.speak(text, undefined, speechSpeed);
+  };
+
+  // 0. 메인룸 입장 시 아바타가 먼저 인사 및 AI 인터뷰 공지 발화 (동적 오프닝 멘트 자동 발화)
+  useEffect(() => {
+    if (entryStep === "running" && avatar.status === "connected" && !hasSpokenIntroRef.current) {
+      hasSpokenIntroRef.current = true;
+      setOrbState("speaking");
+
+      // 0.8초 후 자연스럽게 오프닝 인사 및 자기소개 요청 발화 (음성과 자막 완벽 일치)
+      const timer = setTimeout(() => {
+        const fullIntroSpeech = buildOpeningSpeech({
+          title,
+          durationMinutes,
+        });
+        setQuestion(fullIntroSpeech);
+        speakWithCurrentSpeed(fullIntroSpeech);
+
+        // 발화 완료 후 응답자 답변 대기 (Listening 상태로 머뭄)
+        setTimeout(() => {
+          setOrbState("listening");
+        }, 12000);
+      }, 800);
+
+      return () => clearTimeout(timer);
+    }
+  }, [entryStep, avatar.status, title, durationMinutes, speechSpeed]);
+
+  // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 3s (단독 테스트 모드가 아닐 때만)
   useEffect(() => {
     if (entryStep === "gromit") {
       const timer = setTimeout(() => {
         setEntryStep("welcome");
-      }, 3000);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [entryStep]);
@@ -74,15 +160,49 @@ export default function App() {
       if (message.type === "session.state") {
         setTitle(message.session.title);
         setSessionStatus(message.session.status);
+        if (message.session.duration_minutes) {
+          setDurationMinutes(message.session.duration_minutes);
+        }
+        if (message.session.questions && message.session.questions.length > 0) {
+          setSessionQuestions(message.session.questions);
+        }
       } else if (message.type === "assistant.question") {
-        setQuestion(message.turn.text);
+        // 실제 백엔드 LLM이 생성한 다음 질문 수신 -> 아바타 음성 및 자막 실시간 발화!
+        const questionText = message.turn.text;
+        if (wrapUpTimerRef.current) {
+          clearTimeout(wrapUpTimerRef.current);
+          wrapUpTimerRef.current = null;
+        }
+
+        // 이미 종료 멘트를 발화한 상태라면 중복 발화 차단
+        if (questionText.includes("인터뷰를 모두 마치겠습니다") && hasSpokenEndRef.current) {
+          return;
+        }
+        if (questionText.includes("인터뷰를 모두 마치겠습니다")) {
+          hasSpokenEndRef.current = true;
+        }
+
+        setQuestion(questionText);
         setHistory((prev) => [...prev, message.turn]);
         setOrbState("speaking");
 
-        // Simulation: switch to listening mode after AI finishes speaking
+        speakWithCurrentSpeed(questionText);
+
+        // 랩업 또는 종료 상태 감지
+        if (questionText.includes("리서치팀에서 추가로 확인") || questionText.includes("잠시 확인해 보겠습니다")) {
+          setIsWaitingForAdditional(true);
+        } else if (questionText.includes("인터뷰를 모두 마치겠습니다") || questionText.includes("종료되었습니다")) {
+          setIsWaitingForAdditional(false);
+        }
+
+        // 아바타 발화 시간 후 리스닝 상태로 전환 (응답자 마이크 준비)
         setTimeout(() => {
-          setOrbState("listening");
-        }, 3000);
+          if (!questionText.includes("인터뷰를 모두 마치겠습니다")) {
+            setOrbState("listening");
+          } else {
+            setOrbState("idle");
+          }
+        }, 4500);
       } else if (message.type === "error") {
         setQuestion(`오류: ${message.message}`);
         setOrbState("idle");
@@ -90,7 +210,7 @@ export default function App() {
     };
 
     return () => socket.close();
-  }, [sessionId]);
+  }, [sessionId, speechSpeed]);
 
   // 3. Handle transition to 'running' room when waiting and session is running
   useEffect(() => {
@@ -106,22 +226,111 @@ export default function App() {
     }
   }, [history]);
 
+  // 더미 질문 순차 진행 함수 (핑퐁 제어 및 맞장구 리액션)
+  // 백룸 추가 질문 주입 시뮬레이션 (개발/테스트용)
+  const injectObserverFollowUpQuestion = () => {
+    const injectedQuestion =
+      "리서치팀에서 추가 확인 요청이 들어왔습니다. 혹시 가장 기억에 남는 AI 도구 사용 경험이나 계기가 있으시다면 한 가지만 더 들려주실 수 있을까요?";
+    setQuestion(injectedQuestion);
+    setOrbState("speaking");
+    speakWithCurrentSpeed(injectedQuestion);
+    setIsWaitingForAdditional(false);
+  };
+
+  // 더미/폴백 질문 순차 진행 함수 (핑퐁 제어 및 마지막 백룸 개입 확인 랩업)
+  const advanceDummyQuestion = () => {
+    const questionsList = sessionQuestions.length > 0
+      ? [INTRO_SELF_REQUEST, ...sessionQuestions.map(q => q.text)]
+      : DUMMY_QUESTIONS;
+
+    const nextIdx = dummyQuestionIndex + 1;
+    if (nextIdx < questionsList.length) {
+      setDummyQuestionIndex(nextIdx);
+      const rawQuestion = questionsList[nextIdx];
+      const reactionPrefix = DUMMY_REACTIONS[nextIdx - 1] || "네, 말씀 감사합니다. 다음 질문입니다.";
+      
+      // 아바타 음성은 "맞장구 + 다음 질문"으로 자연스럽게 발화
+      const fullSpeech = `${reactionPrefix} ${rawQuestion}`;
+      // 하단 텍스트 박스에 발화하는 전체 문장 표시 (음성과 자막 완벽 일치)
+      setQuestion(fullSpeech);
+      setOrbState("speaking");
+      speakWithCurrentSpeed(fullSpeech);
+    } else {
+      // 모든 기본 질문 완료 -> 백룸(리서치팀) 추가 질문 여부 확인 단계로 진입
+      setIsWaitingForAdditional(true);
+      const wrapUpCheckSpeech =
+        "준비된 기본 질문은 모두 마쳤습니다! 혹시 참관 중인 리서치팀에서 추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요.";
+      setQuestion(wrapUpCheckSpeech);
+      setOrbState("speaking");
+      speakWithCurrentSpeed(wrapUpCheckSpeech);
+
+      // 백엔드 소켓이 없을 때만(오프라인 더미 모드) 7.5초 후 1회 안전 종료
+      if (socketRef.current?.readyState !== WebSocket.OPEN) {
+        if (wrapUpTimerRef.current) clearTimeout(wrapUpTimerRef.current);
+        wrapUpTimerRef.current = setTimeout(() => {
+          setIsWaitingForAdditional((currentWaiting) => {
+            if (currentWaiting && !hasSpokenEndRef.current) {
+              hasSpokenEndRef.current = true;
+              const finalEndSpeech =
+                "확인 결과 추가 질문은 없으므로 오늘 인터뷰를 모두 마치겠습니다. 성실하고 소중한 답변 진심으로 감사드립니다! 상단의 나가기 버튼을 눌러 퇴장해 주시면 됩니다.";
+              setQuestion(finalEndSpeech);
+              setOrbState("speaking");
+              speakWithCurrentSpeed(finalEndSpeech);
+              return false;
+            }
+            return false;
+          });
+        }, 7500);
+      }
+    }
+  };
+
   const handleAudioChunk = (base64PCM: string) => {
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "audio.chunk", data: base64PCM }));
     }
   };
 
+  const recordingStartTimeRef = useRef<number>(0);
+
   const handleRecordingStart = () => {
+    // 1. 마이크 켜질 때 실제 발화 감지 플래그 초기화
+    hasActuallySpokenRef.current = false;
+    recordingStartTimeRef.current = Date.now();
+    setOrbState("listening");
+
+    // 2. 아바타 발화는 중단하되, 현재 자막 텍스트는 절대 날아가지 않고 그대로 유지!
+    avatar.stopSpeaking();
+
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "audio.start" }));
     }
   };
 
   const handleRecordingStop = () => {
-    if (socketRef.current?.readyState === WebSocket.OPEN) {
-      socketRef.current.send(JSON.stringify({ type: "audio.end" }));
+    const duration = Date.now() - recordingStartTimeRef.current;
+    const hasSpoken = hasActuallySpokenRef.current || duration >= 1500;
+
+    // 실제 음성이 전혀 감지되지 않았고 1.5초 미만으로 마이크만 껐다면 -> 턴을 넘기지 않고 현재 질문 유지!
+    if (!hasSpoken) {
+      console.log("실제 음성이 감지되지 않았습니다. 현재 질문 자막을 그대로 유지합니다.");
+      setOrbState("listening");
+      return;
     }
+
+    // 1. 백엔드 WebSocket이 연결되어 있는 경우 -> 백엔드에 발화 종료 알림 (STT & LLM 다음 질문 생성 트리거)
+    if (socketRef.current?.readyState === WebSocket.OPEN) {
+      setOrbState("speaking");
+      socketRef.current.send(JSON.stringify({ type: "audio.end" }));
+      return;
+    }
+
+    // 2. 소켓 연결이 없는 로컬 단독 테스트 모드: 실제 답변이 감지된 경우에만 다음 질문으로 핑퐁 진행!
+    console.log("Mock: 실제 답변 발화 감지됨 -> 다음 대본 질문으로 이동");
+    setOrbState("speaking");
+    setTimeout(() => {
+      advanceDummyQuestion();
+    }, 800);
   };
 
   const handleWelcomeStart = async () => {
@@ -191,6 +400,19 @@ export default function App() {
               >
                 {isChecking ? "권한 확인 중..." : "시작하기"}
               </button>
+
+              <button
+                className="btn-secondary"
+                onClick={() => {
+                  setSessionStatus("running");
+                  setEntryStep("running");
+                  setStatus("connected");
+                }}
+                style={{ marginTop: 12, border: "1px solid #3b82f6", color: "#60a5fa" }}
+              >
+                ⚡ [개발자용] 백룸 없이 아바타 화면 바로 테스트
+              </button>
+
               {errorMessage && <p className="error-alert">{errorMessage}</p>}
             </div>
           </div>
@@ -318,22 +540,23 @@ export default function App() {
     );
   }
 
-  // Step 6: Ended or Closed
-  if (entryStep === "ended" || sessionStatus === "ended" || status === "closed") {
+  // Step 6: Ended (사용자가 직접 나가기를 누르거나 명시적으로 ended 되었을 때만)
+  if (entryStep === "ended" || sessionStatus === "ended") {
     return (
       <div className="app-frame">
         <main className="shell">
           <section className="glass-panel text-center">
-            <h2>🎉 인터뷰이 최종 화면</h2>
-            <p className="muted">
+            <h2>🎉 인터뷰가 종료되었습니다</h2>
+            <p className="muted" style={{ lineHeight: 1.6, marginTop: 12 }}>
               성실하게 답변에 임해 주셔서 대단히 감사합니다.<br />
+              모든 인터뷰 데이터가 안전하게 저장되었습니다.<br />
               이제 브라우저 창을 닫으셔도 좋습니다.
             </p>
           </section>
-          {sessionId === "default-session" && (
+          {(sessionId === "default-session" || isDirectAvatarTest) && (
             <div style={{ textAlign: "center", marginTop: 20 }}>
               <button className="btn-secondary" onClick={() => { setSessionStatus("running"); setEntryStep("running"); setStatus("connected"); }}>
-                [개발자용] 다시 진행 화면으로
+                [개발자용] 다시 진행 화면으로 복귀
               </button>
             </div>
           )}
@@ -346,15 +569,25 @@ export default function App() {
   return (
     <div className="app-frame">
       <main className="stage-shell">
-        <header className="main-header stage-header">
-          <div className="title-area">
-            <span className="live-dot" />
+        <header className="main-header stage-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="title-area" style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <h1>{title || "AI 인터뷰"}</h1>
+          </div>
+          <div style={{ fontSize: "0.8rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>예정 시간: 약 {durationMinutes}분</span>
           </div>
         </header>
 
         <div className="monitor-grid">
-          <AvatarMonitor orbState={orbState} />
+          <AvatarMonitor
+            videoRef={avatar.videoRef}
+            status={avatar.status}
+            errorMessage={avatar.errorMessage}
+            onRetry={avatar.connect}
+            orbState={orbState}
+            speechSpeed={speechSpeed}
+            onSpeedChange={setSpeechSpeed}
+          />
           <RespondentMonitor
             isActive
             isRecording={isRecording}
@@ -363,14 +596,60 @@ export default function App() {
             onAudioChunk={handleAudioChunk}
             onRecordingStart={handleRecordingStart}
             onRecordingStop={handleRecordingStop}
+            onEndInterview={() => {
+              if (window.confirm("인터뷰를 종료하고 퇴장하시겠습니까?")) {
+                setEntryStep("ended");
+                setSessionStatus("ended");
+              }
+            }}
           />
-          <QuestionPromptBox question={question} />
+          <QuestionPromptBox
+            question={question}
+            onReplay={() => speakWithCurrentSpeed(question)}
+            isSpeaking={avatar.status === "speaking"}
+          />
         </div>
 
-        {sessionId === "default-session" && (
-          <button className="btn-secondary dev-float-btn" onClick={() => setSessionStatus("ended")}>
-            [개발자용] 종료 화면
-          </button>
+        {/* 백룸(리서치팀) 추가 질문 대기 상태 배너 & 개발 테스트 버튼 */}
+        {isWaitingForAdditional && (
+          <div
+            style={{
+              marginTop: 10,
+              padding: "8px 16px",
+              background: "rgba(59, 130, 246, 0.15)",
+              border: "1px solid rgba(59, 130, 246, 0.3)",
+              borderRadius: "10px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "0.82rem", color: "#93c5fd" }}>
+              <span className="live-dot" style={{ background: "#3b82f6" }} />
+              <span>🔍 리서치팀(백룸)의 추가 질문 여부를 확인하고 있습니다...</span>
+            </div>
+
+            {(sessionId === "default-session" || isDirectAvatarTest) && (
+              <button
+                onClick={injectObserverFollowUpQuestion}
+                style={{
+                  background: "#2563eb",
+                  color: "white",
+                  border: "none",
+                  padding: "4px 10px",
+                  borderRadius: "6px",
+                  fontSize: "0.75rem",
+                  cursor: "pointer",
+                  fontWeight: 500,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                ⚡ [테스트] 백룸 추가 질문 주입 시뮬레이션
+              </button>
+            )}
+          </div>
         )}
 
         {/* Render headless VideoPublisher if we have the ACS token */}

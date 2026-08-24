@@ -1,17 +1,17 @@
 @import "pretendard/dist/web/variable/pretendardvariable.css";
 
 :root {
-  color-scheme: dark;
-  --bg: #000000;
-  --panel: #1d1d1f;
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --text: #f5f5f7;
+  color-scheme: light;
+  --bg: #f5f5f7;
+  --panel: #ffffff;
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --text: #1d1d1f;
   --text-white: #ffffff;
-  --muted: #86868b;
+  --muted: #6e6e73;
   --primary: #0071e3;
-  --success: #10b981;
-  --error: #ef4444;
-  --warning: #f59e0b;
+  --success: #34c759;
+  --error: #ff3b30;
+  --warning: #ff9500;
   font-family: "Pretendard Variable", Pretendard, "SF Pro Display", -apple-system, "Segoe UI",
     "Malgun Gothic", sans-serif;
   letter-spacing: -0.015em;
@@ -85,7 +85,7 @@ h2 {
 .role-switch {
   display: flex;
   border: 1px solid var(--panel-border);
-  border-radius: 9999px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -165,7 +165,7 @@ h2 {
 
 .sess-btn {
   border: none;
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 14px 24px;
   font-size: 15px;
   font-weight: 700;
@@ -214,7 +214,7 @@ h2 {
 .swg {
   display: flex;
   border: 1px solid var(--panel-border);
-  border-radius: 9999px;
+  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -244,13 +244,28 @@ h2 {
   opacity: 0.5;
 }
 
-/* ===== 2-COLUMN LAYOUT ===== */
+/* ===== 2-COLUMN LAYOUT =====
+   비율을 뷰포트 높이에 맞춰 콤팩트하게 잡아서 보통은 스크롤이 필요 없게 함.
+   스크롤 자체를 막지는 않음 — 지시 카드를 펼치는 등 내용이 늘어나면 페이지가
+   자연스럽게 스크롤됨(overflow 강제 차단 없음).
+   110px = 상단바 60px + 탭바 ~50px. 둘 중 하나 높이가 바뀌면 같이 조정할 것. */
 .monitor {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(320px, 1fr);
   gap: 24px;
-  padding: 24px 30px 60px;
-  align-items: start;
+  padding: 20px 30px;
+  max-width: 1600px;
+  margin: 0 auto;
+  align-items: stretch;
+  min-height: calc(100vh - 110px);
+  transition: padding-left 0.18s ease;
+}
+
+/* 독 패널이 열려있는 동안엔 콘텐츠를 오른쪽으로 밀어줘서 왼쪽에서 슬라이드 인하는 패널과 안 겹치게 함.
+   +90px는 패널 옆으로 비켜서는 독 알약(.dock-shell:has(.dock-panel.open) .dock-wrap)이
+   응답자 화면을 가리지 않도록 확보해두는 여유 폭. */
+body:has(.dock-panel.open) .monitor {
+  padding-left: calc(30px + min(360px, 88vw) + 90px);
 }
 
 @media (max-width: 820px) {
@@ -265,6 +280,30 @@ h2 {
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 응답자 화면은 실제 영상이 아직 없을 때가 많은 자리표시용 카드라 컬럼을 억지로
+   꽉 채울 필요는 없음 — 내용(헤더+영상+자막) 크기만큼만 차지하고, 남는 세로 공간은
+   그냥 배경으로 남겨둔다 */
+.col-transcript > .panel {
+  flex: 0 0 auto;
+  max-height: 100%;
+}
+
+/* 오른쪽 컬럼: "실시간 진행 상황"(항상 첫 section)이 남는 공간을 채우고 내부 스크롤,
+   "실시간 지시"(두 번째, 접었다 펴는 카드)는 내용 크기만큼만 — 접혀있으면 제목 줄만,
+   펼치면 그만큼 커지고 진행 상황이 flex로 알아서 줄어든다. min-height는 진행 상황이
+   대화 안 보일 정도로 짜부라지지 않게 하는 최소 바닥 — 이 바닥 밑으로 더 필요하면
+   flex-shrink 대신 페이지가 자연스럽게 스크롤된다. */
+.col-instructions > .panel:first-of-type {
+  flex: 1 1 0;
+  min-height: 160px;
+}
+
+.col-instructions > .panel:not(:first-of-type) {
+  flex: 0 0 auto;
 }
 
 .accordion-head {
@@ -300,26 +339,186 @@ h2 {
   padding: 14px 16px;
 }
 
-.kebab-wrap {
-  position: relative;
+/* 독 아이콘 알약 + 슬라이드 패널을 감싸는 바깥 껍데기. 화면 왼쪽 가장자리에 고정.
+   outside-click 감지(dockRef)용 — backdrop-filter/transform을 여기 두면 안쪽
+   .dock-panel(position:fixed)의 containing block이 뷰포트가 아니라 이 요소가 되어버려
+   패널이 찌그러진다. pointer-events:none으로 뒀다가 자식(트리거/알약/패널)이 각자 auto로 되살림 —
+   그래야 독이 숨어있는 동안 화면 왼쪽 가장자리 전체가 클릭을 막지 않는다. */
+.dock-shell {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  z-index: 39;
 }
 
-.kebab-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+.dock-edge-trigger {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 28px;
+  pointer-events: auto;
+}
+
+/* 독 알약 자체. 기본은 화면 왼쪽 밖으로 숨어있다가, 왼쪽 가장자리(.dock-edge-trigger)에
+   마우스가 가거나 알약을 직접 hover하거나 패널이 열려있을 때 macOS 독처럼 드러난다.
+   transform은 여기(패널의 부모가 아닌 곳)에만 둬서 .dock-panel의 containing block을 건드리지 않는다. */
+.dock-wrap {
+  position: relative;
+  /* 패널(z-index:41)보다 위에 그려야 패널이 열려있을 때도 알약이 가려지지 않고
+     다른 아이콘을 바로 눌러 패널을 전환할 수 있다 */
+  z-index: 42;
+  display: inline-flex;
+  transform: translateX(-64px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.22s cubic-bezier(0.34, 1.2, 0.64, 1), opacity 0.18s ease;
+}
+
+.dock-edge-trigger:hover ~ .dock-wrap,
+.dock-wrap:hover {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* 패널이 열려있는 동안엔 패널 내용도, 오른쪽으로 밀려난 응답자 화면도 덮지 않도록
+   둘 사이(위 .monitor의 +90px 여유 폭)에 알약을 세워둔다 */
+.dock-shell:has(.dock-panel.open) .dock-wrap {
+  transform: translateX(calc(min(360px, 88vw) + 20px));
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dock {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  padding: 7px 12px 11px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(14px) saturate(1.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* Monitor 사이드 독(.dock-wrap 안)만 세로 스택으로 — SessionForm 피커 화면의 가로형 .dock은 그대로 둔다 */
+.dock-wrap .dock {
+  flex-direction: column;
+  align-items: center;
+  padding: 11px 7px 11px 12px;
+}
+
+.dock-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  color: var(--text);
-  font-size: 16px;
-  font-weight: 700;
+  color: var(--muted);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  transform-origin: bottom center;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.12s ease;
 }
 
-.hover-drawer {
+.dock-icon:hover {
+  transform: translateY(-7px) scale(1.14);
+}
+
+.dock-wrap .dock-icon {
+  transform-origin: center;
+}
+
+.dock-wrap .dock-icon:hover {
+  transform: translateX(7px) scale(1.14);
+}
+
+.dock-icon-glyph {
+  display: flex;
+}
+
+.dock-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.dock-icon.tree {
+  background: rgba(0, 113, 227, 0.08);
+  border-color: rgba(0, 113, 227, 0.18);
+  color: var(--primary);
+}
+
+.dock-icon.link {
+  background: rgba(52, 199, 89, 0.08);
+  border-color: rgba(52, 199, 89, 0.18);
+  color: var(--success);
+}
+
+.dock-icon.session {
+  background: rgba(0, 113, 227, 0.08);
+  border-color: rgba(0, 113, 227, 0.18);
+  color: var(--primary);
+}
+
+.dock-icon.list {
+  background: rgba(255, 149, 0, 0.08);
+  border-color: rgba(255, 149, 0, 0.18);
+  color: var(--warning);
+}
+
+.dock-icon.tree.on,
+.dock-icon.session.on {
+  background: rgba(0, 113, 227, 0.2);
+  border-color: var(--primary);
+}
+
+.dock-icon.link.on {
+  background: rgba(52, 199, 89, 0.2);
+  border-color: var(--success);
+}
+
+.dock-icon.list.on {
+  background: rgba(255, 149, 0, 0.2);
+  border-color: var(--warning);
+}
+
+.dock-icon.on::after {
+  content: "";
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.dock-wrap .dock-icon.on::after {
+  right: -8px;
+  left: auto;
+  top: 50%;
+  bottom: auto;
+  transform: translateY(-50%);
+}
+
+.dock-icon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.dock-panel {
   position: fixed;
   top: 132px;
   left: 0;
@@ -339,7 +538,7 @@ h2 {
   transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
 }
 
-.kebab-wrap.pinned .hover-drawer {
+.dock-panel.open {
   opacity: 1;
   visibility: visible;
   transform: translateX(0);
@@ -361,13 +560,14 @@ h2 {
   padding: 12px 24px 0;
   font-size: 13px;
   font-weight: 700;
-  color: var(--text-white);
+  color: var(--text);
 }
 
 .panel {
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 28px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 6px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -375,6 +575,7 @@ h2 {
 
 .panel-head,
 .p-head {
+  flex-shrink: 0;
   padding: 20px 24px;
   display: flex;
   align-items: center;
@@ -464,7 +665,7 @@ h2 {
   height: 20px;
   border-radius: 6px;
   background: rgba(0, 113, 227, 0.15);
-  color: #5ac8fa;
+  color: var(--primary);
   font-size: 10px;
   font-weight: 800;
   display: grid;
@@ -506,24 +707,28 @@ h2 {
   font-weight: 700;
   padding: 2px 7px;
   border-radius: 5px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.06);
   color: var(--muted);
   margin-right: 6px;
 }
 
-/* ===== 응답자 스테이지 (영상은 아직 없음 - 자리표시) ===== */
+/* ===== 응답자 스테이지 (영상은 아직 없음 - 자리표시) =====
+   16:9 비율 유지하되 max-height로 상한을 둬서, 영상이 없을 때도 이 자리표시가
+   화면 세로를 억지로 다 채우지 않게 함. 실제 영상(VideoSubscriber)은
+   object-fit:contain이라 이 박스 비율이 살짝 달라져도 레터박스로 잘 보임. */
 .resp-stage {
   position: relative;
   aspect-ratio: 16 / 9;
+  max-height: min(46vh, 420px);
   border-radius: 20px;
   overflow: hidden;
-  background: var(--panel);
+  background: #1d1d1f;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 14px 16px 16px;
   text-align: center;
-  color: var(--muted);
+  color: #86868b;
   font-size: 12.5px;
   line-height: 1.7;
 }
@@ -533,6 +738,66 @@ h2 {
   color: var(--text-white);
   font-size: 13.5px;
   margin-bottom: 4px;
+}
+
+.caption-bar {
+  flex-shrink: 0;
+  min-height: 60px;
+  margin: 0 16px 16px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: rgba(22, 26, 35, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #eaf0f8;
+  font-size: 13.5px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.caption-line {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.caption-line.en {
+  color: #ffe082;
+  font-weight: 500;
+}
+
+.caption-line.ko {
+  color: #e2e8f0;
+}
+
+.caption-tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+
+.caption-tag.en {
+  background: rgba(255, 224, 130, 0.18);
+  color: #ffe082;
+  border: 1px solid rgba(255, 224, 130, 0.4);
+}
+
+.caption-tag.ko {
+  background: rgba(99, 102, 241, 0.18);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+}
+
+.caption-line.placeholder {
+  color: #86868b;
+  font-size: 12.5px;
 }
 
 .rs-badge {
@@ -725,24 +990,38 @@ h2 {
   display: flex;
   flex-direction: column;
   padding: 6px 24px 24px;
-  gap: 0;
-  max-height: 70vh;
+  gap: 12px;
+  flex: 1 1 0;
+  min-height: 0;
   overflow-y: auto;
 }
 
 .turn {
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--panel-border);
+  max-width: 75%;
+  padding: 10px 14px;
+  border-radius: 14px;
 }
 
-.turn:last-child {
-  border-bottom: 0;
+.turn.assistant {
+  align-self: flex-start;
+  background: rgba(0, 113, 227, 0.08);
+  border-bottom-left-radius: 4px;
+}
+
+.turn.interviewee {
+  align-self: flex-end;
+  background: rgba(52, 199, 89, 0.1);
+  border-bottom-right-radius: 4px;
 }
 
 .turn-head {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.turn.interviewee .turn-head {
+  flex-direction: row-reverse;
 }
 
 .turn strong {
@@ -757,7 +1036,7 @@ h2 {
 
 .turn.assistant strong {
   background: rgba(0, 113, 227, 0.15);
-  color: #5ac8fa;
+  color: var(--primary);
 }
 
 .turn-head time {
@@ -792,24 +1071,29 @@ h2 {
   margin-bottom: 3px;
 }
 
-/* ===== 실시간 지시 ===== */
+/* ===== 실시간 지시 (콤팩트 레이아웃) ===== */
+.composer.p-body {
+  padding: 12px 24px 14px;
+}
+
 .composer textarea {
   width: 100%;
-  min-height: 88px;
+  min-height: 56px;
   resize: vertical;
   border: 1px solid var(--panel-border);
-  border-radius: 20px;
-  padding: 12px;
+  border-radius: 10px;
+  padding: 10px 12px;
   outline: none;
   font-size: 12.5px;
   line-height: 1.55;
   font-family: inherit;
-  background: #000000;
-  color: var(--text-white);
+  background: var(--bg);
+  color: var(--text);
 }
 
 .composer textarea:focus {
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 .composer > button {
@@ -817,9 +1101,10 @@ h2 {
   border: none;
   background: var(--primary);
   color: var(--text-white);
-  padding: 14px 24px;
-  border-radius: 28px;
-  font-size: 15px;
+  padding: 9px 20px;
+  margin-top: 8px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -853,6 +1138,10 @@ h2 {
   list-style: none;
   margin: 0;
   padding: 0;
+  /* ponytail: 지시 이력이 쌓여 길어져도 화면 전체 스크롤로 새지 않게 여기서만 스크롤 —
+     항목이 많아지면 가상화가 필요하겠지만 지금은 세션당 몇 건 수준이라 충분함 */
+  max-height: 220px;
+  overflow-y: auto;
 }
 
 .h-item {
@@ -909,7 +1198,7 @@ h2 {
   content: "인터뷰 시작 후 사용할 수 있습니다";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.82);
+  background: rgba(255, 255, 255, 0.85);
   display: grid;
   place-items: center;
   text-align: center;
@@ -923,7 +1212,7 @@ h2 {
 .report-note {
   margin: 14px 16px;
   padding: 11px 13px;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
   font-size: 11.5px;
@@ -938,7 +1227,7 @@ h2 {
 .report-highlight {
   margin: 0 16px 12px;
   padding: 10px 12px;
-  border-radius: 20px;
+  border-radius: 14px;
   border: 1px solid var(--panel-border);
   font-size: 12px;
   line-height: 1.55;
@@ -946,7 +1235,7 @@ h2 {
 
 .report-highlight b {
   display: block;
-  color: var(--text-white);
+  color: var(--text);
   margin-bottom: 4px;
 }
 
@@ -966,6 +1255,66 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.form-page .dock {
+  align-self: flex-start;
+  animation: dock-slide-in 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+
+.form-page.picker {
+  min-height: calc(100vh - 60px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.form-page.picker .dock {
+  align-self: center;
+  gap: 40px;
+  padding: 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.form-page.picker .dock-icon {
+  width: 168px;
+  height: 168px;
+  border-radius: 28px;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.form-page.picker .dock-icon svg {
+  width: 56px;
+  height: 56px;
+}
+
+.dock-icon-label {
+  display: none;
+}
+
+.form-page.picker .dock-icon-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.back-to-picker {
+  align-self: flex-start;
+}
+
+@keyframes dock-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
 }
 
 label {
@@ -999,7 +1348,7 @@ label {
 .btn-sm {
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 6px 10px;
   font-size: 10.5px;
   cursor: pointer;
@@ -1032,7 +1381,8 @@ label {
   max-height: 82vh;
   overflow: auto;
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 6px rgba(0, 0, 0, 0.04);
   padding: 22px;
 }
 
@@ -1056,7 +1406,7 @@ label {
 
 .format-seg button {
   padding: 8px 16px;
-  border-radius: 999px;
+  border-radius: 8px;
   border: 1px solid var(--panel-border);
   background: var(--panel);
   color: var(--muted);
@@ -1106,7 +1456,7 @@ label {
   gap: 9px;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
-  border-radius: 20px;
+  border-radius: 14px;
   padding: 10px 12px;
   margin-bottom: 9px;
   flex-wrap: wrap;
@@ -1133,7 +1483,7 @@ label {
 .btn-ghost {
   border: 1px solid var(--panel-border);
   background: var(--panel);
-  border-radius: 28px;
+  border-radius: 8px;
   padding: 9px 15px;
   font-size: 12px;
   cursor: pointer;
@@ -1148,9 +1498,9 @@ textarea {
   width: 100%;
   margin-top: 6px;
   padding: 10px 12px;
-  border-radius: 14px;
+  border-radius: 8px;
   border: 1px solid var(--panel-border);
-  background: #000000;
+  background: var(--bg);
   color: var(--text);
   font: inherit;
   font-size: 12.5px;
@@ -1160,7 +1510,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.25);
 }
 
 textarea {
@@ -1171,7 +1522,7 @@ textarea {
 
 button {
   padding: 14px 24px;
-  border-radius: 28px;
+  border-radius: 8px;
   border: none;
   background: var(--primary);
   color: var(--text-white);
@@ -1202,7 +1553,7 @@ button:disabled {
   flex-wrap: wrap;
   border: 1px solid rgba(0, 113, 227, 0.2);
   background: rgba(0, 113, 227, 0.08);
-  border-radius: 20px;
+  border-radius: 14px;
   padding: 10px 12px;
 }
 
