@@ -189,7 +189,7 @@ export function useAvatarWebRTC({
   }, [character, style, voice, transparentBackground, cleanup]);
 
   const speak = useCallback(
-    async (text: string, customVoice?: string, speedRate: number = 1.35) => {
+    async (text: string, customVoice?: string, speedRate: number = 1.1) => {
       const synthesizer = avatarSynthesizerRef.current;
       if (!synthesizer) {
         console.warn("Avatar synthesizer is not ready yet.");

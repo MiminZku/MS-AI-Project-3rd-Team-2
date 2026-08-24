@@ -53,6 +53,7 @@ def render_for_prompt(
     probe_count: int = 0,
     covered_facts: dict[str, str] | None = None,
     taken_branches: list[str] | None = None,
+    remaining_minutes: float | None = None,
 ) -> str:
     """프롬프트에 넣을 질문 트리 컨텍스트. 완료된 질문과 현재 질문, 예정 질문을 명확히 분리한다."""
     if not nodes:
@@ -101,7 +102,22 @@ def render_for_prompt(
         lines.append("")
     else:
         lines.append("【★ 모든 질문 완료】")
-        lines.append(f"▶ [index: {len(nodes)}] 대본의 모든 질문을 마쳤습니다. 인터뷰 종료 및 감사 멘트를 하세요.")
+        # 대본은 끝났지만 예정 시간이 아직 넉넉히 남은 경우, 곧바로 종료하지 말고
+        # 이미 확보한 사실(covered_facts) 중 하나를 골라 자연스럽게 더 깊이 파고든다.
+        # (응답자가 "아직 시간 남았는데요"라고 이의를 제기해도 같은 종료 멘트만 반복하던 문제의 해결책)
+        if remaining_minutes is not None and remaining_minutes > 2 and covered_facts:
+            lines.append(
+                f"▶ [index: {len(nodes)}] 대본 질문은 모두 마쳤지만 예정 시간이 아직 {remaining_minutes:.0f}분 남았습니다. "
+                "곧바로 종료 멘트를 하지 마세요."
+            )
+            lines.append(
+                "   👉 행동 지침: 아래 【이미 확보된 핵심 정보】 중 응답자가 흥미를 보였거나 좀 더 구체적으로 들을 만한 주제를 "
+                "1개 골라 자연스러운 심화 질문을 하세요 (예: \"아까 말씀하신 ~에 대해 조금 더 자세히 들려주실 수 있을까요?\"). "
+                "새로운 사실을 얻지 못했거나 응답자가 더 할 말이 없다고 하면 그때 종료 멘트를 하세요 "
+                "(`next_question_index`는 계속 대본 총 개수를 유지, `is_sufficient: true`)."
+            )
+        else:
+            lines.append(f"▶ [index: {len(nodes)}] 대본의 모든 질문을 마쳤습니다. 인터뷰 종료 및 감사 멘트를 하세요.")
         lines.append("")
 
     # 4. 이후 예정된 질문들

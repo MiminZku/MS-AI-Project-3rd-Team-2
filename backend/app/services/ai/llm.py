@@ -26,6 +26,9 @@ class GeneratedQuestion:
     is_sufficient: bool = True
     extracted_fact: str = ""
     selected_branch: str | None = None
+    # STT 전사가 질문과 문맥상 맞지 않거나 알아들을 수 없을 때, 모델이 "이해한 척"하지 않고
+    # 스스로 신고하는 플래그. True면 orchestrator가 다음 질문으로 넘어가지 않고 재확인시킨다.
+    needs_clarification: bool = False
 
 
 class QuestionGenerator(Protocol):
@@ -144,6 +147,7 @@ class AzureOpenAIQuestionGenerator:
         next_idx = int(data.get("next_question_index", session.current_question_index))
         is_sufficient = bool(data.get("is_sufficient", True))
         extracted_fact = str(data.get("extracted_fact", "")).strip()
+        needs_clarification = bool(data.get("needs_clarification", False))
         selected_branch = data.get("selected_branch")
         if selected_branch:
             selected_branch = str(selected_branch).strip()
@@ -167,6 +171,7 @@ class AzureOpenAIQuestionGenerator:
             is_sufficient=is_sufficient,
             extracted_fact=extracted_fact,
             selected_branch=selected_branch,
+            needs_clarification=needs_clarification,
         )
 
 

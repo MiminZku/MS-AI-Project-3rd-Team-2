@@ -29,21 +29,40 @@ class TimekeeperSignal:
 
 
 def evaluate(session: Session) -> TimekeeperSignal:
-    """룰 기반 1차 판단. Azure OpenAI mini 배포가 붙으면 이 함수를 프롬프트 호출로 대체."""
+    """룰 기반 1차 판단. Azure OpenAI mini 배포가 붙으면 이 함수를 프롬프트 호출로 대체.
+
+    기존에는 "남은 질문 1개당 2분 필요"라는 고정 상수로 판단했는데, 질문 수가
+    duration/2 보다 많은 세션에서는 인터뷰 시작 직후부터 계속 조기 마무리 신호가
+    떠서 AI가 실제로는 시간이 충분한데도 서두르는 원인이 됐다.
+
+    대신 "지금까지의 진행 속도가 예정된 페이스보다 뒤처졌는가"를 본다 —
+    사람 모더레이터가 시계를 보며 판단하는 방식과 같다.
+    """
     started = session.started_at or session.created_at
     elapsed_minutes = (utcnow() - started).total_seconds() / 60
+    duration_minutes = max(session.duration_minutes, 1)
     remaining_minutes = max(session.duration_minutes - elapsed_minutes, 0.0)
-    remaining_questions = max(len(session.questions) - session.covered_count(), 0)
+    total_questions = len(session.questions)
+    covered_count = session.covered_count()
+    remaining_questions = max(total_questions - covered_count, 0)
 
     if remaining_questions == 0:
         return TimekeeperSignal(False, remaining_minutes, 0, "질문 리스트를 모두 다뤘습니다. 마무리 단계로 가세요.")
 
-    # 남은 질문 1개당 필요한 최소 시간을 2분으로 잡고 여유가 없으면 전환 신호
-    needed = remaining_questions * 2
-    should_move_on = remaining_minutes < needed
+    # 지금 이 시점까지 몇 개를 다뤘어야 정상 페이스인지 계산 (선형 배분)
+    progress_ratio = min(elapsed_minutes / duration_minutes, 1.0)
+    expected_done = total_questions * progress_ratio
+
+    # 1개 질문 정도의 여유는 정상 범위로 보고, 그보다 더 뒤처졌을 때만 전환 신호
+    behind_pace = covered_count < (expected_done - 1)
+    # 남은 시간이 실제로 2분 미만인데 질문이 남아있으면 페이스 계산과 무관하게 마무리
+    time_critical = remaining_minutes < 2 and remaining_questions > 0
+    should_move_on = behind_pace or time_critical
+
     hint = (
-        f"남은 시간 {remaining_minutes:.0f}분, 남은 질문 {remaining_questions}개. "
-        + ("현재 주제를 정리하고 다음 질문으로 넘어가세요." if should_move_on else "현재 주제를 더 깊게 파도 됩니다.")
+        f"남은 시간 {remaining_minutes:.0f}분, 남은 질문 {remaining_questions}개"
+        f"(현재 페이스면 지금쯤 {expected_done:.1f}개 진행됐어야 함, 실제 {covered_count}개 진행). "
+        + ("현재 주제를 정리하고 다음 질문으로 넘어가세요." if should_move_on else "현재 페이스가 정상이니 지금 주제를 충분히 파도 됩니다.")
     )
     return TimekeeperSignal(should_move_on, remaining_minutes, remaining_questions, hint)
 
