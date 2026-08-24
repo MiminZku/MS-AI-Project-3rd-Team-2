@@ -699,7 +699,74 @@ body:has(.dock-panel.open) .monitor {
   font-size: 11.5px;
   color: var(--text);
   font-weight: 400;
-  border-left: 1.5px dashed var(--panel-border);
+  border-left: 2px dashed var(--panel-border);
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.branch.active {
+  background: rgba(19, 122, 82, 0.08);
+  border-left: 2.5px solid #10b981;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2);
+}
+
+.branch.active .branch-q {
+  color: #065f46;
+  font-weight: 600;
+}
+
+.branch.taken {
+  opacity: 0.75;
+  border-left-style: solid;
+  border-left-color: rgba(0, 0, 0, 0.15);
+}
+
+.branch-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+
+.branch-q {
+  display: block;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.branch-badge {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.branch-badge.live {
+  background: #10b981;
+  color: #ffffff;
+  animation: pulse-live 1.5s infinite;
+}
+
+.branch-badge.done {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--muted);
+}
+
+@keyframes pulse-live {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 0.85;
+    transform: scale(0.98);
+  }
 }
 
 .cond {
@@ -709,7 +776,11 @@ body:has(.dock-panel.open) .monitor {
   border-radius: 5px;
   background: rgba(0, 0, 0, 0.06);
   color: var(--muted);
-  margin-right: 6px;
+}
+
+.branch.active .cond {
+  background: #10b981;
+  color: #ffffff;
 }
 
 /* ===== 응답자 스테이지 (영상은 아직 없음 - 자리표시) =====

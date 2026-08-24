@@ -52,12 +52,14 @@ def render_for_prompt(
     completed_indices: list[int] | None = None,
     probe_count: int = 0,
     covered_facts: dict[str, str] | None = None,
+    taken_branches: list[str] | None = None,
 ) -> str:
     """프롬프트에 넣을 질문 트리 컨텍스트. 완료된 질문과 현재 질문, 예정 질문을 명확히 분리한다."""
     if not nodes:
         return "(질문 리스트가 비어 있음 — 주제에 맞춰 자유롭게 진행)"
 
     completed_set = set(completed_indices or [])
+    taken_branch_set = set(taken_branches or [])
     lines: list[str] = []
 
     # 1. 이미 획득한 핵심 사실
@@ -78,14 +80,24 @@ def render_for_prompt(
     # 3. 현재 진행 대상 질문 (단 1개)
     if current_index < len(nodes):
         curr_node = nodes[current_index]
-        probe_info = f" (파생 꼬리질문 {probe_count}회차 완료 상태)" if probe_count > 0 else " (메인 질문 진행/답변 수신 상태)"
+        probe_info = f" (파생 꼬리질문 {probe_count}회 진행 상태)" if probe_count > 0 else " (메인 질문 답변 수신 상태)"
         lines.append("【★ 이번 턴에 진행할 질문 (이 질문만 다룰 것)】")
         lines.append(f"▶ [index: {current_index}] {curr_node.order}. {curr_node.text}{probe_info}")
         if curr_node.branches:
-            lines.append("   [등록된 파생질문(Branch) 목록]:")
+            lines.append("   [등록된 파생질문(Branch) 상태 목록]:")
+            has_untaken_branch = False
             for condition, question in curr_node.branches.items():
-                lines.append(f"   - [갈래: {condition}] -> {question}")
-            lines.append("   👉 행동 지침: 응답자 답변에 따라 추가 탐색할 [파생질문]이 있다면 1번에 1개씩 질문하세요 (is_sufficient: false). 이 질문에 대한 탐색이 충분히 끝났다면 다음 메인 질문으로 넘어가세요 (is_sufficient: true).")
+                is_taken = condition in taken_branch_set or question in taken_branch_set
+                if is_taken:
+                    lines.append(f"   ✓ [이미 질문 완료됨 - 재질문 절대 금지]: [갈래: {condition}] -> {question}")
+                else:
+                    lines.append(f"   ▶ [미진행 파생질문]: [갈래: {condition}] -> {question}")
+                    has_untaken_branch = True
+            
+            if has_untaken_branch and probe_count == 0:
+                lines.append("   👉 행동 지침: 응답자 답변에 해당하는 [미진행 파생질문] 1개를 선택하여 질문하고, selected_branch에 해당 갈래명을 기입하세요 (is_sufficient: false).")
+            else:
+                lines.append("   👉 행동 지침: 이미 파생질문 답변을 받았거나 추가 갈래가 없습니다. 절대 같은 질문/예시를 다시 묻지 말고, 바로 다음 메인 질문으로 넘어가세요 (is_sufficient: true).")
         lines.append("")
     else:
         lines.append("【★ 모든 질문 완료】")

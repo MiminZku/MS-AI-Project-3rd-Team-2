@@ -42,6 +42,8 @@ class Session(BaseModel):
     probe_count: int = 0
     completed_question_indices: list[int] = Field(default_factory=list)
     covered_facts: dict[str, str] = Field(default_factory=dict)
+    active_branch: str | None = None
+    taken_branches: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utcnow)
     started_at: datetime | None = None
     ended_at: datetime | None = None

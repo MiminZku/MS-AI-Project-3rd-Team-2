@@ -25,6 +25,7 @@ class GeneratedQuestion:
     next_question_index: int
     is_sufficient: bool = True
     extracted_fact: str = ""
+    selected_branch: str | None = None
 
 
 class QuestionGenerator(Protocol):
@@ -57,6 +58,7 @@ class StubQuestionGenerator:
                 next_question_index=index,
                 is_sufficient=True,
                 extracted_fact="참관자 지시 질문 수행",
+                selected_branch=None,
             )
 
         # 직전 답변에 분기(Branch) 키워드가 매칭되는지 확인
@@ -64,13 +66,14 @@ class StubQuestionGenerator:
         if last_turn and last_turn.speaker == "interviewee" and index < len(questions):
             curr_q = questions[index]
             for branch_k, branch_q in curr_q.branches.items():
-                if branch_k in last_turn.text:
+                if branch_k in last_turn.text and branch_k not in session.taken_branches:
                     return GeneratedQuestion(
                         text=branch_q,
                         rationale=f"[STUB] 응답자의 키워드 '{branch_k}'에 매칭되어 파생 꼬리질문으로 전이했습니다.",
-                        next_question_index=index + 1,
-                        is_sufficient=True,
+                        next_question_index=index,
+                        is_sufficient=False,
                         extracted_fact=f"{branch_k} 키워드 언급",
+                        selected_branch=branch_k,
                     )
 
         if index < len(questions):
@@ -80,6 +83,7 @@ class StubQuestionGenerator:
                 next_question_index=index + 1,
                 is_sufficient=True,
                 extracted_fact="",
+                selected_branch=None,
             )
 
         if index == len(questions):
@@ -89,6 +93,7 @@ class StubQuestionGenerator:
                 next_question_index=index + 1,
                 is_sufficient=True,
                 extracted_fact="",
+                selected_branch=None,
             )
 
         return GeneratedQuestion(
@@ -97,6 +102,7 @@ class StubQuestionGenerator:
             next_question_index=index + 1,
             is_sufficient=True,
             extracted_fact="",
+            selected_branch=None,
         )
 
 
@@ -138,6 +144,11 @@ class AzureOpenAIQuestionGenerator:
         next_idx = int(data.get("next_question_index", session.current_question_index))
         is_sufficient = bool(data.get("is_sufficient", True))
         extracted_fact = str(data.get("extracted_fact", "")).strip()
+        selected_branch = data.get("selected_branch")
+        if selected_branch:
+            selected_branch = str(selected_branch).strip()
+            if selected_branch.lower() in ("null", "none", ""):
+                selected_branch = None
 
         # State Machine Guard: Prevent jumping backward or skipping multiple steps
         if next_idx < session.current_question_index:
@@ -155,6 +166,7 @@ class AzureOpenAIQuestionGenerator:
             next_question_index=next_idx,
             is_sufficient=is_sufficient,
             extracted_fact=extracted_fact,
+            selected_branch=selected_branch,
         )
 
 

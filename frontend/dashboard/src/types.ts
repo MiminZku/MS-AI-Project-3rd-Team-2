@@ -18,6 +18,8 @@ export interface Session {
   duration_minutes: number;
   questions: QuestionNode[];
   current_question_index: number;
+  active_branch?: string | null;
+  taken_branches?: string[];
   created_at: string;
   started_at: string | null;
   ended_at: string | null;

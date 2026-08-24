@@ -392,12 +392,44 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                       <span className="q-num">{index + 1}</span>
                       <div className="q-body">
                         {question.text}
-                        {Object.entries(question.branches).map(([condition, followUp]) => (
-                          <div key={condition} className="branch">
-                            <span className="cond">{condition}</span>
-                            {followUp}
-                          </div>
-                        ))}
+                        {Object.entries(question.branches).map(([condition, followUp]) => {
+                          const isBranchActive =
+                            current &&
+                            session?.active_branch != null &&
+                            (session.active_branch.includes(condition) ||
+                              condition.includes(session.active_branch) ||
+                              session.active_branch.includes(followUp) ||
+                              followUp.includes(session.active_branch));
+
+                          const isBranchTaken =
+                            session?.taken_branches?.some(
+                              (tb) =>
+                                tb.includes(condition) ||
+                                condition.includes(tb) ||
+                                tb.includes(followUp) ||
+                                followUp.includes(tb)
+                            ) ?? false;
+
+                          return (
+                            <div
+                              key={condition}
+                              className={`branch ${
+                                isBranchActive ? "active" : isBranchTaken ? "taken" : ""
+                              }`}
+                            >
+                              <div className="branch-header">
+                                <span className="cond">{condition}</span>
+                                {isBranchActive && (
+                                  <span className="branch-badge live">진행 중</span>
+                                )}
+                                {isBranchTaken && !isBranchActive && (
+                                  <span className="branch-badge done">완료</span>
+                                )}
+                              </div>
+                              <span className="branch-q">{followUp}</span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </li>
                   );
