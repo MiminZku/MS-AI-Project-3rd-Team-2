@@ -8,7 +8,7 @@ interface TopicListProps {
   heading?: string;
   description?: string;
   compact?: boolean;
-  role: UserRole;
+  role: UserRole | null;
 }
 
 export default function TopicList({ projects, heading, description, compact = false, role }: TopicListProps) {

@@ -6,4 +6,12 @@ export default defineConfig({
   build: {
     outDir: "dist",
   },
+  server: {
+    proxy: {
+      "/dashboard": {
+        target: "http://localhost:5174",
+        changeOrigin: true,
+      },
+    },
+  },
 });

@@ -52,11 +52,19 @@ export const Header: React.FC = () => {
         </div>
 
         <div className="desktop-only header-actions-desktop">
-          <span className={`header-role-badge header-role-badge--${isPm ? "pm" : "client"}`}>{roleLabel}</span>
-          <Button variant="primary" size="sm" to={isPm ? "/projects" : "/downloads"}>
-            {isPm ? "새 조사 만들기" : "전달 리포트"}
-          </Button>
-          <button type="button" className="header-logout" onClick={handleLogout} aria-label="로그아웃">로그아웃</button>
+          {role ? (
+            <>
+              <span className={`header-role-badge header-role-badge--${isPm ? "pm" : "client"}`}>{roleLabel}</span>
+              <Button variant="primary" size="sm" to={isPm ? "/projects" : "/downloads"}>
+                {isPm ? "새 조사 만들기" : "전달 리포트"}
+              </Button>
+              <button type="button" className="header-logout" onClick={handleLogout} aria-label="로그아웃">로그아웃</button>
+            </>
+          ) : (
+            <Button variant="primary" size="sm" to="/login">
+              로그인
+            </Button>
+          )}
         </div>
 
         {/* Mobile Hamburger Button */}
@@ -76,11 +84,19 @@ export const Header: React.FC = () => {
           <div className="mobile-menu-content">
             <Nav vertical onLinkClick={() => setIsMobileMenuOpen(false)} />
             <div className="mobile-menu-actions">
-              <span className={`header-role-badge header-role-badge--${isPm ? "pm" : "client"}`}>{roleLabel}</span>
-              <Button variant="primary" size="lg" onClick={handlePrimaryAction} style={{ width: "100%" }}>
-                {isPm ? "새 조사 만들기" : "전달 리포트 보기"}
-              </Button>
-              <button type="button" className="header-logout header-logout--mobile" onClick={handleLogout} aria-label="로그아웃">로그아웃</button>
+              {role ? (
+                <>
+                  <span className={`header-role-badge header-role-badge--${isPm ? "pm" : "client"}`}>{roleLabel}</span>
+                  <Button variant="primary" size="lg" onClick={handlePrimaryAction} style={{ width: "100%" }}>
+                    {isPm ? "새 조사 만들기" : "전달 리포트 보기"}
+                  </Button>
+                  <button type="button" className="header-logout header-logout--mobile" onClick={handleLogout} aria-label="로그아웃">로그아웃</button>
+                </>
+              ) : (
+                <Button variant="primary" size="lg" to="/login" onClick={() => setIsMobileMenuOpen(false)} style={{ width: "100%" }}>
+                  로그인
+                </Button>
+              )}
             </div>
           </div>
         </div>

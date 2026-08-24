@@ -1,5 +1,5 @@
 import { lazy, Suspense, type ReactNode } from "react";
-import { RouterProvider, createBrowserRouter } from "react-router-dom";
+import { RouterProvider, createBrowserRouter, Outlet } from "react-router-dom";
 import RequirePmRole from "./auth/RequirePmRole";
 import RequireRole from "./auth/RequireRole";
 import { RoleProvider } from "./auth/RoleContext";
@@ -23,29 +23,29 @@ function ProductRoute({ children }: { children: ReactNode }) {
 const router = createBrowserRouter([
   { path: "/login", element: <Login /> },
   {
-    path: "/",
-    element: (
-      <RequireRole>
-        <Layout />
-      </RequireRole>
-    ),
+    element: <Layout />,
     children: [
-      { path: "", element: <ProductRoute><Home /></ProductRoute> },
-      { path: "about", element: <ProductRoute><About /></ProductRoute> },
+      { path: "/", element: <ProductRoute><Home /></ProductRoute> },
+      { path: "/about", element: <ProductRoute><About /></ProductRoute> },
+      { path: "/team", element: <ProductRoute><Team /></ProductRoute> },
+      { path: "/contact", element: <ProductRoute><Contact /></ProductRoute> },
       {
-        path: "services",
-        element: (
-          <RequirePmRole>
-            <ProductRoute><Services /></ProductRoute>
-          </RequirePmRole>
-        ),
+        element: <RequireRole><Outlet /></RequireRole>,
+        children: [
+          { path: "/projects", element: <ProductRoute><Projects /></ProductRoute> },
+          { path: "/projects/:projectId/results", element: <ProductRoute><ResearchResults /></ProductRoute> },
+          { path: "/projects/:projectId/sessions/:sessionId", element: <ProductRoute><ResearchSession /></ProductRoute> },
+          { path: "/downloads", element: <ProductRoute><Downloads /></ProductRoute> },
+          {
+            path: "/services",
+            element: (
+              <RequirePmRole>
+                <ProductRoute><Services /></ProductRoute>
+              </RequirePmRole>
+            ),
+          },
+        ],
       },
-      { path: "team", element: <ProductRoute><Team /></ProductRoute> },
-      { path: "contact", element: <ProductRoute><Contact /></ProductRoute> },
-      { path: "projects", element: <ProductRoute><Projects /></ProductRoute> },
-      { path: "projects/:projectId/results", element: <ProductRoute><ResearchResults /></ProductRoute> },
-      { path: "projects/:projectId/sessions/:sessionId", element: <ProductRoute><ResearchSession /></ProductRoute> },
-      { path: "downloads", element: <ProductRoute><Downloads /></ProductRoute> },
     ],
   },
 ]);

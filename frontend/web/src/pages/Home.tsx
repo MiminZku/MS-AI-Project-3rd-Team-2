@@ -9,8 +9,6 @@ import ResearchHero from "../sections/platform/ResearchHero";
 export const Home: React.FC = () => {
   const { role } = useRole();
 
-  if (!role) return null;
-
   return (
     <div className="research-home">
       <ResearchHero />

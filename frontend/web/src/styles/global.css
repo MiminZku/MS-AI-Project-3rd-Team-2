@@ -2001,7 +2001,7 @@ button {
 }
 
 .login-page .login-container-small {
-  margin-left: clamp(28px, 7vw, 112px);
+  margin: 0 auto;
   padding: 0;
 }
 

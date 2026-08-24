@@ -5,8 +5,8 @@ on:
   push:
     branches:
       - main
-    paths:
       - "frontend/dashboard/**"
+      - "frontend/web/**"
       - ".github/workflows/azure-static-web-apps-victorious-pond-0765baa0f.yml"
   pull_request:
     types: [opened, synchronize, reopened, closed]
@@ -14,6 +14,7 @@ on:
       - main
     paths:
       - "frontend/dashboard/**"
+      - "frontend/web/**"
       - ".github/workflows/azure-static-web-apps-victorious-pond-0765baa0f.yml"
 
 jobs:
@@ -39,9 +40,10 @@ jobs:
           action: "upload"
           ###### Repository/Build Configurations - These values can be configured to match your app requirements. ######
           # For more information regarding Static Web App workflow configurations, please visit: https://aka.ms/swaworkflowconfig
-          app_location: "./frontend/dashboard" # App source code path
+          app_location: "./frontend/web" # App source code path
           api_location: "" # Api source code path - optional
           output_location: "dist" # Built app content directory - optional
+          app_build_command: "npm run build:azure"
           ###### End of Repository/Build Configurations ######
 
   close_pull_request_job:
