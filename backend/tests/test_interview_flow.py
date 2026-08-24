@@ -37,6 +37,12 @@ def test_참관자_지시가_다음_질문에_주입되고_한_번만_소비된�
             assert interviewee.receive_json()["type"] == "session.state"
             assert observer.receive_json()["type"] == "interviewee.connected"
 
+            start_response = client.post(f"/api/sessions/{session_id}/start")
+            assert start_response.status_code == 200
+            assert interviewee.receive_json()["session"]["status"] == "running"
+            assert observer.receive_json()["type"] == "session.started"
+            assert client.get(f"/api/sessions/{session_id}/instructions").json()[0]["status"] == "queued"
+
             interviewee.send_json({"type": "utterance", "text": "일주일에 세 번 정도 씁니다."})
 
             question = interviewee.receive_json()

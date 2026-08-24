@@ -15,6 +15,10 @@ function headers(): HeadersInit {
   return base;
 }
 
+function multipartHeaders(): HeadersInit {
+  return ADMIN_TOKEN ? { "X-Admin-Token": ADMIN_TOKEN } : {};
+}
+
 export interface CreateSessionInput {
   title: string;
   duration_minutes: number;
@@ -50,6 +54,34 @@ export async function endSession(sessionId: string): Promise<Session> {
     headers: headers(),
   });
   if (!response.ok) throw new Error(`세션 종료 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function startSession(sessionId: string): Promise<Session> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/start`, {
+    method: "POST",
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`인터뷰 시작 실패 (${response.status})`);
+  return response.json();
+}
+
+export interface RecordingUploadResponse {
+  session_id: string;
+  video_recording_url: string;
+  size_bytes: number;
+  status: "uploaded";
+}
+
+export async function uploadRecording(sessionId: string, recording: Blob): Promise<RecordingUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", recording, `session_${sessionId}.webm`);
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/recording`, {
+    method: "POST",
+    headers: multipartHeaders(),
+    body: formData,
+  });
+  if (!response.ok) throw new Error(`녹화 업로드 실패 (${response.status})`);
   return response.json();
 }
 

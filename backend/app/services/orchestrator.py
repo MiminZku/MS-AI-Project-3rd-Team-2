@@ -324,15 +324,16 @@ async def start_session_if_needed(
     session: Session,
 ) -> Session:
 
-    if session.status == "created":
+    if session.status != "created":
+        return session
 
-        session.status = "running"
+    session.status = "running"
 
-        session.started_at = utcnow()
+    session.started_at = utcnow()
 
-        await get_store().save_session(
-            session
-        )
+    await get_store().save_session(
+        session
+    )
 
     # D5:
     # 비동기 격리된 폴링 태스크 (C9)

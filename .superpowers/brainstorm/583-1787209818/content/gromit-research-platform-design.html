@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gromit Research Platform 디자인 시안</title>
+    <style>
+      :root {
+        --canvas: #000000;
+        --surface: #1d1d1f;
+        --surface-2: #29292b;
+        --text: #f5f5f7;
+        --muted: #a1a1a6;
+        --line: rgba(255, 255, 255, 0.14);
+        --blue: #0071e3;
+        --link: #2997ff;
+        --paper: #f5f5f7;
+        --paper-2: #e8e8ed;
+        --ink: #1d1d1f;
+        --subtle: #6e6e73;
+        --ready: #28753a;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body { margin: 0; color: var(--text); background: var(--canvas); font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: -0.02em; }
+      button, input, select { font: inherit; }
+      a { color: inherit; text-decoration: none; }
+      .skip { position: absolute; left: -999px; }
+      .skip:focus { left: 16px; top: 16px; z-index: 100; padding: 10px 14px; border-radius: 10px; background: #fff; color: #000; }
+      .site-header { position: sticky; top: 0; z-index: 30; height: 52px; border-bottom: 1px solid var(--line); background: rgba(0,0,0,.84); backdrop-filter: blur(20px) saturate(1.2); }
+      .header-inner { display: flex; align-items: center; justify-content: space-between; width: min(1220px, calc(100% - 48px)); height: 100%; margin: auto; }
+      .logo { font-size: 21px; font-weight: 500; letter-spacing: -.055em; }
+      .nav { display: flex; align-items: stretch; height: 100%; gap: 3px; }
+      .nav-item { position: relative; display: flex; align-items: stretch; }
+      .nav-link, .nav-trigger { display: inline-flex; align-items: center; gap: 7px; padding: 0 14px; border: 0; background: transparent; color: rgba(245,245,247,.82); font-size: 13px; cursor: pointer; }
+      .nav-link:hover, .nav-trigger:hover, .nav-item:focus-within .nav-trigger { color: #fff; }
+      .arrow { width: 7px; height: 7px; border-right: 1px solid currentColor; border-bottom: 1px solid currentColor; transform: rotate(45deg) translateY(-2px); }
+      .product-menu { position: absolute; top: 47px; left: -16px; width: 264px; padding: 7px; border: 1px solid rgba(255,255,255,.17); border-radius: 18px; background: rgba(35,35,37,.98); box-shadow: 0 22px 52px rgba(0,0,0,.42); opacity: 0; visibility: hidden; transform: translateY(-6px); transition: opacity .16s ease, transform .16s ease, visibility .16s; }
+      .nav-item:hover .product-menu, .nav-item:focus-within .product-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+      .menu-label { padding: 9px 10px 7px; color: #96969c; font-size: 11px; letter-spacing: .04em; }
+      .product-menu a { display: grid; grid-template-columns: 28px 1fr; gap: 10px; align-items: center; min-height: 51px; padding: 8px 10px; border-radius: 12px; }
+      .product-menu a:hover { background: rgba(255,255,255,.09); }
+      .menu-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 9px; background: rgba(41,153,255,.14); color: var(--link); }
+      .menu-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+      .menu-title { display: block; font-size: 13px; font-weight: 500; }
+      .menu-copy { display: block; margin-top: 2px; color: #a8a8ad; font-size: 11px; line-height: 1.25; }
+      .header-action, .button-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 39px; padding: 0 17px; border: 0; border-radius: 999px; background: var(--blue); color: #fff; cursor: pointer; font-size: 14px; }
+      .hero { padding: 126px 24px 0; overflow: hidden; background: radial-gradient(circle at 74% 40%, rgba(31,94,153,.28), transparent 25%), #000; }
+      .hero-inner { width: min(1220px, 100%); margin: auto; }
+      .eyebrow { margin: 0; color: var(--link); font-size: 17px; }
+      h1 { max-width: 830px; margin: 17px 0 0; font-size: clamp(52px, 7.1vw, 88px); font-weight: 600; line-height: .98; letter-spacing: -.071em; }
+      .hero-copy { max-width: 580px; margin: 29px 0 0; color: var(--muted); font-size: 20px; line-height: 1.47; }
+      .hero-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 34px; }
+      .button-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 20px; border: 1px solid rgba(255,255,255,.36); border-radius: 999px; color: #fff; background: transparent; font-size: 16px; }
+      .button-primary { min-height: 46px; padding: 0 20px; font-size: 16px; }
+      .hero-art { position: relative; width: min(1050px, 100%); margin: 86px auto 0; border: 1px solid rgba(255,255,255,.18); border-bottom: 0; border-radius: 28px 28px 0 0; background: #151516; overflow: hidden; }
+      .app-top { display: flex; align-items: center; height: 43px; padding: 0 17px; border-bottom: 1px solid var(--line); color: #babac0; font-size: 12px; }
+      .window-dots { display: flex; gap: 5px; margin-right: 12px; }
+      .window-dots i { width: 8px; height: 8px; border-radius: 50%; background: #5b5b60; }
+      .app-body { display: grid; grid-template-columns: 186px 1fr; min-height: 360px; }
+      .app-aside { padding: 21px 12px; border-right: 1px solid var(--line); background: #1a1a1b; }
+      .aside-label { margin: 0 10px 12px; color: #8c8c92; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; }
+      .aside-link { display: block; padding: 10px; border-radius: 9px; color: #a7a7ad; font-size: 12px; }
+      .aside-link.active { color: #fff; background: rgba(255,255,255,.09); }
+      .app-main { padding: 31px; }
+      .app-kicker { color: #9b9ba1; font-size: 12px; }
+      .app-heading { margin: 7px 0 0; color: #fff; font-size: 27px; font-weight: 500; letter-spacing: -.045em; }
+      .app-metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 24px; }
+      .app-metric { min-height: 94px; padding: 14px; border-radius: 16px; background: #262628; }
+      .app-metric small { color: #96969c; font-size: 11px; }
+      .app-metric strong { display: block; margin-top: 9px; color: #fff; font-size: 22px; font-weight: 500; }
+      .app-metric span { display: block; margin-top: 4px; color: #96969c; font-size: 10px; }
+      .app-progress { height: 6px; margin-top: 26px; overflow: hidden; border-radius: 999px; background: #39393c; }
+      .app-progress i { display: block; width: 67%; height: 100%; border-radius: inherit; background: var(--blue); }
+      .session-list { display: grid; gap: 8px; margin-top: 21px; }
+      .session-row { display: flex; align-items: center; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,.08); color: #d5d5da; font-size: 13px; }
+      .session-row span:last-child { color: #70b4ff; font-size: 11px; }
+      .trust-strip { padding: 31px 24px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: #090909; }
+      .trust-inner { display: flex; align-items: center; justify-content: space-between; width: min(1220px, 100%); margin: auto; gap: 30px; }
+      .trust-copy { max-width: 320px; color: #a7a7ad; font-size: 13px; line-height: 1.45; }
+      .trust-list { display: flex; flex-wrap: wrap; justify-content: end; gap: 20px 38px; color: #d2d2d7; font-size: 13px; }
+      .trust-list span::before { margin-right: 8px; content: "✓"; color: var(--link); }
+      .light { padding: 126px 24px; color: var(--ink); background: var(--paper); }
+      .container { width: min(1220px, 100%); margin: auto; }
+      .section-link { color: #0066cc; font-size: 17px; }
+      h2 { max-width: 740px; margin: 15px 0 0; font-size: clamp(42px, 5.4vw, 66px); font-weight: 600; line-height: 1.06; letter-spacing: -.06em; }
+      .lead { max-width: 630px; margin: 22px 0 0; color: var(--subtle); font-size: 18px; line-height: 1.53; }
+      .feature-grid { display: grid; grid-template-columns: 1.1fr .9fr .9fr; gap: 16px; margin-top: 58px; }
+      .feature { min-height: 350px; padding: 29px; border-radius: 28px; background: #fff; }
+      .feature.large { grid-row: span 2; min-height: 716px; color: #fff; background: #1d1d1f; }
+      .feature-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 13px; background: #e7f1fe; color: #0066cc; }
+      .feature-icon svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 1.7; }
+      .feature.large .feature-icon { color: #2997ff; background: rgba(41,151,255,.16); }
+      .feature h3 { margin: 22px 0 0; font-size: 25px; font-weight: 500; letter-spacing: -.045em; }
+      .feature p { margin: 12px 0 0; color: #6e6e73; font-size: 15px; line-height: 1.47; }
+      .feature.large p { color: #a1a1a6; }
+      .guide-lines { display: grid; gap: 11px; margin-top: 52px; }
+      .guide-line { display: flex; align-items: center; gap: 12px; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,.13); color: #e5e5e8; font-size: 14px; }
+      .guide-line i { display: block; width: 22px; height: 22px; border-radius: 50%; background: rgba(41,151,255,.18); }
+      .mini-chart { display: flex; align-items: end; gap: 8px; height: 158px; margin-top: 62px; }
+      .mini-chart i { flex: 1; border-radius: 9px 9px 2px 2px; background: #d4e9ff; }
+      .mini-chart i:nth-child(1) { height: 38%; }.mini-chart i:nth-child(2) { height: 71%; }.mini-chart i:nth-child(3) { height: 55%; }.mini-chart i:nth-child(4) { height: 91%; background: #0071e3; }.mini-chart i:nth-child(5) { height: 67%; }
+      .dark-flow { padding: 126px 24px; background: #000; }
+      .dark-flow h2 { color: #fff; }
+      .dark-flow .lead { color: #a1a1a6; }
+      .flow-list { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-top: 58px; }
+      .flow-step { position: relative; min-height: 182px; padding: 23px; border: 1px solid var(--line); border-radius: 28px; background: #1d1d1f; }
+      .flow-step:not(:last-child)::after { position: absolute; top: 31px; right: -9px; z-index: 1; color: #a1a1a6; content: "→"; }
+      .flow-number { color: #86868b; font-size: 12px; }
+      .flow-step strong { display: block; margin-top: 43px; color: #fff; font-size: 20px; font-weight: 500; letter-spacing: -.035em; }
+      .flow-step p { margin: 8px 0 0; color: #a1a1a6; font-size: 13px; line-height: 1.4; }
+      .results { padding: 126px 24px; color: var(--ink); background: #fff; }
+      .results-top { display: flex; align-items: end; justify-content: space-between; gap: 20px; }
+      .results-shell { display: grid; grid-template-columns: 1.08fr .92fr; margin-top: 54px; overflow: hidden; border: 1px solid #d2d2d7; border-radius: 28px; }
+      .report-pane { padding: 37px; }
+      .report-breadcrumb { color: #6e6e73; font-size: 12px; }
+      .report-title { margin: 8px 0 0; font-size: 31px; letter-spacing: -.05em; }
+      .report-status { display: inline-flex; margin-top: 15px; padding: 6px 10px; border-radius: 999px; background: #edf7ee; color: var(--ready); font-size: 12px; }
+      .report-summary { margin: 29px 0 0; padding: 22px 0; border-top: 1px solid #d2d2d7; border-bottom: 1px solid #d2d2d7; font-size: 19px; line-height: 1.5; letter-spacing: -.025em; }
+      .report-heading { margin-top: 30px; color: #6e6e73; font-size: 13px; }
+      .finding-list { display: grid; gap: 12px; margin: 14px 0 0; padding: 0; list-style: none; }
+      .finding-list li { display: grid; grid-template-columns: 27px 1fr; gap: 11px; padding: 14px 0; border-bottom: 1px solid #e2e2e6; font-size: 15px; line-height: 1.46; }
+      .finding-list b { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 50%; color: #0066cc; background: #e7f1fe; font-size: 11px; }
+      .output-pane { padding: 37px; background: #f8f8fa; }
+      .output-pane h3 { margin: 0; font-size: 26px; letter-spacing: -.045em; }
+      .output-pane > p { margin: 11px 0 23px; color: #6e6e73; font-size: 14px; line-height: 1.48; }
+      .output-item { display: grid; grid-template-columns: 42px 1fr; gap: 12px; padding: 16px 0; border-top: 1px solid #d8d8dc; }
+      .file-tag { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: #e6f1ff; color: #0066cc; font-size: 11px; font-weight: 500; }
+      .output-item strong { display: block; font-size: 14px; }
+      .output-item small { display: block; margin-top: 4px; color: #74747a; font-size: 12px; line-height: 1.35; }
+      .open-download { width: 100%; margin-top: 22px; }
+      .data-note { margin-top: 18px; color: #6e6e73; font-size: 12px; line-height: 1.45; }
+      .cta { padding: 132px 24px; text-align: center; background: #000; }
+      .cta h2 { margin: 0 auto; color: #fff; }
+      .cta p { max-width: 500px; margin: 22px auto 0; color: #a1a1a6; font-size: 18px; line-height: 1.48; }
+      .cta .hero-actions { justify-content: center; }
+      footer { padding: 34px 24px; border-top: 1px solid var(--line); background: #000; color: #a1a1a6; }
+      .footer-inner { display: flex; align-items: start; justify-content: space-between; gap: 25px; width: min(1220px, 100%); margin: auto; }
+      .footer-brand { color: #f5f5f7; font-size: 17px; font-weight: 500; }
+      .footer-links { display: flex; flex-wrap: wrap; justify-content: end; gap: 12px 22px; font-size: 13px; }
+      dialog { width: min(700px, calc(100% - 32px)); padding: 0; border: 0; border-radius: 22px; color: var(--ink); box-shadow: 0 24px 80px rgba(0,0,0,.45); }
+      dialog::backdrop { background: rgba(0,0,0,.66); backdrop-filter: blur(4px); }
+      .dialog-header { display: flex; align-items: center; justify-content: space-between; padding: 22px 25px; border-bottom: 1px solid #d2d2d7; }
+      .dialog-header h3 { margin: 0; font-size: 21px; letter-spacing: -.04em; }
+      .dialog-close { display: grid; place-items: center; width: 31px; height: 31px; border: 1px solid #c7c7cc; border-radius: 50%; background: #fff; color: #1d1d1f; cursor: pointer; font-size: 20px; }
+      .dialog-body { padding: 25px; }
+      .topic-panel { padding: 17px; border-radius: 15px; background: #f0f6ff; }
+      .topic-panel span { color: #6e6e73; font-size: 12px; }
+      .topic-panel strong { display: block; margin-top: 7px; font-size: 17px; }
+      .dialog-description { margin: 18px 0; color: #56565c; font-size: 14px; line-height: 1.55; }
+      .metadata { margin: 0; border-top: 1px solid #cfcfd4; }
+      .metadata-row { display: grid; grid-template-columns: 132px 1fr; border-bottom: 1px solid #dcdce0; }
+      .metadata dt, .metadata dd { min-height: 43px; margin: 0; padding: 12px; font-size: 13px; line-height: 1.4; }
+      .metadata dt { background: #f5f5f7; font-weight: 500; }
+      .metadata dd { color: #45454a; }
+      .state-message { display: none; margin-top: 16px; padding: 12px 13px; border-radius: 11px; color: #4e4e54; background: #f5f5f7; font-size: 13px; line-height: 1.4; }
+      .dialog-actions { display: flex; justify-content: end; gap: 9px; padding: 17px 25px; border-top: 1px solid #d2d2d7; }
+      .dialog-secondary { min-height: 38px; padding: 0 14px; border: 1px solid #c7c7cc; border-radius: 999px; background: #fff; color: #1d1d1f; cursor: pointer; font-size: 13px; }
+      .dialog-primary { min-height: 38px; padding: 0 15px; border: 0; border-radius: 999px; background: #0071e3; color: #fff; cursor: pointer; font-size: 13px; }
+      @media (max-width: 820px) { .header-inner { width: min(100% - 28px, 1220px); }.nav { display: none; }.hero { padding-top: 85px; }.app-body { grid-template-columns: 1fr; }.app-aside { display: none; }.trust-inner { align-items: start; flex-direction: column; }.trust-list { justify-content: start; }.feature-grid { grid-template-columns: 1fr; }.feature.large { grid-row: auto; min-height: 480px; }.flow-list { grid-template-columns: 1fr 1fr; }.flow-step:not(:last-child)::after { display: none; }.results-top { align-items: start; flex-direction: column; }.results-shell { grid-template-columns: 1fr; }.output-pane { border-top: 1px solid #d2d2d7; }.footer-inner { align-items: start; flex-direction: column; }.footer-links { justify-content: start; } }
+      @media (max-width: 520px) { .hero-actions { align-items: stretch; flex-direction: column; }.app-metrics { grid-template-columns: 1fr; }.hero-art { margin-top: 52px; }.app-main { padding: 23px; }.trust-list { gap: 13px; }.light, .dark-flow, .results, .cta { padding: 82px 22px; }.flow-list { grid-template-columns: 1fr; }.report-pane, .output-pane { padding: 25px; }.metadata-row { grid-template-columns: 98px 1fr; }.dialog-actions { align-items: stretch; flex-direction: column-reverse; }.dialog-actions button { width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 건너뛰기</a>
+    <header class="site-header">
+      <div class="header-inner">
+        <a class="logo" href="#top">Gromit</a>
+        <nav class="nav" aria-label="주요 메뉴">
+          <div class="nav-item">
+            <button class="nav-trigger" type="button" aria-haspopup="true">제품 <span class="arrow" aria-hidden="true"></span></button>
+            <div class="product-menu" role="menu" aria-label="제품 메뉴">
+              <div class="menu-label">Product</div>
+              <a href="#workspace" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M8 9h8M8 13h5"></path></svg></span><span><span class="menu-title">Research Workspace</span><span class="menu-copy">프로젝트와 세션을 관리합니다</span></span></a>
+              <a href="#flow" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"></path><path d="M9 8h6M9 12h6M9 16h3"></path></svg></span><span><span class="menu-title">가이드 업로드</span><span class="menu-copy">문서에서 질문 구조를 만듭니다</span></span></a>
+              <a href="#workspace" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="M12 8v4l3 2"></path></svg></span><span><span class="menu-title">인터뷰와 참관</span><span class="menu-copy">대화와 AI 진행 상태를 봅니다</span></span></a>
+              <a href="#results" role="menuitem"><span class="menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V5h14v14z"></path><path d="M8 15l3-3 2 2 3-4"></path></svg></span><span><span class="menu-title">Research Results</span><span class="menu-copy">근거와 산출물을 확인합니다</span></span></a>
+            </div>
+          </div>
+          <a class="nav-link" href="#workspace">프로젝트</a>
+          <a class="nav-link" href="#results">리포트</a>
+          <a class="nav-link" href="#flow">작동 방식</a>
+          <a class="nav-link" href="#resources">리소스</a>
+        </nav>
+        <a class="header-action" href="#workspace">새 조사 만들기</a>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-inner">
+          <p class="eyebrow">AI qualitative research platform</p>
+          <h1>인터뷰가 끝나면,<br />증거가 남습니다.</h1>
+          <p class="hero-copy">질문 가이드부터 AI 인터뷰, 실시간 참관, 근거 기반 분석과 결과보고서까지. 리서처의 판단을 다음 단계로 이어갑니다.</p>
+          <div class="hero-actions"><a class="button-primary" href="#workspace">새 조사 만들기</a><a class="button-secondary" href="#results">조사 결과 보기</a></div>
+          <section class="hero-art" id="workspace" aria-label="프로젝트 작업공간 미리보기">
+            <div class="app-top"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span>Research Workspace</div>
+            <div class="app-body"><aside class="app-aside"><p class="aside-label">Workspace</p><a class="aside-link active" href="#workspace">프로젝트</a><a class="aside-link" href="#workspace">인터뷰 세션</a><a class="aside-link" href="#results">결과와 산출물</a></aside><section class="app-main"><span class="app-kicker">프로젝트 개요</span><h2 class="app-heading">현재 진행 중인 조사</h2><div class="app-metrics"><div class="app-metric"><small>진행 상태</small><strong>Interviewing</strong><span>실시간 인터뷰 진행 중</span></div><div class="app-metric"><small>세션</small><strong>동적 값</strong><span>프로젝트 데이터 기반</span></div><div class="app-metric"><small>완료율</small><strong>동적 값</strong><span>세션 상태에서 계산</span></div></div><div class="app-progress"><i></i></div><div class="session-list"><div class="session-row"><span>인터뷰 세션</span><span>진행 중</span></div><div class="session-row"><span>인터뷰 세션</span><span>분석 완료</span></div></div></section></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="trust-strip"><div class="trust-inner"><p class="trust-copy">리서치의 정보는 조사 목적에 맞게 다루고, 결과와 Evidence를 함께 검토합니다.</p><div class="trust-list"><span>프로젝트 기반 권한</span><span>세션별 결과 관리</span><span>근거 연결</span><span>산출물 상태 표시</span></div></div></section>
+
+      <section class="light" id="resources"><div class="container"><span class="section-link">제품이 하는 일</span><h2>데이터를 쌓는 대신,<br />결정에 닿게 합니다.</h2><p class="lead">기업 홈페이지에서는 제품의 신뢰와 흐름을 설명하고, 실제 업무 화면에서는 프로젝트별 정보와 행동을 밀도 있게 보여줍니다.</p><div class="feature-grid"><article class="feature large"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5z"></path><path d="M8 8h8M8 12h8M8 16h4"></path></svg></span><h3>Question Guide 기반<br />AI Interview</h3><p>질문 가이드에서 구조를 만들고, 프로젝트에 연결된 인터뷰를 일관되게 운영합니다.</p><div class="guide-lines"><div class="guide-line"><i></i>핵심 질문과 분기 질문</div><div class="guide-line"><i></i>조사 목적과 정보 단위</div><div class="guide-line"><i></i>세션 진행 상태와 기록</div></div></article><article class="feature"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><path d="M12 9v3l2 2"></path></svg></span><h3>Observer / Backroom</h3><p>응답자의 경험을 방해하지 않으면서, 리서처는 진행 맥락을 확인합니다.</p></article><article class="feature"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 19V5h14v14z"></path><path d="M8 15l3-3 2 2 3-4"></path></svg></span><h3>Evidence-bound Analysis</h3><p>요약만 나열하지 않고, 발견을 대화와 세션의 근거로 되돌립니다.</p></article><article class="feature"><span class="feature-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"></path><path d="M15 3v4h4M9 12h6M9 16h6"></path></svg></span><h3>Research Deliverables</h3><p>프로젝트 단위의 결과보고서와 세션 단위의 PDF·녹화 영상을 제공합니다.</p><div class="mini-chart" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></article></div></div></section>
+
+      <section class="dark-flow" id="flow"><div class="container"><span class="section-link">하나의 연결된 흐름</span><h2>조사 전반을 하나의<br />작업 공간으로.</h2><p class="lead">제품 기능을 나열하는 것이 아니라, 리서처가 실제로 업무를 완성하는 순서를 화면 구조로 만듭니다.</p><div class="flow-list"><article class="flow-step"><span class="flow-number">01</span><strong>가이드 업로드</strong><p>문서에서 질문 구조를 생성</p></article><article class="flow-step"><span class="flow-number">02</span><strong>프로젝트 설계</strong><p>조사 목적과 세션을 관리</p></article><article class="flow-step"><span class="flow-number">03</span><strong>AI 인터뷰</strong><p>응답자 집중형 대화 화면</p></article><article class="flow-step"><span class="flow-number">04</span><strong>실시간 참관</strong><p>대화 흐름과 진행 상태 확인</p></article><article class="flow-step"><span class="flow-number">05</span><strong>결과와 산출물</strong><p>근거를 검토하고 파일 다운로드</p></article></div></div></section>
+
+      <section class="results" id="results"><div class="container"><div class="results-top"><div><span class="section-link">Research Results</span><h2>결과는 선명하게,<br />다음 행동은 빠르게.</h2></div><a class="section-link" href="#workspace">프로젝트 보기 →</a></div><div class="results-shell"><section class="report-pane"><span class="report-breadcrumb">프로젝트 / 결과</span><h3 class="report-title">프로젝트 결과</h3><span class="report-status">분석 완료</span><p class="report-summary">조사 목적에 따라 축적된 인터뷰를 요약하고, 핵심 발견을 해당 세션과 Evidence로 되돌아갈 수 있게 정리합니다.</p><span class="report-heading">Key findings</span><ol class="finding-list"><li><b>01</b><span>프로젝트별 인사이트는 특정 숫자를 고정하지 않고, 완료된 세션과 대화 데이터를 기준으로 구성합니다.</span></li><li><b>02</b><span>각 발견은 리서처가 직접 검토할 수 있는 인터뷰 세션의 근거와 연결됩니다.</span></li><li><b>03</b><span>생성되지 않은 파일은 다운로드 대신 “리포트 생성 중” 상태로 표시됩니다.</span></li></ol></section><aside class="output-pane"><h3>데이터 산출물</h3><p>선택한 프로젝트와 주제에 대해 제공되는 결과물입니다.</p><div class="output-item"><span class="file-tag">DOCX</span><span><strong>주제별 Word 결과보고서</strong><small>조사 목적, 요약, 핵심 발견, Evidence, 부록</small></span></div><div class="output-item"><span class="file-tag">PDF</span><span><strong>개별 인터뷰 요약</strong><small>세션별 individual_report_url</small></span></div><div class="output-item"><span class="file-tag">MP4</span><span><strong>인터뷰 녹화 영상</strong><small>세션별 video_recording_url</small></span></div><button class="button-primary open-download" type="button" id="openDownload">Word 결과보고서 받기</button><p class="data-note">다운로드 전 파일의 제공 범위와 포함 내용을 확인합니다.</p></aside></div></div></section>
+
+      <section class="cta"><h2>다음 조사의 근거를,<br />오늘부터 만드세요.</h2><p>가이드 업로드부터 결과보고서까지. Gromit은 정성 리서치의 흐름을 연결합니다.</p><div class="hero-actions"><a class="button-primary" href="#workspace">새 조사 만들기</a><a class="button-secondary" href="#top">제품 더 알아보기</a></div></section>
+    </main>
+    <footer><div class="footer-inner"><span class="footer-brand">Gromit</span><div class="footer-links"><a href="#workspace">프로젝트</a><a href="#results">리포트</a><a href="#flow">작동 방식</a><a href="#resources">리소스</a><a href="#top">문의</a></div></div></footer>
+
+    <dialog id="downloadDialog" aria-labelledby="downloadTitle">
+      <header class="dialog-header"><h3 id="downloadTitle">주제별 데이터 산출물</h3><button class="dialog-close" type="button" id="closeDialog" aria-label="닫기">×</button></header>
+      <div class="dialog-body"><section class="topic-panel"><span>선택한 조사 주제</span><strong>프로젝트에서 불러온 조사 제목</strong></section><p class="dialog-description">공공데이터포털처럼 파일을 바로 받기 전, 제공되는 데이터의 범위와 문서 구성을 확인하는 창입니다.</p><dl class="metadata"><div class="metadata-row"><dt>제공 파일</dt><dd>Word 결과보고서 (.docx)</dd></div><div class="metadata-row"><dt>포함 내용</dt><dd>조사 목적, 세션 요약, 핵심 발견, Evidence, 부록</dd></div><div class="metadata-row"><dt>제공 범위</dt><dd>선택한 프로젝트의 완료된 인터뷰 세션 기준</dd></div><div class="metadata-row"><dt>생성 상태</dt><dd>Ready / Processing / Error 상태를 명확히 표시</dd></div><div class="metadata-row"><dt>다운로드 방식</dt><dd>실제 연동 시 허용된 리포트 URL 또는 Private Blob 다운로드 API</dd></div></dl><p class="state-message" id="downloadMessage" role="status"></p></div>
+      <footer class="dialog-actions"><button class="dialog-secondary" type="button" id="cancelDownload">취소</button><button class="dialog-primary" type="button" id="confirmDownload">Word 결과보고서 다운로드</button></footer>
+    </dialog>
+    <script>
+      const dialog = document.getElementById('downloadDialog');
+      const message = document.getElementById('downloadMessage');
+      document.getElementById('openDownload').addEventListener('click', () => dialog.showModal());
+      document.getElementById('closeDialog').addEventListener('click', () => dialog.close());
+      document.getElementById('cancelDownload').addEventListener('click', () => dialog.close());
+      document.getElementById('confirmDownload').addEventListener('click', () => {
+        message.style.display = 'block';
+        message.textContent = '시안에서는 다운로드 창의 동선만 보여줍니다. 실제 앱에서는 준비 완료된 .docx 파일 URL에 이 버튼을 연결합니다.';
+      });
+    </script>
+  </body>
+</html>

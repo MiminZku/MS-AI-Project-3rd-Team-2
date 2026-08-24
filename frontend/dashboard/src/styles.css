@@ -339,8 +339,6 @@ h2 {
   transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s;
 }
 
-.kebab-wrap:hover .hover-drawer,
-.kebab-wrap:focus-within .hover-drawer,
 .kebab-wrap.pinned .hover-drawer {
   opacity: 1;
   visibility: visible;
@@ -582,6 +580,33 @@ h2 {
   width: 100%;
   height: 100%;
   filter: drop-shadow(0 6px 22px rgba(16, 185, 129, 0.25));
+}
+
+.live-transcript {
+  margin: 0 16px 16px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 213, 79, 0.24);
+  border-radius: 14px;
+  background: rgba(255, 213, 79, 0.08);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.live-transcript p {
+  margin: 0;
+}
+
+.live-transcript .translation {
+  margin-top: 6px;
+  color: #ffd54f;
+}
+
+.recording-error {
+  margin: 0 16px 16px;
+  color: var(--error);
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .rs-strip {

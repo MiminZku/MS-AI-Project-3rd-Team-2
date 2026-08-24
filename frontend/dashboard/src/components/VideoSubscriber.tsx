@@ -1,22 +1,41 @@
 import { useEffect, useRef, useState } from "react";
-import { CallClient, CallAgent, RemoteParticipant, RemoteVideoStream, VideoStreamRenderer } from "@azure/communication-calling";
+import { CallClient, CallAgent, RemoteAudioStream, RemoteParticipant, RemoteVideoStream, VideoStreamRenderer } from "@azure/communication-calling";
 import { AzureCommunicationTokenCredential } from "@azure/communication-common";
 
 interface VideoSubscriberProps {
   token: string;
   groupId: string;
+  onStreamReady?: (stream: MediaStream | null) => void;
 }
 
-export default function VideoSubscriber({ token, groupId }: VideoSubscriberProps) {
+export default function VideoSubscriber({ token, groupId, onStreamReady }: VideoSubscriberProps) {
   const videoContainerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState<string>("");
 
   useEffect(() => {
     let callAgent: CallAgent | null = null;
     let renderer: VideoStreamRenderer | null = null;
+    let remoteVideoMediaStream: MediaStream | null = null;
+    let remoteAudioMediaStream: MediaStream | null = null;
+
+    const publishRecordingStream = () => {
+      if (!remoteVideoMediaStream) {
+        onStreamReady?.(null);
+        return;
+      }
+      onStreamReady?.(
+        new MediaStream([
+          ...remoteVideoMediaStream.getVideoTracks(),
+          ...(remoteAudioMediaStream?.getAudioTracks() ?? []),
+        ]),
+      );
+    };
 
     async function subscribeToRemoteVideo(remoteVideoStream: RemoteVideoStream) {
       if (!remoteVideoStream.isAvailable) return;
+
+      remoteVideoMediaStream = await remoteVideoStream.getMediaStream();
+      publishRecordingStream();
       
       renderer = new VideoStreamRenderer(remoteVideoStream);
       const view = await renderer.createView({ scalingMode: 'Fit' });
@@ -35,6 +54,11 @@ export default function VideoSubscriber({ token, groupId }: VideoSubscriberProps
       }
     }
 
+    async function subscribeToRemoteAudio(remoteAudioStream: RemoteAudioStream) {
+      remoteAudioMediaStream = await remoteAudioStream.getMediaStream();
+      publishRecordingStream();
+    }
+
     async function initAndJoinCall() {
       try {
         const callClient = new CallClient();
@@ -44,6 +68,19 @@ export default function VideoSubscriber({ token, groupId }: VideoSubscriberProps
         const call = callAgent.join({ groupId }, {
           // 참관자는 오디오와 비디오 송출을 하지 않음
           audioOptions: { muted: true }
+        });
+
+        call.remoteAudioStreams.forEach(stream => {
+          void subscribeToRemoteAudio(stream);
+        });
+        call.on("remoteAudioStreamsUpdated", event => {
+          event.added.forEach(stream => {
+            void subscribeToRemoteAudio(stream);
+          });
+          if (event.removed.length > 0) {
+            remoteAudioMediaStream = null;
+            publishRecordingStream();
+          }
         });
 
         const subscribeToParticipant = (participant: RemoteParticipant) => {
@@ -57,6 +94,8 @@ export default function VideoSubscriber({ token, groupId }: VideoSubscriberProps
               } else if (renderer) {
                 renderer.dispose();
                 if (videoContainerRef.current) videoContainerRef.current.innerHTML = '';
+                remoteVideoMediaStream = null;
+                publishRecordingStream();
               }
             });
           });
@@ -90,8 +129,11 @@ export default function VideoSubscriber({ token, groupId }: VideoSubscriberProps
     return () => {
       if (renderer) renderer.dispose();
       if (callAgent) callAgent.dispose();
+      remoteVideoMediaStream = null;
+      remoteAudioMediaStream = null;
+      onStreamReady?.(null);
     };
-  }, [token, groupId]);
+  }, [token, groupId, onStreamReady]);
 
   return (
     <div style={{

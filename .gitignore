@@ -222,6 +222,7 @@ __marimo__/
 # ---------------------------------------------------------------------------
 node_modules/
 frontend/*/dist/
+backend/data/recordings/
 *.local
 .env.local
 .env.*.local

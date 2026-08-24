@@ -1,7 +1,9 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useRole } from "../auth/RoleContext";
 
 export const Footer: React.FC = () => {
+  const { role } = useRole();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -13,18 +15,18 @@ export const Footer: React.FC = () => {
             <span className="logo-text">Gromit</span>
           </Link>
           <p className="footer-tagline">
-            AI가 진행하고, 사람이 개입하는<br />
-            차세대 정성조사 플랫폼
+            의사결정에 필요한 사람의 목소리를<br />
+            한 화면으로 연결하는 리서치 플랫폼
           </p>
         </div>
 
         <div className="footer-links-grid">
           <div className="footer-links-column">
-            <h4 className="footer-column-title">서비스</h4>
+            <h4 className="footer-column-title">제품</h4>
             <ul>
-              <li><Link to="/services">정성 인터뷰</Link></li>
-              <li><Link to="/services">조사 리포트 분석</Link></li>
-              <li><Link to="/services">최종 산출물</Link></li>
+              <li><Link to="/projects">Research Workspace</Link></li>
+              {role === "pm" ? <li><Link to="/services">인터뷰와 참관</Link></li> : null}
+              <li><Link to="/projects">Research Results</Link></li>
             </ul>
           </div>
 
@@ -38,10 +40,11 @@ export const Footer: React.FC = () => {
           </div>
 
           <div className="footer-links-column">
-            <h4 className="footer-column-title">법적고지</h4>
+            <h4 className="footer-column-title">산출물</h4>
             <ul>
-              <li><a href="#privacy">개인정보처리방침</a></li>
-              <li><a href="#terms">이용약관</a></li>
+              <li><Link to="/downloads">다운로드 센터</Link></li>
+              <li><Link to="/downloads">Word 리포트</Link></li>
+              {role === "pm" ? <li><Link to="/downloads">Power BI 데이터</Link></li> : null}
             </ul>
           </div>
         </div>

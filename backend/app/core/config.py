@@ -46,6 +46,11 @@ class Settings(BaseSettings):
     # Azure Communication Services (WebRTC)
     acs_connection_string: str = ""
 
+    # Empty connection string keeps local development self-contained by
+    # writing recordings under backend/data/recordings.
+    azure_storage_connection_string: str = ""
+    azure_storage_recordings_container: str = "recordings"
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

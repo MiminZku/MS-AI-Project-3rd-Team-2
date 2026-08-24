@@ -22,6 +22,9 @@ def test_세션_종료시_리포트가_비동기로_생성되고_조회된다(cl
 
     with client.websocket_connect(f"/ws/interview/{session_id}") as interviewee:
         assert interviewee.receive_json()["type"] == "session.state"
+        start_response = client.post(f"/api/sessions/{session_id}/start")
+        assert start_response.status_code == 200
+        assert interviewee.receive_json()["session"]["status"] == "running"
         interviewee.send_json({"type": "utterance", "text": "일주일에 세 번 정도 씁니다."})
         assert interviewee.receive_json()["type"] == "assistant.question"
 

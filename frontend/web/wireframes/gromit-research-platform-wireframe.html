@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gromit Research Platform 상세 와이어프레임</title>
+    <style>
+      :root {
+        --ink: #151518;
+        --muted: #6f7077;
+        --line: #bfc0c6;
+        --fill: #e9eaed;
+        --fill-dark: #d7d8de;
+        --accent: #0066cc;
+        --page: #f7f7f8;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; color: var(--ink); background: var(--page); font-family: Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; letter-spacing: -0.02em; }
+      button, input { font: inherit; }
+      .guide { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; gap: 20px; padding: 14px 24px; border-bottom: 1px solid var(--line); background: rgba(247,247,248,.94); backdrop-filter: blur(12px); }
+      .guide strong { font-size: 14px; }
+      .guide span { color: var(--muted); font-size: 13px; }
+      .canvas { width: min(1240px, calc(100% - 40px)); margin: 38px auto 80px; }
+      .intro { display: grid; grid-template-columns: 1fr 320px; gap: 26px; align-items: end; margin-bottom: 34px; }
+      h1 { margin: 0; font-size: clamp(32px, 5vw, 52px); letter-spacing: -0.055em; }
+      .intro p { max-width: 710px; margin: 12px 0 0; color: var(--muted); line-height: 1.55; }
+      .legend { padding: 17px; border: 1px solid var(--line); background: #fff; }
+      .legend div + div { margin-top: 8px; }
+      .legend b { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: 7px; border: 1px solid var(--ink); vertical-align: middle; font-size: 11px; }
+      .sheet { position: relative; margin-top: 42px; border: 2px solid var(--ink); background: #fff; }
+      .sheet-label { position: absolute; top: -15px; left: 18px; padding: 4px 9px; color: #fff; background: var(--ink); font-size: 12px; font-weight: 700; letter-spacing: .03em; }
+      .browser-top { display: flex; align-items: center; justify-content: space-between; min-height: 52px; padding: 0 22px; border-bottom: 1px solid var(--line); }
+      .brand { font-size: 20px; font-weight: 700; letter-spacing: -0.05em; }
+      .nav { display: flex; gap: 26px; color: #44454a; font-size: 14px; }
+      .box, .button, .line, .chip { border: 1px solid var(--ink); background: #fff; }
+      .button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; padding: 0 14px; background: var(--ink); color: #fff; font-size: 13px; }
+      .button.light { color: var(--ink); background: #fff; }
+      .dropdown { position: absolute; top: 52px; left: 31%; z-index: 3; width: 218px; border: 1px solid var(--ink); background: #fff; box-shadow: 6px 6px 0 var(--fill-dark); }
+      .dropdown-head { padding: 13px 14px; border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
+      .dropdown a { display: flex; align-items: center; min-height: 42px; padding: 0 14px; border-bottom: 1px solid var(--line); color: var(--ink); font-size: 14px; text-decoration: none; }
+      .dropdown a:last-child { border: 0; }
+      .dropdown a::before { width: 5px; height: 5px; margin-right: 10px; content: ""; background: var(--ink); }
+      .landing { padding: 74px 54px 48px; }
+      .eyebrow { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+      h2 { max-width: 650px; margin: 11px 0 0; font-size: clamp(36px, 5vw, 65px); line-height: 1; letter-spacing: -.065em; }
+      .hero-copy { max-width: 530px; margin: 22px 0 0; color: var(--muted); font-size: 17px; line-height: 1.55; }
+      .action-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+      .fake-window { display: grid; grid-template-columns: 160px 1fr; min-height: 260px; margin-top: 54px; border: 1px solid var(--ink); }
+      .fake-side { padding: 20px 13px; border-right: 1px solid var(--line); background: #f3f3f4; }
+      .small-label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+      .side-row { margin-top: 13px; padding: 9px 8px; border: 1px solid var(--line); font-size: 12px; }
+      .side-row.active { color: #fff; border-color: var(--ink); background: var(--ink); }
+      .fake-main { padding: 26px; }
+      .metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+      .metric { min-height: 78px; padding: 13px; background: var(--fill); }
+      .metric strong { display: block; margin-top: 10px; font-size: 20px; }
+      .metric small { color: var(--muted); font-size: 11px; }
+      .bar { height: 9px; margin: 25px 0; background: var(--fill-dark); }
+      .bar span { display: block; width: 68%; height: 100%; background: var(--ink); }
+      .rows { display: grid; gap: 8px; }
+      .line { height: 20px; border-color: var(--fill-dark); background: var(--fill); }
+      .line.short { width: 66%; }
+      .wire-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; padding: 48px 54px; border-top: 1px solid var(--line); background: #fafafa; }
+      .wire-grid h3 { margin: 0 0 10px; font-size: 22px; letter-spacing: -.04em; }
+      .wire-grid p { margin: 0; color: var(--muted); line-height: 1.5; }
+      .four-flow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 22px; }
+      .flow-cell { min-height: 112px; padding: 14px; border: 1px solid var(--line); background: #fff; }
+      .flow-cell b { display: block; margin-bottom: 20px; color: var(--muted); font-size: 12px; }
+      .flow-cell span { font-size: 14px; font-weight: 700; }
+      .project-layout { display: grid; grid-template-columns: 240px 1fr; min-height: 435px; }
+      .project-side { padding: 28px 20px; border-right: 1px solid var(--line); background: #f3f3f4; }
+      .filter { width: 100%; min-height: 35px; padding: 0 10px; border: 1px solid var(--line); background: #fff; }
+      .project-side .side-row { margin-top: 9px; }
+      .project-main { padding: 32px; }
+      .page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+      .page-heading h3 { margin: 0; font-size: 29px; letter-spacing: -.05em; }
+      .table { margin-top: 24px; border-top: 2px solid var(--ink); }
+      .table-row { display: grid; grid-template-columns: 2fr 1.3fr .7fr 1fr .7fr; align-items: center; min-height: 54px; gap: 12px; padding: 0 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+      .table-row.head { min-height: 40px; color: var(--muted); background: var(--fill); font-size: 11px; font-weight: 700; }
+      .status { width: max-content; padding: 4px 8px; border: 1px solid var(--ink); font-size: 11px; }
+      .status.ready { background: var(--ink); color: #fff; }
+      .session-layout { display: grid; grid-template-columns: 1fr 330px; min-height: 445px; }
+      .report-main { padding: 32px; }
+      .summary-box { margin-top: 18px; padding: 20px; border: 1px solid var(--ink); }
+      .summary-box p { max-width: 640px; margin: 10px 0 0; line-height: 1.55; }
+      .findings { display: grid; gap: 10px; margin-top: 18px; }
+      .finding { display: grid; grid-template-columns: 25px 1fr; gap: 11px; padding: 13px; border-bottom: 1px solid var(--line); font-size: 13px; line-height: 1.45; }
+      .finding b { color: var(--accent); }
+      .outputs { padding: 32px 23px; border-left: 1px solid var(--line); background: #f3f3f4; }
+      .outputs h3 { margin: 0; font-size: 23px; letter-spacing: -.04em; }
+      .outputs p { margin: 10px 0 17px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+      .file-row { display: grid; grid-template-columns: 37px 1fr; gap: 10px; padding: 15px 0; border-top: 1px solid var(--line); }
+      .file-type { display: grid; place-items: center; width: 37px; height: 37px; border: 1px solid var(--ink); background: #fff; font-size: 11px; font-weight: 700; }
+      .file-row strong, .file-row small { display: block; }
+      .file-row strong { font-size: 13px; }
+      .file-row small { margin-top: 4px; color: var(--muted); font-size: 11px; }
+      .open-modal { width: 100%; margin-top: 16px; }
+      .modal-backdrop { display: grid; place-items: center; min-height: 510px; padding: 32px; background: rgba(21,21,24,.76); }
+      .modal { width: min(710px, 100%); background: #fff; border: 2px solid var(--ink); }
+      .modal-top { display: flex; align-items: center; justify-content: space-between; padding: 17px 20px; border-bottom: 1px solid var(--ink); }
+      .modal-top strong { font-size: 18px; }
+      .modal-close { display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid var(--ink); font-size: 20px; }
+      .modal-body { padding: 22px; }
+      .topic { padding: 15px; border: 1px solid var(--ink); background: var(--fill); }
+      .topic small, .topic b { display: block; }
+      .topic small { color: var(--muted); font-size: 11px; }
+      .topic b { margin-top: 7px; font-size: 16px; }
+      .metadata { display: grid; grid-template-columns: 120px 1fr; margin-top: 18px; border-top: 1px solid var(--ink); }
+      .metadata dt, .metadata dd { margin: 0; min-height: 39px; padding: 11px 10px; border-bottom: 1px solid var(--line); font-size: 13px; }
+      .metadata dt { background: var(--fill); font-weight: 700; }
+      .modal-actions { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid var(--line); }
+      .annotation { margin-top: 17px; padding: 13px; border-left: 4px solid var(--accent); color: #3e3f45; background: #eff6ff; font-size: 13px; line-height: 1.5; }
+      @media (max-width: 760px) { .intro, .project-layout, .session-layout { grid-template-columns: 1fr; }.legend, .project-side { display: none; }.wire-grid { grid-template-columns: 1fr; padding: 36px 22px; }.landing { padding: 60px 24px 35px; }.nav { display: none; }.dropdown { left: 105px; }.four-flow { grid-template-columns: 1fr 1fr; }.metric-row { grid-template-columns: 1fr; }.table-row { grid-template-columns: 1fr 1fr; padding: 10px; }.table-row span:nth-child(2), .table-row span:nth-child(4) { display: none; }.outputs { border-top: 1px solid var(--line); border-left: 0; }.metadata { grid-template-columns: 94px 1fr; } }
+    </style>
+  </head>
+  <body>
+    <header class="guide"><strong>Gromit Research Platform · Detailed wireframe</strong><span>구조, 화면 상태, 데이터 다운로드 동선을 검토하는 용도</span></header>
+    <main class="canvas">
+      <section class="intro"><div><h1>상세 와이어프레임</h1><p>회사 홈페이지의 제품 안내와 실제 리서치 업무 화면을 분리합니다. 주제별 산출물은 공공데이터포털처럼 파일 설명과 제공 범위를 확인한 뒤 다운로드하도록 설계합니다.</p></div><aside class="legend"><div><b>1</b> 정보와 행동 우선순위</div><div><b>2</b> hover 메뉴는 세로 목록</div><div><b>3</b> 파일은 다운로드 전 상세 창</div></aside></section>
+
+      <section class="sheet"><span class="sheet-label">01 · COMPANY HOMEPAGE</span>
+        <header class="browser-top"><strong class="brand">Gromit</strong><nav class="nav"><span>제품 ▾</span><span>프로젝트</span><span>리포트</span><span>작동 방식</span><span>리소스</span></nav><span class="button">새 조사 만들기</span></header>
+        <div class="dropdown" aria-label="제품 세로 hover 메뉴"><div class="dropdown-head">제품 둘러보기</div><a href="#workspace">Research Workspace</a><a href="#workspace">가이드 업로드</a><a href="#results">인터뷰 세션</a><a href="#results">Research Results</a><a href="#results">산출물 센터</a></div>
+        <div class="landing"><span class="eyebrow">AI qualitative research</span><h2>인터뷰가 끝나면,<br />증거가 남습니다.</h2><p class="hero-copy">질문 가이드에서 시작해 AI 인터뷰, 실시간 참관, 근거 기반 분석과 보고서까지. 리서치의 다음 결정을 선명하게 만듭니다.</p><div class="action-row"><span class="button">새 조사 만들기</span><span class="button light">조사 결과 보기</span></div>
+          <div class="fake-window" id="workspace"><aside class="fake-side"><span class="small-label">Workspace</span><div class="side-row active">프로젝트</div><div class="side-row">인터뷰 세션</div><div class="side-row">결과와 산출물</div></aside><div class="fake-main"><span class="small-label">Project overview</span><div class="metric-row"><div class="metric"><small>진행 상태</small><strong>Interviewing</strong></div><div class="metric"><small>세션</small><strong>동적 값</strong></div><div class="metric"><small>완료율</small><strong>동적 값</strong></div></div><div class="bar"><span></span></div><div class="rows"><div class="line"></div><div class="line short"></div><div class="line"></div></div></div></div>
+        </div>
+        <div class="wire-grid"><div><h3>홈페이지의 역할</h3><p>일반 랜딩 페이지로 제품 가치를 설명하고, 실무 화면으로 이어지는 두 개의 CTA를 제공합니다.</p></div><div><h3>제품 메뉴의 역할</h3><p>한 줄로 길게 펼치지 않고, 키보드 focus에도 열리는 세로 목록으로 5개 업무 영역을 명확하게 구분합니다.</p></div><div class="four-flow"><div class="flow-cell"><b>01</b><span>가이드 업로드</span></div><div class="flow-cell"><b>02</b><span>프로젝트 설계</span></div><div class="flow-cell"><b>03</b><span>AI 인터뷰</span></div><div class="flow-cell"><b>04</b><span>결과와 산출물</span></div></div></div>
+      </section>
+
+      <section class="sheet"><span class="sheet-label">02 · PROJECT LIST / PROJECT DETAIL</span>
+        <div class="project-layout"><aside class="project-side"><span class="small-label">Projects</span><input class="filter" aria-label="프로젝트 검색" placeholder="프로젝트 검색" /><div class="side-row active">전체 프로젝트</div><div class="side-row">진행 중</div><div class="side-row">분석 완료</div><div class="side-row">보관됨</div></aside><section class="project-main"><header class="page-heading"><div><span class="small-label">Research workspace</span><h3>프로젝트</h3></div><span class="button">가이드 업로드</span></header><div class="table"><div class="table-row head"><span>프로젝트</span><span>조사 목적</span><span>세션</span><span>상태</span><span>열기</span></div><div class="table-row"><strong>프로젝트 제목</strong><span>프로젝트별 조사 목적</span><span>동적 값</span><span class="status">진행 중</span><span>→</span></div><div class="table-row"><strong>프로젝트 제목</strong><span>프로젝트별 조사 목적</span><span>동적 값</span><span class="status ready">분석 완료</span><span>→</span></div><div class="table-row"><strong>프로젝트 제목</strong><span>프로젝트별 조사 목적</span><span>동적 값</span><span class="status">준비 중</span><span>→</span></div></div><p class="annotation">목록은 `GET /api/projects`, 프로젝트를 열면 `GET /api/projects/{project_id}/sessions` 계약으로 교체합니다. 목업 단계에서는 같은 형태의 mock 데이터만 사용합니다.</p></section></div>
+      </section>
+
+      <section class="sheet" id="results"><span class="sheet-label">03 · SESSION RESULT / OUTPUT CENTER</span>
+        <div class="session-layout"><section class="report-main"><span class="small-label">Research results</span><h3 style="margin:8px 0 0;font-size:30px;letter-spacing:-.05em">주제별 인터뷰 결과</h3><div class="summary-box"><span class="small-label">Executive summary</span><p>프로젝트에서 생성된 요약과 핵심 인사이트를 보여주는 영역입니다. 모든 문구와 수량은 실제 프로젝트 및 세션 데이터에서 채워집니다.</p></div><div class="findings"><div class="finding"><b>01</b><span>핵심 발견과 근거를 각 인터뷰 세션의 대화 기록으로 되돌아갈 수 있게 연결합니다.</span></div><div class="finding"><b>02</b><span>완료되지 않은 세션과 준비되지 않은 산출물은 명확한 상태로 분리합니다.</span></div><div class="finding"><b>03</b><span>개별 리포트, 녹화 영상, 주제별 종합 리포트를 한 화면에서 관리합니다.</span></div></div></section><aside class="outputs"><h3>데이터 산출물</h3><p>선택한 주제에 대해 제공되는 결과물입니다.</p><div class="file-row"><span class="file-type">DOCX</span><span><strong>주제별 Word 결과보고서</strong><small>조사 요약 · 발견 · 근거</small></span></div><div class="file-row"><span class="file-type">PDF</span><span><strong>개별 인터뷰 요약</strong><small>individual_report_url</small></span></div><div class="file-row"><span class="file-type">MP4</span><span><strong>인터뷰 녹화 영상</strong><small>video_recording_url</small></span></div><span class="button open-modal">Word 보고서 받기</span></aside></div>
+      </section>
+
+      <section class="sheet"><span class="sheet-label">04 · WORD REPORT DOWNLOAD MODAL</span>
+        <div class="modal-backdrop"><section class="modal" role="dialog" aria-label="주제별 Word 결과보고서 다운로드"><header class="modal-top"><strong>주제별 데이터 산출물</strong><span class="modal-close" aria-label="창 닫기">×</span></header><div class="modal-body"><div class="topic"><small>선택한 조사 주제</small><b>프로젝트에서 불러온 조사 제목</b></div><dl class="metadata"><dt>제공 파일</dt><dd>Word 결과보고서 (.docx)</dd><dt>포함 내용</dt><dd>조사 목적, 세션 요약, 핵심 발견, Evidence, 부록</dd><dt>제공 범위</dt><dd>현재 프로젝트에 포함된 완료 세션 기준</dd><dt>생성 상태</dt><dd>Ready / Processing / Error 상태로 구분</dd><dt>다운로드 방식</dt><dd>Private Blob 또는 리포트 URL을 통한 파일 다운로드</dd></dl><p class="annotation">실제 구현 시 파일이 준비되지 않으면 “리포트 생성 중”과 disabled 버튼을 표시합니다. 준비된 경우에만 URL을 연결합니다.</p></div><footer class="modal-actions"><span class="button light">취소</span><span class="button">Word 결과보고서 다운로드</span></footer></section></div>
+      </section>
+    </main>
+  </body>
+</html>

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api.deps import load_session, require_admin
@@ -14,8 +14,11 @@ from app.schemas.session import (
     Turn,
 )
 from app.services import orchestrator
+from app.services.connections import manager
 from app.services.question_script import parse_question_script
+from app.services.recordings import RecordingUploadResponse, save_recording
 from app.services.store import get_store
+from app.schemas.messages import server_message
 
 
 router = APIRouter(
@@ -190,6 +193,51 @@ async def get_instructions(
 # =========================================================
 # Session 종료
 # =========================================================
+
+@router.post(
+    "/{session_id}/start",
+    response_model=Session,
+)
+async def start_session(
+    session: Session = Depends(load_session),
+) -> Session:
+    if session.status == "ended":
+        raise HTTPException(status_code=409, detail="Cannot start an ended session.")
+    if session.status == "running":
+        return session
+
+    started = await orchestrator.start_session_if_needed(session)
+    await manager.broadcast_to_observers(
+        started.id,
+        server_message("session.started", session=started.model_dump(mode="json")),
+    )
+    await manager.send_to_interviewee(
+        started.id,
+        server_message(
+            "session.state",
+            session={"id": started.id, "title": started.title, "status": started.status},
+        ),
+    )
+    return started
+
+
+@router.post(
+    "/{session_id}/recording",
+    response_model=RecordingUploadResponse,
+)
+async def upload_recording(
+    file: UploadFile = File(...),
+    session: Session = Depends(load_session),
+) -> RecordingUploadResponse:
+    if not file.content_type or not file.content_type.startswith("video/"):
+        raise HTTPException(status_code=422, detail="Recording must be a video file.")
+
+    content = await file.read()
+    if not content:
+        raise HTTPException(status_code=422, detail="Recording file is empty.")
+
+    return await save_recording(session.id, content)
+
 
 @router.post(
     "/{session_id}/end",

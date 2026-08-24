@@ -39,14 +39,9 @@ export default function App() {
 
           {topbarStatus && (
             <>
-              {topbarStatus.role === "pm" && (topbarStatus.phase === "wait" || topbarStatus.phase === "joined") && (
-                <button className="sess-btn go" disabled title="곧 지원 예정 · 지금은 응답자 접속 시 자동 시작됩니다">
+              {topbarStatus.role === "pm" && topbarStatus.phase === "joined" && (
+                <button className="sess-btn go" disabled={topbarStatus.starting} onClick={topbarStatus.onStartSession}>
                   인터뷰 시작
-                </button>
-              )}
-              {topbarStatus.role === "pm" && (topbarStatus.phase === "joined" || topbarStatus.phase === "live") && (
-                <button className="sess-btn go" disabled title="곧 지원 예정 · 영상 녹화 파이프라인 구축 후 연동">
-                  녹화 시작
                 </button>
               )}
               {topbarStatus.role === "pm" && topbarStatus.phase === "end" && (

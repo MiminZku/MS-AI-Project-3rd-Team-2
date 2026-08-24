@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { endSession, fetchReport, observerSocketUrl, fetchRtcToken } from "../api";
+import { endSession, fetchReport, observerSocketUrl, fetchRtcToken, startSession } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
+import { useRemoteRecording } from "../hooks/useRemoteRecording";
 import VideoSubscriber from "./VideoSubscriber";
 import type { Instruction, Report, ServerMessage, Session, Turn } from "../types";
 
@@ -25,8 +26,10 @@ export type Phase = "wait" | "joined" | "live" | "end";
 export interface TopbarStatus {
   role: Role;
   phase: Phase;
+  starting: boolean;
   ending: boolean;
   hasReport: boolean;
+  onStartSession: () => void;
   onEndSession: () => void;
   onOpenReport: () => void;
 }
@@ -75,18 +78,23 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [liveTextKo, setLiveTextKo] = useState("");
   const [liveTextEn, setLiveTextEn] = useState("");
   const [report, setReport] = useState<Report | null>(null);
+  const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
+  const [recordingRequested, setRecordingRequested] = useState(false);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
-  const [previewPhase, setPreviewPhase] = useState<Phase | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [drawerPinned, setDrawerPinned] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [fileFormat, setFileFormat] = useState<FileFormat>("json");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
+  const { recordingError, startRecording, stopAndUploadRecording } = useRemoteRecording();
 
   useEffect(() => {
     if (sessionId !== DEMO_SESSION_ID) {
@@ -147,6 +155,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         case "timekeeper.signal":
           setTimekeeper(message);
           break;
+        case "session.started":
+          setSession(message.session);
+          break;
         case "session.ended":
           setSession(message.session);
           break;
@@ -190,6 +201,27 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     return () => clearInterval(timer);
   }, [session?.status, session?.started_at]);
 
+  useEffect(() => {
+    if (!recordingRequested || session?.status !== "running" || !remoteStream) return;
+    startRecording(remoteStream);
+  }, [recordingRequested, remoteStream, session?.status, startRecording]);
+
+  useEffect(() => {
+    if (!drawerPinned) return;
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      if (!drawerRef.current?.contains(event.target as Node)) setDrawerPinned(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setDrawerPinned(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsidePointer);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePointer);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [drawerPinned]);
+
   const sendInstruction = () => {
     const text = draft.trim();
     const socket = socketRef.current;
@@ -198,23 +230,55 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     setDraft("");
   };
 
+  const handleStartSession = useCallback(async () => {
+    if (!intervieweeOnline || starting || session?.status !== "created") return;
+    setStarting(true);
+    setActionError(null);
+    try {
+      if (sessionId === DEMO_SESSION_ID) {
+        setSession((prev) => (prev ? { ...prev, status: "running", started_at: new Date().toISOString() } : prev));
+      } else {
+        setSession(await startSession(sessionId));
+      }
+      setRecordingRequested(true);
+    } catch (error) {
+      console.error("Failed to start interview", error);
+      setActionError("인터뷰를 시작하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      setStarting(false);
+    }
+  }, [intervieweeOnline, session?.status, sessionId, starting]);
+
   const handleEndSession = useCallback(async () => {
     setEnding(true);
+    setRecordingRequested(false);
+    setActionError(null);
     if (sessionId === DEMO_SESSION_ID) {
       const endedAt = new Date().toISOString();
       setSession((prev) => (prev ? { ...prev, status: "ended", ended_at: endedAt } : prev));
       setTimeout(() => setReport(DEMO_REPORT), 1500);
     } else {
-      await endSession(sessionId).catch(() => undefined);
+      try {
+        await stopAndUploadRecording(sessionId);
+      } catch (error) {
+        console.error("Failed to upload interview recording", error);
+        setActionError("녹화 파일 업로드에 실패했습니다. 인터뷰는 종료합니다.");
+      }
+      try {
+        setSession(await endSession(sessionId));
+      } catch (error) {
+        console.error("Failed to end interview", error);
+        setActionError("인터뷰를 종료하지 못했습니다. 다시 시도해 주세요.");
+      }
     }
     setEnding(false);
-  }, [sessionId]);
+  }, [sessionId, stopAndUploadRecording]);
 
   const handleOpenReport = useCallback(() => {
     reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
-  const phase = previewPhase ?? phaseOf(session, intervieweeOnline);
+  const phase = phaseOf(session, intervieweeOnline);
   const questions = session?.questions ?? [];
 
   const finalElapsedSec =
@@ -234,12 +298,14 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     onStatusChange?.({
       role,
       phase,
+      starting,
       ending,
       hasReport: report != null,
+      onStartSession: handleStartSession,
       onEndSession: handleEndSession,
       onOpenReport: handleOpenReport,
     });
-  }, [role, phase, ending, report, handleEndSession, handleOpenReport, onStatusChange]);
+  }, [role, phase, starting, ending, report, handleStartSession, handleEndSession, handleOpenReport, onStatusChange]);
 
   // Monitor가 언마운트될 때만(세션 목록으로 돌아갈 때) 상단바 상태를 지운다.
   useEffect(() => () => onStatusChange?.(null), [onStatusChange]);
@@ -247,7 +313,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   return (
     <>
       <div className="tabbar">
-        <div className={`kebab-wrap ${drawerPinned ? "pinned" : ""}`}>
+        <div ref={drawerRef} className={`kebab-wrap ${drawerPinned ? "pinned" : ""}`}>
           <button
             type="button"
             className="kebab-btn"
@@ -331,7 +397,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
               type="button"
               className={phase === p ? "on" : ""}
               title="백엔드 연동 전 화면 미리보기용 — 연동 후엔 자동으로 반영됩니다"
-              onClick={() => setPreviewPhase(p)}
+              disabled={phase !== p}
             >
               {statusLabel[p]}
             </button>
@@ -384,7 +450,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 }}
               >
                 {rtcCreds ? (
-                  <VideoSubscriber token={rtcCreds.token} groupId={rtcCreds.group_id} />
+                  <VideoSubscriber token={rtcCreds.token} groupId={rtcCreds.group_id} onStreamReady={setRemoteStream} />
                 ) : (
                   <svg viewBox="0 0 200 240" fill="none">
                     <ellipse cx="100" cy="74" rx="44" ry="48" fill="rgba(120,220,180,.2)" />
@@ -393,13 +459,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                       fill="rgba(120,220,180,.15)"
                     />
                   </svg>
-                )}
-                {/* 실시간 자막 UI */}
-                {(liveTextKo || liveTextEn) && (
-                  <div style={{ position: "absolute", bottom: "16px", left: "16px", right: "16px", background: "rgba(0,0,0,0.7)", color: "white", padding: "12px", borderRadius: "8px", fontSize: "14px", lineHeight: 1.5, zIndex: 10 }}>
-                    {liveTextKo && <div style={{ marginBottom: liveTextEn ? "4px" : 0 }}>{liveTextKo}</div>}
-                    {liveTextEn && <div style={{ color: "#ffd54f" }}>{liveTextEn}</div>}
-                  </div>
                 )}
               </div>
               <div className="rs-strip">
@@ -428,6 +487,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             </>
           )}
         </div>
+        {(liveTextKo || liveTextEn) && (
+          <section className="live-transcript" aria-live="polite" aria-label="실시간 대본">
+            {liveTextKo && <p>{liveTextKo}</p>}
+            {liveTextEn && <p className="translation">{liveTextEn}</p>}
+          </section>
+        )}
+        {(actionError || recordingError) && <p className="recording-error" role="alert">{actionError ?? recordingError}</p>}
       </section>
       </div>
 

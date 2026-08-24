@@ -69,6 +69,7 @@ export type ServerMessage =
       remaining_questions: number;
       hint: string;
     }
+  | { type: "session.started"; session: Session }
   | { type: "session.ended"; session: Session }
   | { type: "report.ready"; report: Report }
   | { type: "interviewee.connected"; session_id: string }
