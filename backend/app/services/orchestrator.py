@@ -254,15 +254,16 @@ async def handle_utterance(
         fact_key = f"질문_{curr_idx + 1}"
         session.covered_facts[fact_key] = generated.extracted_fact
 
-    # 답변 충족도 및 probe_count에 따른 전이 판단
-    # 1) 답변이 충분하거나(is_sufficient=True), 이미 꼬리질문 1회를 수행했거나, 모델이 다음 인덱스를 지정한 경우 -> 다음 질문으로 전이
-    if generated.is_sufficient or session.probe_count >= 1 or generated.next_question_index > curr_idx:
+    # 답변 충족도 및 모델 판단에 따른 전이
+    # 1) 답변이 충분하여 모델이 다음 질문으로 넘어가자고 판단했거나(is_sufficient=True 또는 next_question_index > curr_idx)
+    #    혹은 비정상적 무한 루프 방지 안전 한도(probe_count >= 5)에 도달한 경우 -> 다음 메인 질문으로 전이
+    if (generated.is_sufficient or generated.next_question_index > curr_idx or session.probe_count >= 5):
         if curr_idx not in session.completed_question_indices and curr_idx < total_q:
             session.completed_question_indices.append(curr_idx)
         session.current_question_index = min(curr_idx + 1, total_q)
         session.probe_count = 0
     else:
-        # 2) 답변이 불충분하여 꼬리질문/재질문 1회 필요 -> 인덱스 유지 및 probe_count 증가
+        # 2) 아직 탐색할 파생질문이 남아있거나 추가 확인이 필요한 경우(is_sufficient=False) -> 현재 질문 인덱스 유지 및 probe_count 증가
         session.probe_count += 1
         session.current_question_index = curr_idx
 

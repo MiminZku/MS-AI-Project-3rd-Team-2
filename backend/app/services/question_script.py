@@ -78,12 +78,14 @@ def render_for_prompt(
     # 3. 현재 진행 대상 질문 (단 1개)
     if current_index < len(nodes):
         curr_node = nodes[current_index]
-        probe_info = f" (현재 질문 꼬리질문 {probe_count}회차 진행 중)" if probe_count > 0 else ""
+        probe_info = f" (파생 꼬리질문 {probe_count}회차 완료 상태)" if probe_count > 0 else " (메인 질문 진행/답변 수신 상태)"
         lines.append("【★ 이번 턴에 진행할 질문 (이 질문만 다룰 것)】")
         lines.append(f"▶ [index: {current_index}] {curr_node.order}. {curr_node.text}{probe_info}")
         if curr_node.branches:
+            lines.append("   [등록된 파생질문(Branch) 목록]:")
             for condition, question in curr_node.branches.items():
-                lines.append(f"   [조건: {condition}] -> {question}")
+                lines.append(f"   - [갈래: {condition}] -> {question}")
+            lines.append("   👉 행동 지침: 응답자 답변에 따라 추가 탐색할 [파생질문]이 있다면 1번에 1개씩 질문하세요 (is_sufficient: false). 이 질문에 대한 탐색이 충분히 끝났다면 다음 메인 질문으로 넘어가세요 (is_sufficient: true).")
         lines.append("")
     else:
         lines.append("【★ 모든 질문 완료】")
