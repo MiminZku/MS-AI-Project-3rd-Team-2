@@ -1,7 +1,13 @@
 {
+  "routes": [
+    {
+      "route": "/dashboard/*",
+      "rewrite": "/dashboard/index.html"
+    }
+  ],
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/assets/*"]
+    "exclude": ["/assets/*", "/dashboard/*"]
   },
   "globalHeaders": {
     "cache-control": "no-store"
