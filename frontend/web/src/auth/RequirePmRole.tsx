@@ -9,5 +9,5 @@ interface RequirePmRoleProps {
 export default function RequirePmRole({ children }: RequirePmRoleProps) {
   const { role } = useRole();
 
-  return role === "pm" ? children : <Navigate to="/projects" replace />;
+  return role === "pm" ? children : <Navigate to="/client/access" replace />;
 }

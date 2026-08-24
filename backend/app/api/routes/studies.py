@@ -12,6 +12,7 @@ from app.schemas.study import (
 from app.services.ai.document_parser import get_document_parser
 from app.services.question_script import parse_question_script
 from app.services.report.slot_generator import get_slot_generator
+from app.services.project_access import issue_project_access_id
 from app.services.store import get_store
 from app.services.storage import get_storage_service
 
@@ -60,8 +61,10 @@ async def create_study(
     )
 
     # 3. ResearchStudy 생성
+    store = get_store()
     study = ResearchStudy(
         title=payload.title,
+        access_id=await issue_project_access_id(store),
         research_purpose=payload.research_purpose,
         question_script=payload.question_script,
         questions=questions,
@@ -69,7 +72,7 @@ async def create_study(
     )
 
     # 4. 저장
-    await get_store().save_study(
+    await store.save_study(
         study
     )
 
@@ -125,8 +128,10 @@ async def upload_guide_file(
         logger.warning("Information Slot 생성 건너뜀: %s", e)
         information_slots = []
         
+    store = get_store()
     study = ResearchStudy(
         title=parsed.title,
+        access_id=await issue_project_access_id(store),
         research_purpose=parsed.research_purpose,
         question_script=raw_text,
         questions=questions,
@@ -145,7 +150,7 @@ async def upload_guide_file(
         logger.warning("문서 Blob Storage 업로드 실패: %s", e)
         
     # 4. Cosmos DB 저장
-    await get_store().save_study(study)
+    await store.save_study(study)
     
     return ResearchStudyCreateResponse(study=study)
 

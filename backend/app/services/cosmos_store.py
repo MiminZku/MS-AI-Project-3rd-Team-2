@@ -72,6 +72,20 @@ class CosmosStore:
             logger.warning("Cosmos DB Study 조회 실패: %s", e)
             return None
 
+    async def get_study_by_access_id(
+        self,
+        access_id: str,
+    ) -> ResearchStudy | None:
+        await self._ensure_init()
+        query = "SELECT * FROM c WHERE c.access_id = @access_id"
+        parameters = [{"name": "@access_id", "value": access_id}]
+        async for item in self.projects_container.query_items(
+            query=query,
+            parameters=parameters,
+        ):
+            return ResearchStudy.model_validate(item)
+        return None
+
     async def list_studies(self) -> list[ResearchStudy]:
         await self._ensure_init()
         query = "SELECT * FROM c WHERE c.type = 'project' OR IS_DEFINED(c.question_script)"

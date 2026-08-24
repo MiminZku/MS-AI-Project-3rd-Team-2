@@ -2,7 +2,7 @@ import { useState } from "react";
 import Monitor, { type TopbarStatus } from "./components/Monitor";
 import SessionForm from "./components/SessionForm";
 
-export type Role = "pm" | "client";
+export type Role = "pm";
 
 /**
  * 참관자 대시보드.
@@ -15,9 +15,9 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get("session") ?? "",
   );
   const [intervieweeUrl, setIntervieweeUrl] = useState("");
-  const [role] = useState<Role>(
-    () => (new URLSearchParams(window.location.search).get("role") as Role) || "pm",
-  );
+  // Client는 web 앱의 Project Access ID 전용 화면으로만 접근한다.
+  // 대시보드는 PM 운영 화면이므로 URL query로 역할을 바꿀 수 없다.
+  const role: Role = "pm";
   const [topbarStatus, setTopbarStatus] = useState<TopbarStatus | null>(null);
 
   return (

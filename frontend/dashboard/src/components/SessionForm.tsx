@@ -204,6 +204,7 @@ function NewProjectView({ onCreated }: { onCreated: (project: Project) => void }
           <span>질문 {created.questions.length}개</span>
           <span>{created.research_purpose}</span>
         </div>
+        <ProjectAccessIdCard accessId={created.access_id} />
         <div className="form-actions project-success-actions">
           <button type="button" className="btn-ghost" onClick={() => setCreated(null)}>다른 프로젝트 만들기</button>
           <button type="button" onClick={() => onCreated(created)}>이 프로젝트로 세션 만들기</button>
@@ -271,6 +272,32 @@ function NewProjectView({ onCreated }: { onCreated: (project: Project) => void }
   );
 }
 
+export function ProjectAccessIdCard({ accessId }: { accessId?: string | null }) {
+  const [copied, setCopied] = useState(false);
+
+  if (!accessId) return null;
+
+  const copyAccessId = async () => {
+    await navigator.clipboard.writeText(accessId);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <section className="project-access-id-card" aria-label="Client Access ID">
+      <div>
+        <p>CLIENT DELIVERY</p>
+        <strong>Client Access ID</strong>
+        <code>{accessId}</code>
+      </div>
+      <button type="button" className="btn-sm solid" onClick={copyAccessId}>
+        {copied ? "복사됨" : "ID 복사"}
+      </button>
+      <small>이 ID를 Client에게 전달하면 해당 프로젝트 결과만 확인할 수 있습니다.</small>
+    </section>
+  );
+}
+
 export function NewSessionView({
   projects,
   presetProjectId,
@@ -288,6 +315,7 @@ export function NewSessionView({
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{ session: Session; intervieweeUrl: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const selectedProject = projects.find((project) => project.id === projectId);
 
   const copyLink = async (url: string) => {
     await navigator.clipboard.writeText(url);
@@ -345,6 +373,7 @@ export function NewSessionView({
                 ))}
               </select>
             </label>
+            <ProjectAccessIdCard accessId={selectedProject?.access_id} />
 
             <label>
               참가자 ID

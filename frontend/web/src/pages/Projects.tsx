@@ -1,5 +1,5 @@
 import { ArrowRight, FolderOpen, Plus } from "@phosphor-icons/react";
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useRole } from "../auth/RoleContext";
 import TopicList from "../components/research/TopicList";
 import { researchProjects } from "../mock/researchProjects";
@@ -8,6 +8,10 @@ export default function Projects() {
   const { role } = useRole();
   const readyCount = researchProjects.filter((project) => project.status === "ready").length;
   const isPm = role === "pm";
+
+  if (!isPm) {
+    return <Navigate to="/client/access" replace />;
+  }
 
   return (
     <div className="research-page">

@@ -12,13 +12,17 @@ class Settings(BaseSettings):
     environment: str = "local"
     log_level: str = "INFO"
 
-    cors_origins: str = "http://localhost:5173,http://localhost:5174,https://victorious-pond-0765baa0f.7.azurestaticapps.net,https://orange-sand-0bb92740f.7.azurestaticapps.net"
+    cors_origins: str = "http://localhost:5173,http://localhost:5174,http://localhost:5175,https://victorious-pond-0765baa0f.7.azurestaticapps.net,https://orange-sand-0bb92740f.7.azurestaticapps.net"
 
     # 참관자가 세션을 만들면 발급되는 응답자용 링크의 base URL
     interviewee_base_url: str = "http://localhost:5173"
 
     # 대시보드 REST API 보호용. 비어 있으면 인증을 건너뛴다(로컬/데모).
     admin_token: str = ""
+
+    # Client 프로젝트 범위 토큰 서명 키. 운영 환경에서는 반드시 환경 변수로 주입한다.
+    client_access_token_secret: str = ""
+    client_access_token_ttl_seconds: int = 60 * 60 * 8
 
     # D4: 세션 상태 + 지시 큐 외부화. 비어 있으면 인메모리 폴백.
     redis_url: str = ""

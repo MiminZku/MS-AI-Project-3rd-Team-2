@@ -336,6 +336,8 @@ async def handle_utterance(
 
 async def start_session(
     session: Session,
+    *,
+    broadcast_observer_state: bool = True,
 ) -> Session:
     session.status = "running"
     session.started_at = utcnow()
@@ -356,17 +358,23 @@ async def start_session(
         },
     )
     await manager.send_to_interviewee(session.id, msg)
-    await manager.broadcast_to_observers(session.id, msg)
+    if broadcast_observer_state:
+        await manager.broadcast_to_observers(session.id, msg)
 
     return session
 
 
 async def start_session_if_needed(
     session: Session,
+    *,
+    broadcast_observer_state: bool = True,
 ) -> Session:
 
     if session.status == "created":
-        return await start_session(session)
+        return await start_session(
+            session,
+            broadcast_observer_state=broadcast_observer_state,
+        )
 
     return session
 

@@ -80,9 +80,9 @@ async def create_session(
         session = Session(
             study_id=study.id,
 
-            # Study와 연결된 Session은
-            # 기본적으로 Study 제목을 사용
-            title=study.title,
+            # PM이 제공한 익명 참가자 ID를 세션 식별자로 유지한다.
+            # 기존 호출 호환성을 위해 값이 비어 있을 때만 프로젝트 제목으로 보완한다.
+            title=payload.title.strip() or study.title,
 
             duration_minutes=(
                 payload.duration_minutes
@@ -204,27 +204,6 @@ async def get_instructions(
     )
 
 
-# =========================================================
-# Session 시작 (PM 수동 시작)
-# =========================================================
-
-@router.post(
-    "/{session_id}/start",
-    response_model=Session,
-)
-async def start_session_endpoint(
-    session: Session = Depends(load_session),
-) -> Session:
-
-    return await orchestrator.start_session(
-        session
-    )
-
-
-# =========================================================
-# Session 종료
-# =========================================================
-
 @router.post(
     "/{session_id}/start",
     response_model=Session,
@@ -237,17 +216,13 @@ async def start_session(
     if session.status == "running":
         return session
 
-    started = await orchestrator.start_session_if_needed(session)
+    started = await orchestrator.start_session_if_needed(
+        session,
+        broadcast_observer_state=False,
+    )
     await manager.broadcast_to_observers(
         started.id,
         server_message("session.started", session=started.model_dump(mode="json")),
-    )
-    await manager.send_to_interviewee(
-        started.id,
-        server_message(
-            "session.state",
-            session={"id": started.id, "title": started.title, "status": started.status},
-        ),
     )
     return started
 
