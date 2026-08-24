@@ -69,6 +69,7 @@ export default function App() {
         <Monitor sessionId={sessionId} intervieweeUrl={intervieweeUrl} role={role} onStatusChange={setTopbarStatus} />
       ) : (
         <SessionForm
+          role={role}
           onCreated={(session, url) => {
             setSessionId(session.id);
             setIntervieweeUrl(url);
