@@ -249,23 +249,36 @@ async def handle_utterance(
     curr_idx = session.current_question_index
     total_q = len(session.questions)
 
-    # 획득한 사실(Fact) 업데이트
-    if generated.extracted_fact:
-        fact_key = f"질문_{curr_idx + 1}"
-        session.covered_facts[fact_key] = generated.extracted_fact
+    # 음성인식 오류가 의심되는 턴(needs_clarification)에서는 애초에 신뢰할 수 없는 텍스트에서
+    # 나온 결과이므로, 사실/분기 정보를 기록하지 않는다 — 잘못 들은 내용이 covered_facts에
+    # 박제되어 이후 프롬프트에 "이미 확보된 사실"인 양 계속 노출되는 것을 막기 위함.
+    if not generated.needs_clarification:
+        # 획득한 사실(Fact) 업데이트
+        if generated.extracted_fact:
+            fact_key = f"질문_{curr_idx + 1}"
+            session.covered_facts[fact_key] = generated.extracted_fact
 
-    # 파생질문(Branch) 추적
-    if generated.selected_branch:
-        session.active_branch = generated.selected_branch
-        if generated.selected_branch not in session.taken_branches:
-            session.taken_branches.append(generated.selected_branch)
-    else:
-        session.active_branch = None
+        # 파생질문(Branch) 추적
+        if generated.selected_branch:
+            session.active_branch = generated.selected_branch
+            if generated.selected_branch not in session.taken_branches:
+                session.taken_branches.append(generated.selected_branch)
+        else:
+            session.active_branch = None
 
     # 답변 충족도 및 모델 판단에 따른 전이
     # 1) 답변이 충분하여 모델이 다음 질문으로 넘어가자고 판단했거나(is_sufficient=True 또는 next_question_index > curr_idx)
     #    혹은 비정상적 무한 루프 방지 안전 한도(probe_count >= 5)에 도달한 경우 -> 다음 메인 질문으로 전이
-    if (generated.is_sufficient or generated.next_question_index > curr_idx or session.probe_count >= 5):
+    #    단, needs_clarification(음성인식 오류 의심)인 턴은 안전 한도에 도달하기 전까지는 절대 전이하지 않는다 —
+    #    잘못 들은 답변을 "충분하다"고 착각해 다음 질문으로 넘어가버리는 것을 막기 위한 조건.
+    if generated.needs_clarification and session.probe_count < 5:
+        should_advance = False
+    else:
+        should_advance = (
+            generated.is_sufficient or generated.next_question_index > curr_idx or session.probe_count >= 5
+        )
+
+    if should_advance:
         if curr_idx not in session.completed_question_indices and curr_idx < total_q:
             session.completed_question_indices.append(curr_idx)
         session.current_question_index = min(curr_idx + 1, total_q)
@@ -431,6 +444,22 @@ async def end_session(
                     mode="json"
                 )
             ),
+        ),
+    )
+
+    # 인터뷰이에게도 종료 상태를 전파해야 메인룸이 종료 화면으로 전환된다.
+    # 인터뷰이 클라이언트는 session.state 만 구독하므로 start_session 과 동일한 형식으로 보낸다.
+    await manager.send_to_interviewee(
+        session.id,
+        server_message(
+            "session.state",
+            session={
+                "id": session.id,
+                "title": session.title,
+                "status": session.status,
+                "duration_minutes": session.duration_minutes,
+                "questions": [q.model_dump(mode="json") for q in session.questions],
+            },
         ),
     )
 

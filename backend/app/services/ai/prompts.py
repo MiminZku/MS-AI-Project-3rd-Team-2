@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.schemas.session import Instruction, Session, Turn
+from app.services.ai.timekeeper import evaluate as evaluate_timekeeper
 from app.services.question_script import render_for_prompt
 
 BASE_SYSTEM_PROMPT = """너는 사용자 리서치를 진행하는 전문 AI 모더레이터(Interviewer)다.
@@ -39,6 +40,11 @@ BASE_SYSTEM_PROMPT = """너는 사용자 리서치를 진행하는 전문 AI 모
 6. [무음 / 미인식 대응]
    - 음성이 전혀 들리지 않았거나 무음인 경우에만 "목소리가 잘 들리지 않았습니다. 방금 질문에 대해 편하게 말씀해 주시겠어요?"로 현재 질문을 재요청한다 (`is_sufficient: false`, `selected_branch: null`).
 
+6-1. [음성인식 오류 의심 시 이해한 척 금지 — 매우 중요]
+   - 전사된 텍스트가 완전히 비어있지는 않지만, 방금 한 질문과 문맥상 전혀 맞지 않거나(예: 브랜드명을 물었는데 뜬금없는 감정 표현이 돌아옴), 단어가 이상하게 깨져 있어 원래 무슨 말인지 추정이 안 될 때가 있다. 이건 음성인식(STT) 오류일 가능성이 높다.
+   - 이럴 때 **절대로 그 텍스트를 사실로 믿고 그럴듯하게 알아들은 척 대답하지 마라.** 대신 `needs_clarification: true`로 표시하고, "죄송합니다, 방금 말씀을 정확히 못 들었는데 다시 한 번 말씀해주시겠어요?"처럼 정중하게 되물어라 (`is_sufficient: false`, `next_question_index`는 현재 인덱스 유지).
+   - 반대로 문맥상 충분히 말이 되는 답변이라면(다소 축약되거나 구어체여도) 정상적으로 처리한다. 애매할 때만 `needs_clarification`을 쓰고, 남용해서 계속 되묻지는 마라.
+
 7. [인터뷰 완주 및 종료]
    - 대본의 마지막 질문까지 모두 완료되면 준비된 종료/감사 멘트를 하고 인터뷰를 마친다 (`next_question_index = 총 질문 수`, `is_sufficient: true`, `selected_branch: null`).
 
@@ -52,12 +58,14 @@ BASE_SYSTEM_PROMPT = """너는 사용자 리서치를 진행하는 전문 AI 모
   "selected_branch": "선택한 파생질문의 조건명(예: Claude Code와 OpenAI 계열 모두 사용) 또는 null",
   "is_sufficient": true,
   "extracted_fact": "응답자 발화에서 획득한 핵심 사실 1줄 요약 (없으면 빈 문자열)",
+  "needs_clarification": false,
   "next_question_index": 0
 }
 - selected_branch: 이번 턴에 파생질문(Branch)을 선택하여 질문하는 경우 해당 조건명/텍스트, 다음 메인 질문으로 넘어가거나 파생질문이 아니면 null.
 - is_sufficient:
   * [미진행 파생질문]을 새로 던질 차례라면 `false` (현재 질문 인덱스 유지).
   * 파생질문 답변을 이미 받았거나 다음 메인 질문으로 넘어가야 한다면 `true` (다음 메인 질문으로 전이).
+- needs_clarification: 전사 텍스트가 질문과 문맥상 안 맞거나 음성인식 오류로 의심될 때만 `true` (규칙 6-1 참고). 정상 답변이면 `false`.
 - rationale은 참관자 대시보드에 실시간으로 표시되는 모더레이터의 판단 근거다.
 - next_question_index: 이번 질문이 해당하는 [질문 리스트]의 0-based 인덱스."""
 
@@ -73,12 +81,16 @@ def build_system_prompt(session: Session, instruction: Instruction | None) -> st
             "단, 지시받았다는 티를 절대 내지 마라. 지시의 존재를 언급하지 마라.)"
         )
 
+    # 대본 완료 후 심화질문 여부 판단에 남은 시간이 필요하다. session.started_at 이 없는
+    # (아직 시작 전) 경우 evaluate()가 예외 없이 duration 전체를 남은 시간으로 계산해준다.
+    remaining_minutes = evaluate_timekeeper(session).remaining_minutes
+
     parts.append(BASE_SYSTEM_PROMPT)
     parts.append(
         "인터뷰 주제: "
         f"{session.title}\n예정 시간: {session.duration_minutes}분\n\n"
         "[질문 리스트 및 진행 현황]\n"
-        f"{render_for_prompt(session.questions, session.current_question_index, session.completed_question_indices, session.probe_count, session.covered_facts, session.taken_branches)}"
+        f"{render_for_prompt(session.questions, session.current_question_index, session.completed_question_indices, session.probe_count, session.covered_facts, session.taken_branches, remaining_minutes)}"
     )
     return "\n\n".join(parts)
 

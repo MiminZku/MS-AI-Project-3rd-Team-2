@@ -67,7 +67,7 @@ export default function App() {
   const [sessionQuestions, setSessionQuestions] = useState<QuestionNode[]>([]);
   const [dummyQuestionIndex, setDummyQuestionIndex] = useState(0);
   const [question, setQuestion] = useState(DUMMY_QUESTIONS[0]);
-  const [speechSpeed, setSpeechSpeed] = useState<number>(1.25); // 기본 1.25x 빠름(추천)
+  const [speechSpeed, setSpeechSpeed] = useState<number>(1.1); // 기본 1.1x — 1.25x는 발음이 뭉개진다는 QC 피드백 반영, 사용자가 화면에서 직접 올릴 수 있음
   const [history, setHistory] = useState<Turn[]>([]);
   const [isWaitingForAdditional, setIsWaitingForAdditional] = useState(false);
 

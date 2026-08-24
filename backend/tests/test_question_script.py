@@ -24,7 +24,16 @@ def test_빈_스크립트는_빈_리스트():
 
 
 def test_프롬프트_렌더링에_현재위치가_표시된다():
-    lines = render_for_prompt(parse_question_script(SCRIPT), current_index=1).splitlines()
-    assert lines[0].startswith("[index: 0] 1. ")
-    assert lines[1].endswith("<== 현재 진행 중")
-    assert lines[2].strip().startswith("[부담됨]")
+    # render_for_prompt는 이제 완료/현재/예정 질문을 섹션으로 분리해서 렌더링한다
+    # (기존 "번호. 텍스트 <== 현재 진행 중" 한 줄짜리 포맷에서 강민기님이 변경한 구조).
+    text = render_for_prompt(parse_question_script(SCRIPT), current_index=1)
+    lines = text.splitlines()
+
+    assert "【이미 완료된 질문 (다시 묻거나 언급 금지)】" in text
+    assert any(line.startswith("✓ [완료] 1. ") for line in lines)
+
+    assert "【★ 이번 턴에 진행할 질문 (이 질문만 다룰 것)】" in text
+    current_line = next(line for line in lines if line.startswith("▶ [index: 1]"))
+    assert "2. " in current_line
+
+    assert "[갈래: 부담됨]" in text
