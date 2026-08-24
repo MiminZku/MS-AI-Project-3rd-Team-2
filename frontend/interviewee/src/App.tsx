@@ -47,7 +47,7 @@ function buildOpeningSpeech({ title, durationMinutes = 15 }: OpeningParams): str
 
 export default function App() {
   const [sessionId] = useState(sessionIdFromUrl);
-  const [status, setStatus] = useState<Status>("idle");
+  const [, setStatus] = useState<Status>("idle");
   // URL 파라미터에 test=avatar 가 있거나 빠른 테스트 지원
   const isDirectAvatarTest = new URLSearchParams(window.location.search).get("test") === "avatar";
   const [entryStep, setEntryStep] = useState<EntryStep>(isDirectAvatarTest ? "running" : "gromit");
@@ -67,7 +67,7 @@ export default function App() {
   const [sessionQuestions, setSessionQuestions] = useState<QuestionNode[]>([]);
   const [dummyQuestionIndex, setDummyQuestionIndex] = useState(0);
   const [question, setQuestion] = useState(DUMMY_QUESTIONS[0]);
-  const [speechSpeed, setSpeechSpeed] = useState<number>(1.35); // 기본 1.35x 빠름(추천)
+  const [speechSpeed, setSpeechSpeed] = useState<number>(1.25); // 기본 1.25x 빠름(추천)
   const [history, setHistory] = useState<Turn[]>([]);
   const [isWaitingForAdditional, setIsWaitingForAdditional] = useState(false);
 
@@ -78,6 +78,16 @@ export default function App() {
   const [orbState, setOrbState] = useState<"idle" | "speaking" | "listening">("idle");
   const socketRef = useRef<WebSocket | null>(null);
   const hasSpokenIntroRef = useRef(false);
+  const wrapUpTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSpokenEndRef = useRef(false);
+  const hasActuallySpokenRef = useRef(false);
+
+  // 마이크가 켜져 있는 동안 실제 사람 목소리가 감지되었는지 실시간 추적
+  useEffect(() => {
+    if (isRecording && isVoiceDetected) {
+      hasActuallySpokenRef.current = true;
+    }
+  }, [isRecording, isVoiceDetected]);
 
   // Azure Avatar WebRTC 훅 연동 (Lisa 아바타 & 다국어 음성)
   const avatar = useAvatarWebRTC({
@@ -103,13 +113,13 @@ export default function App() {
           title,
           durationMinutes,
         });
-        speakWithCurrentSpeed(fullIntroSpeech);
         setQuestion(fullIntroSpeech);
+        speakWithCurrentSpeed(fullIntroSpeech);
 
-        // 발화 완료 예상 시간 후 리스닝 상태로 전환
+        // 발화 완료 후 응답자 답변 대기 (Listening 상태로 머뭄)
         setTimeout(() => {
           setOrbState("listening");
-        }, 13000);
+        }, 12000);
       }, 800);
 
       return () => clearTimeout(timer);
@@ -158,15 +168,40 @@ export default function App() {
         }
       } else if (message.type === "assistant.question") {
         // 실제 백엔드 LLM이 생성한 다음 질문 수신 -> 아바타 음성 및 자막 실시간 발화!
-        setQuestion(message.turn.text);
+        const questionText = message.turn.text;
+        if (wrapUpTimerRef.current) {
+          clearTimeout(wrapUpTimerRef.current);
+          wrapUpTimerRef.current = null;
+        }
+
+        // 이미 종료 멘트를 발화한 상태라면 중복 발화 차단
+        if (questionText.includes("인터뷰를 모두 마치겠습니다") && hasSpokenEndRef.current) {
+          return;
+        }
+        if (questionText.includes("인터뷰를 모두 마치겠습니다")) {
+          hasSpokenEndRef.current = true;
+        }
+
+        setQuestion(questionText);
         setHistory((prev) => [...prev, message.turn]);
         setOrbState("speaking");
 
-        speakWithCurrentSpeed(message.turn.text);
+        speakWithCurrentSpeed(questionText);
+
+        // 랩업 또는 종료 상태 감지
+        if (questionText.includes("리서치팀에서 추가로 확인") || questionText.includes("잠시 확인해 보겠습니다")) {
+          setIsWaitingForAdditional(true);
+        } else if (questionText.includes("인터뷰를 모두 마치겠습니다") || questionText.includes("종료되었습니다")) {
+          setIsWaitingForAdditional(false);
+        }
 
         // 아바타 발화 시간 후 리스닝 상태로 전환 (응답자 마이크 준비)
         setTimeout(() => {
-          setOrbState("listening");
+          if (!questionText.includes("인터뷰를 모두 마치겠습니다")) {
+            setOrbState("listening");
+          } else {
+            setOrbState("idle");
+          }
         }, 4500);
       } else if (message.type === "error") {
         setQuestion(`오류: ${message.message}`);
@@ -229,11 +264,13 @@ export default function App() {
       setOrbState("speaking");
       speakWithCurrentSpeed(wrapUpCheckSpeech);
 
-      // 로컬 테스트 모드: 7초간 추가 지시 대기 후, 없으면 최종 종료 발화 진행
-      if (!sessionId || sessionId === "default-session" || isDirectAvatarTest) {
-        setTimeout(() => {
+      // 백엔드 소켓이 없을 때만(오프라인 더미 모드) 7.5초 후 1회 안전 종료
+      if (socketRef.current?.readyState !== WebSocket.OPEN) {
+        if (wrapUpTimerRef.current) clearTimeout(wrapUpTimerRef.current);
+        wrapUpTimerRef.current = setTimeout(() => {
           setIsWaitingForAdditional((currentWaiting) => {
-            if (currentWaiting) {
+            if (currentWaiting && !hasSpokenEndRef.current) {
+              hasSpokenEndRef.current = true;
               const finalEndSpeech =
                 "확인 결과 추가 질문은 없으므로 오늘 인터뷰를 모두 마치겠습니다. 성실하고 소중한 답변 진심으로 감사드립니다! 상단의 나가기 버튼을 눌러 퇴장해 주시면 됩니다.";
               setQuestion(finalEndSpeech);
@@ -254,27 +291,46 @@ export default function App() {
     }
   };
 
+  const recordingStartTimeRef = useRef<number>(0);
+
   const handleRecordingStart = () => {
+    // 1. 마이크 켜질 때 실제 발화 감지 플래그 초기화
+    hasActuallySpokenRef.current = false;
+    recordingStartTimeRef.current = Date.now();
+    setOrbState("listening");
+
+    // 2. 아바타 발화는 중단하되, 현재 자막 텍스트는 절대 날아가지 않고 그대로 유지!
+    avatar.stopSpeaking();
+
     if (socketRef.current?.readyState === WebSocket.OPEN) {
       socketRef.current.send(JSON.stringify({ type: "audio.start" }));
     }
   };
 
   const handleRecordingStop = () => {
-    // 1. 개발자 모드 / 더미 테스트 모드일 때 자동 핑퐁 진행
-    if (!sessionId || sessionId === "default-session" || isDirectAvatarTest) {
-      console.log("Mock STT: 답변 수신 완료 -> 1.5초 후 다음 질문 핑퐁 진행");
+    const duration = Date.now() - recordingStartTimeRef.current;
+    const hasSpoken = hasActuallySpokenRef.current || duration >= 1500;
+
+    // 실제 음성이 전혀 감지되지 않았고 1.5초 미만으로 마이크만 껐다면 -> 턴을 넘기지 않고 현재 질문 유지!
+    if (!hasSpoken) {
+      console.log("실제 음성이 감지되지 않았습니다. 현재 질문 자막을 그대로 유지합니다.");
       setOrbState("listening");
-      setTimeout(() => {
-        advanceDummyQuestion();
-      }, 1200);
       return;
     }
 
-    // 2. 백엔드 실세션 모드일 때 발화 종료 알림
+    // 1. 백엔드 WebSocket이 연결되어 있는 경우 -> 백엔드에 발화 종료 알림 (STT & LLM 다음 질문 생성 트리거)
     if (socketRef.current?.readyState === WebSocket.OPEN) {
+      setOrbState("speaking");
       socketRef.current.send(JSON.stringify({ type: "audio.end" }));
+      return;
     }
+
+    // 2. 소켓 연결이 없는 로컬 단독 테스트 모드: 실제 답변이 감지된 경우에만 다음 질문으로 핑퐁 진행!
+    console.log("Mock: 실제 답변 발화 감지됨 -> 다음 대본 질문으로 이동");
+    setOrbState("speaking");
+    setTimeout(() => {
+      advanceDummyQuestion();
+    }, 800);
   };
 
   const handleWelcomeStart = async () => {
@@ -513,26 +569,13 @@ export default function App() {
   return (
     <div className="app-frame">
       <main className="stage-shell">
-        <header className="main-header stage-header">
+        <header className="main-header stage-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div className="title-area" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <span className="live-dot" style={{ background: status === "connected" ? "#10b981" : "#94a3b8" }} />
             <h1>{title || "AI 인터뷰"}</h1>
-            <span style={{ fontSize: "0.75rem", color: status === "connected" ? "#10b981" : "#94a3b8", background: "rgba(255,255,255,0.05)", padding: "2px 8px", borderRadius: 12 }}>
-              {status === "connected" ? "Live 연결됨" : "로컬 모드"}
-            </span>
           </div>
-          <button
-            className="btn-secondary"
-            onClick={() => {
-              if (window.confirm("인터뷰를 종료하고 퇴장하시겠습니까?")) {
-                setEntryStep("ended");
-                setSessionStatus("ended");
-              }
-            }}
-            style={{ fontSize: "0.85rem", padding: "6px 14px", border: "1px solid #ef4444", color: "#f87171" }}
-          >
-            🚪 인터뷰 종료 및 나가기
-          </button>
+          <div style={{ fontSize: "0.8rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span>예정 시간: 약 {durationMinutes}분</span>
+          </div>
         </header>
 
         <div className="monitor-grid">
@@ -542,6 +585,8 @@ export default function App() {
             errorMessage={avatar.errorMessage}
             onRetry={avatar.connect}
             orbState={orbState}
+            speechSpeed={speechSpeed}
+            onSpeedChange={setSpeechSpeed}
           />
           <RespondentMonitor
             isActive
@@ -551,11 +596,15 @@ export default function App() {
             onAudioChunk={handleAudioChunk}
             onRecordingStart={handleRecordingStart}
             onRecordingStop={handleRecordingStop}
+            onEndInterview={() => {
+              if (window.confirm("인터뷰를 종료하고 퇴장하시겠습니까?")) {
+                setEntryStep("ended");
+                setSessionStatus("ended");
+              }
+            }}
           />
           <QuestionPromptBox
             question={question}
-            speechSpeed={speechSpeed}
-            onSpeedChange={setSpeechSpeed}
             onReplay={() => speakWithCurrentSpeed(question)}
             isSpeaking={avatar.status === "speaking"}
           />

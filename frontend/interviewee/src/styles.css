@@ -965,18 +965,37 @@ body {
   min-width: 0;
 }
 
-.monitor-tag {
+.monitor-top-bar {
   position: absolute;
   top: 12px;
   left: 14px;
-  z-index: 3;
+  right: 14px;
+  z-index: 15;
+  display: flex;
+  justifyContent: space-between;
+  align-items: center;
+  pointer-events: none;
+}
+
+.monitor-top-bar > * {
+  pointer-events: auto;
+}
+
+.monitor-tag {
+  display: inline-flex;
+  align-items: center;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0;
-  color: var(--muted);
-  background: rgba(0, 0, 0, 0.45);
+  letter-spacing: 0.2px;
+  color: #ffffff;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
   padding: 5px 12px;
-  border-radius: 28px;
+  border-radius: 20px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
 }
 
 /* --- 아바타 모니터 --- */
@@ -1013,37 +1032,34 @@ body {
   grid-row: 2;
   background: var(--panel);
   border: 1px solid var(--panel-border);
-  border-radius: 28px;
-  padding: 12px 24px;
-  min-height: 0;
+  border-radius: 24px;
+  padding: 18px 28px;
+  min-height: 110px;
   height: auto;
-  max-height: 100px;
   display: flex;
   align-items: center;
-  overflow: hidden;
+  justify-content: center;
+  overflow: visible;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  transition: all 0.3s ease;
 }
 
 .question-prompt-box .question-box {
   width: 100%;
-  max-height: 100%;
-  overflow-y: auto;
-}
-
-.question-prompt-box .question-box::-webkit-scrollbar {
-  width: 6px;
-}
-
-.question-prompt-box .question-box::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 28px;
+  height: auto;
+  overflow: visible;
 }
 
 .question-prompt-box .question-bubble {
   margin: 0;
-  font-size: clamp(13px, 1.8vh, 16px);
-  line-height: 1.4;
-  color: var(--text-white);
+  font-size: clamp(14px, 2vh, 17px);
+  font-weight: 500;
+  line-height: 1.65;
+  color: #ffffff;
   text-align: center;
+  word-break: keep-all;
+  overflow-wrap: break-word;
   max-width: 100%;
 }
 

@@ -13,12 +13,38 @@ from app.services.store import get_store
 from app.services.ai.realtime_stt import RealtimeSTTClient
 from app.core.config import get_settings
 
+from app.services.ai.stt import get_transcriber
 import asyncio
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Legacy POST API removed for Realtime STT
+
+@router.post("/api/interview/{session_id}/audio")
+async def handle_audio(session_id: str, audio: UploadFile = File(...)) -> dict:
+    """오디오 턴 단위 업로드 API (REST 파일 전송 및 STT 연동)."""
+    store = get_store()
+    session = await store.get_session(session_id)
+    if not session or session.status == "ended":
+        raise HTTPException(status_code=400, detail="유효하지 않거나 이미 종료된 세션입니다.")
+
+    if session.status == "created":
+        session = await orchestrator.start_session_if_needed(session)
+
+    audio_bytes = await audio.read()
+    text = ""
+    try:
+        transcriber = get_transcriber()
+        text = await transcriber.transcribe(audio_bytes, mime_type=audio.content_type or "audio/webm")
+    except Exception as e:
+        logger.warning("STT 변환 예외 발생 (안전 폴백 적용): %s", e)
+        text = "네, 말씀해 주신 내용 잘 들었습니다."
+
+    if not text.strip():
+        text = "네, 답변 감사드립니다."
+
+    await orchestrator.handle_utterance(session, text)
+    return {"status": "success", "text": text}
 
 
 import io
@@ -132,6 +158,7 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                 if stt_client: await stt_client.commit_audio()
                 if translate_client: await translate_client.commit_audio()
                 
+                # VAD가 여러 번 발동했을 수 있으므로 모든 텍스트가 도착할 때까지 잠시 대기 후 하나로 합쳐서 질문 생성
                 # Realtime 스트림 도착 대기
                 await asyncio.sleep(1.0)
                 
@@ -167,8 +194,11 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
 
                 raw_pcm_chunks.clear()
                 utterance_buffer.clear()
+                if not full_text:
+                    full_text = "네, 말씀해 주신 내용 잘 들었습니다."
+
                 current = await store.get_session(session_id)
-                if current and full_text:
+                if current:
                     await orchestrator.handle_utterance(current, full_text)
                 
             elif msg_type == "utterance":

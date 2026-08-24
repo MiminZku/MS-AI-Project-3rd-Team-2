@@ -8,13 +8,19 @@ interface AvatarMonitorProps {
   orbState?: "idle" | "speaking" | "listening";
   errorMessage?: string | null;
   onRetry?: () => void;
+  speechSpeed?: number;
+  onSpeedChange?: (speed: number) => void;
 }
 
+const SPEED_OPTIONS = [
+  { value: 1.0, label: "1.0x (보통)" },
+  { value: 1.25, label: "1.25x (기본 · 추천)" },
+  { value: 1.5, label: "1.5x (조금 빠름)" },
+  { value: 1.75, label: "1.75x (매우 빠름)" },
+];
+
 const BACKGROUND_OPTIONS = [
-  { id: "bg1", label: "내추럴 우드", icon: "🌿", url: "/bg1.jpg" },
   { id: "bg2", label: "모던 화이트", icon: "🏛️", url: "/bg2.jpg" },
-  { id: "bg3", label: "클래식 서재", icon: "📚", url: "/bg3.jpg" },
-  { id: "bg4", label: "나이트 시티", icon: "🌃", url: "/bg4.jpg" },
   { id: "bg5", label: "코지 룸", icon: "☕", url: "/bg5.jpg" },
 ];
 
@@ -24,12 +30,19 @@ export default function AvatarMonitor({
   orbState = "idle",
   errorMessage,
   onRetry,
+  speechSpeed = 1.25,
+  onSpeedChange,
 }: AvatarMonitorProps) {
   const isWebRTCActive = status === "connected" || status === "speaking";
   const [selectedBg, setSelectedBg] = useState<string>(() => {
-    return localStorage.getItem("gromit_avatar_bg") || "/bg1.jpg";
+    const saved = localStorage.getItem("gromit_avatar_bg");
+    if (saved === "/bg2.jpg" || saved === "/bg5.jpg") {
+      return saved;
+    }
+    return "/bg2.jpg";
   });
   const [isBgMenuOpen, setIsBgMenuOpen] = useState(false);
+  const [isSpeedMenuOpen, setIsSpeedMenuOpen] = useState(false);
 
   const handleSelectBg = (url: string) => {
     setSelectedBg(url);
@@ -130,69 +143,190 @@ export default function AvatarMonitor({
         backgroundPosition: "center",
       }}
     >
-      <div
-        className="monitor-header"
-        style={{
-          position: "absolute",
-          top: 12,
-          left: 12,
-          right: 12,
-          zIndex: 10,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      {/* 상단 라벨 & 상태 인디케이터 (겹침 0% 유동형 뱃지 바) */}
+      <div className="monitor-top-bar">
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", pointerEvents: "auto" }}>
           <span className="monitor-tag">AI 모더레이터</span>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "5px",
+              background: "rgba(239, 68, 68, 0.2)",
+              border: "1px solid rgba(239, 68, 68, 0.45)",
+              color: "#fca5a5",
+              fontSize: "0.72rem",
+              fontWeight: 700,
+              padding: "4px 8px",
+              borderRadius: "12px",
+              backdropFilter: "blur(6px)",
+              letterSpacing: "0.5px",
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#ef4444",
+                boxShadow: "0 0 8px #ef4444",
+              }}
+            />
+            LIVE
+          </span>
           {status === "connecting" && (
-            <span style={{ fontSize: "0.75rem", background: "rgba(0,0,0,0.6)", color: "#60a5fa", padding: "2px 8px", borderRadius: 4 }}>
+            <span style={{ fontSize: "0.75rem", background: "rgba(0,0,0,0.6)", color: "#60a5fa", padding: "4px 8px", borderRadius: 12, border: "1px solid rgba(96,165,250,0.3)" }}>
               아바타 연결 중...
             </span>
           )}
           {status === "speaking" && (
-            <span style={{ fontSize: "0.75rem", background: "rgba(34,197,94,0.8)", color: "#fff", padding: "2px 8px", borderRadius: 4 }}>
+            <span style={{ fontSize: "0.75rem", background: "rgba(34,197,94,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 12, fontWeight: 600, boxShadow: "0 2px 8px rgba(34,197,94,0.3)" }}>
               말하는 중 🎙️
             </span>
           )}
           {status === "error" && (
-            <span style={{ fontSize: "0.75rem", background: "rgba(239,68,68,0.8)", color: "#fff", padding: "2px 8px", borderRadius: 4 }}>
+            <span style={{ fontSize: "0.75rem", background: "rgba(239,68,68,0.85)", color: "#fff", padding: "4px 10px", borderRadius: 12 }}>
               연결 오류
             </span>
           )}
         </div>
+      </div>
 
-        {/* 배경 선택 버튼 & 팝오버 메뉴 (속도 조절처럼 컴팩트) */}
+      {/* 하단 중앙 컨트롤러 바 (속도 조절 + 배경 선택) */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: 12,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 20,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          background: "rgba(15, 23, 42, 0.7)",
+          padding: "4px 8px",
+          borderRadius: "20px",
+          border: "1px solid rgba(255, 255, 255, 0.15)",
+          backdropFilter: "blur(10px)",
+          boxShadow: "0 4px 14px rgba(0, 0, 0, 0.35)",
+        }}
+      >
+        {/* 음성 속도 조절 버튼 & 팝오버 (위로 팝업) */}
+        {onSpeedChange && (
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => {
+                setIsSpeedMenuOpen((prev) => !prev);
+                setIsBgMenuOpen(false);
+              }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                fontSize: "0.75rem",
+                background: "rgba(15, 23, 42, 0.8)",
+                color: "#93c5fd",
+                border: "1px solid rgba(96, 165, 250, 0.35)",
+                padding: "5px 10px",
+                borderRadius: "14px",
+                cursor: "pointer",
+                backdropFilter: "blur(8px)",
+                transition: "all 0.2s ease",
+                boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+              }}
+              title="아바타 발화 속도 조절"
+            >
+              <span>⚡ {speechSpeed}x</span>
+              <span style={{ opacity: 0.7, fontSize: "0.65rem" }}>▲</span>
+            </button>
+
+            {isSpeedMenuOpen && (
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: "100%",
+                  right: 0,
+                  marginBottom: 6,
+                  background: "rgba(23, 23, 23, 0.95)",
+                  border: "1px solid rgba(255, 255, 255, 0.15)",
+                  borderRadius: 8,
+                  padding: "4px",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 2,
+                  minWidth: 130,
+                  zIndex: 50,
+                  boxShadow: "0 10px 25px rgba(0,0,0,0.6)",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                {SPEED_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      onSpeedChange(opt.value);
+                      setIsSpeedMenuOpen(false);
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      fontSize: "0.75rem",
+                      padding: "6px 10px",
+                      background: speechSpeed === opt.value ? "rgba(59, 130, 246, 0.25)" : "transparent",
+                      color: speechSpeed === opt.value ? "#60a5fa" : "#cbd5e1",
+                      border: "none",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      whiteSpace: "nowrap",
+                      fontWeight: speechSpeed === opt.value ? 600 : 400,
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    {speechSpeed === opt.value && <span>✓</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 배경 선택 버튼 & 팝오버 메뉴 (위로 팝업) */}
         <div style={{ position: "relative" }}>
           <button
-            onClick={() => setIsBgMenuOpen((prev) => !prev)}
+            onClick={() => {
+              setIsBgMenuOpen((prev) => !prev);
+              setIsSpeedMenuOpen(false);
+            }}
             style={{
               display: "flex",
               alignItems: "center",
               gap: 4,
               fontSize: "0.75rem",
-              background: "rgba(15, 23, 42, 0.75)",
+              background: "rgba(15, 23, 42, 0.8)",
               color: "#e2e8f0",
-              border: "1px solid rgba(255, 255, 255, 0.15)",
-              padding: "4px 10px",
+              border: "1px solid rgba(255, 255, 255, 0.2)",
+              padding: "5px 10px",
               borderRadius: "14px",
               cursor: "pointer",
               backdropFilter: "blur(8px)",
               transition: "all 0.2s ease",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
             }}
             title="아바타 배경 공간 변경"
           >
             <span>🖼️ 배경</span>
-            <span style={{ opacity: 0.7, fontSize: "0.65rem" }}>▼</span>
+            <span style={{ opacity: 0.7, fontSize: "0.65rem" }}>▲</span>
           </button>
 
           {isBgMenuOpen && (
             <div
               style={{
                 position: "absolute",
-                top: "100%",
+                bottom: "100%",
                 right: 0,
-                marginTop: 6,
+                marginBottom: 6,
                 background: "rgba(23, 23, 23, 0.95)",
                 border: "1px solid rgba(255, 255, 255, 0.15)",
                 borderRadius: 8,
@@ -249,7 +383,7 @@ export default function AvatarMonitor({
         }}
       />
 
-      {/* 실시간 투명 매팅 캔버스 (책상 뒤 의자에 자연스럽게 위치하도록 상반신 배치 & 하반신 책상 뒤 클리핑) */}
+      {/* 실시간 투명 매팅 캔버스 (피부 선명도 100% 보존 + 책상 밑 1% 초정밀 페더링 마스크) */}
       <div
         style={{
           position: "absolute",
@@ -266,9 +400,11 @@ export default function AvatarMonitor({
             width: "100%",
             height: "100%",
             objectFit: "cover",
-            // 아바타의 위치를 의자 등받이 중앙에 맞추고, 책상 상판 아래(약 57% 지점 이하)를 완벽하게 가림
-            transform: "translateY(-4%) scale(0.92)",
-            clipPath: "polygon(0 0, 100% 0, 100% 59%, 0 59%)",
+            // 배경별 최적 비율: 코지룸은 의자 등받이에 딱 맞추고, 모던화이트는 책상과 자연스럽게 매칭
+            transform: selectedBg === "/bg5.jpg" ? "translateY(0.5%) scale(1.01)" : "translateY(-2.5%) scale(0.95)",
+            // 상반신/팔 텍스처는 100% 완전 불투명(선명도 완벽 보존) & 책상 상판 밑 1%에서만 부드럽게 마스킹
+            maskImage: "linear-gradient(to bottom, black 0%, black 58.5%, rgba(0,0,0,0.5) 59.3%, transparent 60%)",
+            WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 58.5%, rgba(0,0,0,0.5) 59.3%, transparent 60%)",
           }}
         />
       </div>

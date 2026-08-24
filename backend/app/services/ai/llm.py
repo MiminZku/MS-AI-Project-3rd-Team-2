@@ -1,7 +1,7 @@
-"""?ㅼ쓬 吏덈Ц ?앹꽦 + 遺꾧린 ?먮떒 (짠4.2). Azure OpenAI GPT-4o ?ъ슜.
+"""다음 질문 생성 및 분기 판단 로직 (§4.2). Azure OpenAI GPT-4o 연동.
 
-?ㅺ? ?놁쑝硫??ㅽ뀅?쇰줈 ?대갚?쒕떎. ?ㅽ뀅?댁뼱??'李멸???吏??-> ?ㅼ쓬 吏덈Ц 諛섏쁺' ?먮쫫?
-洹몃?濡?愿李곕릺誘濡? Azure 由ъ냼???놁씠 CI/CD? ?뚯씠?꾨씪?몄쓣 癒쇱? 寃利앺븷 ???덈떎.
+API 키가 없으면 스텁(Stub)으로 폴백한다. 스텁이어도 '참관자 지시 -> 다음 질문 반영' 흐름은
+그대로 관찰되므로, Azure 리소스 없이 CI/CD와 파이프라인을 먼저 검증할 수 있다.
 """
 
 from __future__ import annotations
@@ -74,16 +74,23 @@ class StubQuestionGenerator:
                 next_question_index=index + 1,
             )
 
+        if index == len(questions):
+            return GeneratedQuestion(
+                text="준비된 기본 질문은 모두 마쳤습니다! 혹시 참관 중인 리서치팀에서 추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요.",
+                rationale="[WRAPUP] 기본 질문 리스트를 모두 완료하여 리서치팀 추가 질문 확인 단계로 진입했습니다.",
+                next_question_index=index + 1,
+            )
+
         return GeneratedQuestion(
-            text="오늘 이야기해주신 것 중에 가장 아쉬웠던 경험을 하나만 더 말씀해주시겠어요?",
-            rationale="[STUB] 질문 리스트를 모두 소진해 마무리 질문으로 전환했습니다.",
-            next_question_index=index,
+            text="확인 결과 추가 질문은 없으므로 오늘 인터뷰를 모두 마치겠습니다. 성실하고 소중한 답변 진심으로 감사드립니다! 상단의 나가기 버튼을 눌러 퇴장해 주시면 됩니다.",
+            rationale="[END] 모든 인터뷰 절차가 성공적으로 종료되었습니다.",
+            next_question_index=index + 1,
         )
 
 
 class AzureOpenAIQuestionGenerator:
     def __init__(self) -> None:
-        from openai import AsyncAzureOpenAI  # ?ㅽ뀅 寃쎈줈?먯꽌??濡쒕뱶?섏? ?딅룄濡?吏??import
+        from openai import AsyncAzureOpenAI  # 스텁 경로에서는 로드되지 않도록 지연 import
 
         settings = get_settings()
         self._deployment = settings.azure_openai_chat_deployment
@@ -113,11 +120,11 @@ class AzureOpenAIQuestionGenerator:
         try:
             data = json.loads(content)
         except json.JSONDecodeError:
-            logger.warning("GPT ?묐떟 JSON ?뚯떛 ?ㅽ뙣, ?먮Ц??吏덈Ц?쇰줈 ?ъ슜: %s", content[:200])
+            logger.warning("GPT 응답 JSON 파싱 실패, 원문을 질문으로 사용: %s", content[:200])
             data = {"question": content.strip()}
 
         return GeneratedQuestion(
-            text=str(data.get("question", "")).strip() or "議곌툑 ???먯꽭??留먯??댁＜?쒓쿋?댁슂?",
+            text=str(data.get("question", "")).strip() or "조금 더 자세히 말씀해 주시겠어요?",
             rationale=str(data.get("rationale", "")).strip(),
             next_question_index=int(data.get("next_question_index", session.current_question_index)),
         )
@@ -132,7 +139,7 @@ def get_question_generator() -> QuestionGenerator:
         if get_settings().use_azure_openai:
             _generator = AzureOpenAIQuestionGenerator()
         else:
-            logger.warning("AZURE_OPENAI_* 誘몄꽕????StubQuestionGenerator濡??숈옉?⑸땲??")
+            logger.warning("AZURE_OPENAI_* 미설정 — StubQuestionGenerator로 동작합니다.")
             _generator = StubQuestionGenerator()
     return _generator
 
