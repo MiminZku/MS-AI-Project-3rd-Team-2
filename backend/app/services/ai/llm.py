@@ -111,8 +111,8 @@ class AzureOpenAIQuestionGenerator:
         response = await self._client.chat.completions.create(
             model=self._deployment,
             messages=messages,
-            temperature=0.7,
-            max_completion_tokens=1300,
+            temperature=0.3,
+            max_completion_tokens=1000,
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content or "{}"
@@ -129,6 +129,10 @@ class AzureOpenAIQuestionGenerator:
             next_idx = session.current_question_index
         elif next_idx > session.current_question_index + 1:
             next_idx = session.current_question_index + 1
+
+        total_questions = len(session.questions)
+        if session.current_question_index >= total_questions:
+            next_idx = total_questions
 
         return GeneratedQuestion(
             text=str(data.get("question", "")).strip() or "조금 더 자세히 말씀해 주시겠어요?",
