@@ -47,11 +47,13 @@ BASE_SYSTEM_PROMPT = """너는 사용자 리서치를 진행하는 전문 AI 모
 {
   "rationale": "[대본 몇 번 질문을 어떤 맥락으로 연결했는지 1줄 설명]",
   "question": "응답자에게 건넬 실제 질문(인지 1문장 + 대본 질문 1문장)",
+  "is_sufficient": true,
+  "extracted_fact": "응답자 발화에서 획득한 핵심 사실 1줄 요약 (없으면 빈 문자열)",
   "next_question_index": 0
 }
+- is_sufficient: 현재 질문에 대한 응답자의 답변이 충분하여 다음 대본 질문으로 넘어가도 되면 true, 답변이 너무 모호하거나 짧아서 꼬리질문 1회가 꼭 필요하면 false.
 - rationale은 참관자 대시보드에 실시간으로 표시되는 모더레이터의 판단 근거다.
-- next_question_index: 이번 질문이 해당하는 [질문 리스트]의 0-based 인덱스.
-  * 답변을 충분히 들었으면 무조건 현재 인덱스 + 1로 올려라."""
+- next_question_index: 이번 질문이 해당하는 [질문 리스트]의 0-based 인덱스."""
 
 
 def build_system_prompt(session: Session, instruction: Instruction | None) -> str:
@@ -69,8 +71,8 @@ def build_system_prompt(session: Session, instruction: Instruction | None) -> st
     parts.append(
         "인터뷰 주제: "
         f"{session.title}\n예정 시간: {session.duration_minutes}분\n\n"
-        "[질문 리스트]\n"
-        f"{render_for_prompt(session.questions, session.current_question_index)}"
+        "[질문 리스트 및 진행 현황]\n"
+        f"{render_for_prompt(session.questions, session.current_question_index, session.completed_question_indices, session.probe_count, session.covered_facts)}"
     )
     return "\n\n".join(parts)
 

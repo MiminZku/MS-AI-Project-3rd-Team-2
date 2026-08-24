@@ -46,19 +46,56 @@ def parse_question_script(script: str) -> list[QuestionNode]:
     return nodes
 
 
-def render_for_prompt(nodes: list[QuestionNode], current_index: int) -> str:
-    """프롬프트에 넣을 질문 트리 컨텍스트. 현재 위치를 표시한다."""
+def render_for_prompt(
+    nodes: list[QuestionNode],
+    current_index: int,
+    completed_indices: list[int] | None = None,
+    probe_count: int = 0,
+    covered_facts: dict[str, str] | None = None,
+) -> str:
+    """프롬프트에 넣을 질문 트리 컨텍스트. 완료된 질문과 현재 질문, 예정 질문을 명확히 분리한다."""
     if not nodes:
         return "(질문 리스트가 비어 있음 — 주제에 맞춰 자유롭게 진행)"
 
+    completed_set = set(completed_indices or [])
     lines: list[str] = []
-    for i, node in enumerate(nodes):
-        marker = " <== 현재 진행 중" if i == current_index else ""
-        lines.append(f"[index: {i}] {node.order}. {node.text}{marker}")
-        for condition, question in node.branches.items():
-            lines.append(f"   [{condition}] -> {question}")
-    
-    if current_index >= len(nodes):
-        lines.append(f"[index: {len(nodes)}] (대본 완료 - 마무리 멘트를 진행하고 인터뷰를 종료하세요) <== 현재 진행 중")
-        
+
+    # 1. 이미 획득한 핵심 사실
+    if covered_facts:
+        lines.append("【이미 확보된 핵심 정보 (절대 다시 묻지 말 것)】")
+        for k, v in covered_facts.items():
+            lines.append(f"- {k}: {v}")
+        lines.append("")
+
+    # 2. 이미 완료된 질문들
+    completed_nodes = [node for i, node in enumerate(nodes) if i in completed_set or i < current_index]
+    if completed_nodes:
+        lines.append("【이미 완료된 질문 (다시 묻거나 언급 금지)】")
+        for node in completed_nodes:
+            lines.append(f"✓ [완료] {node.order}. {node.text}")
+        lines.append("")
+
+    # 3. 현재 진행 대상 질문 (단 1개)
+    if current_index < len(nodes):
+        curr_node = nodes[current_index]
+        probe_info = f" (현재 질문 꼬리질문 {probe_count}회차 진행 중)" if probe_count > 0 else ""
+        lines.append("【★ 이번 턴에 진행할 질문 (이 질문만 다룰 것)】")
+        lines.append(f"▶ [index: {current_index}] {curr_node.order}. {curr_node.text}{probe_info}")
+        if curr_node.branches:
+            for condition, question in curr_node.branches.items():
+                lines.append(f"   [조건: {condition}] -> {question}")
+        lines.append("")
+    else:
+        lines.append("【★ 모든 질문 완료】")
+        lines.append(f"▶ [index: {len(nodes)}] 대본의 모든 질문을 마쳤습니다. 인터뷰 종료 및 감사 멘트를 하세요.")
+        lines.append("")
+
+    # 4. 이후 예정된 질문들
+    upcoming_nodes = [node for i, node in enumerate(nodes) if i > current_index]
+    if upcoming_nodes:
+        lines.append("【이후 예정된 질문】")
+        for i, node in enumerate(nodes):
+            if i > current_index:
+                lines.append(f"- [index: {i}] {node.order}. {node.text}")
+
     return "\n".join(lines)

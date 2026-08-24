@@ -23,6 +23,8 @@ class GeneratedQuestion:
     text: str
     rationale: str
     next_question_index: int
+    is_sufficient: bool = True
+    extracted_fact: str = ""
 
 
 class QuestionGenerator(Protocol):
@@ -53,6 +55,8 @@ class StubQuestionGenerator:
                 text=f"방금 말씀 중에 궁금한 점이 있는데요, {instruction.text} 관련해서 조금 더 들려주시겠어요?",
                 rationale=f"[STUB] 참관자 지시 '{instruction.text}'를 이번 턴에 주입했습니다.",
                 next_question_index=index,
+                is_sufficient=True,
+                extracted_fact="참관자 지시 질문 수행",
             )
 
         # 직전 답변에 분기(Branch) 키워드가 매칭되는지 확인
@@ -65,6 +69,8 @@ class StubQuestionGenerator:
                         text=branch_q,
                         rationale=f"[STUB] 응답자의 키워드 '{branch_k}'에 매칭되어 파생 꼬리질문으로 전이했습니다.",
                         next_question_index=index + 1,
+                        is_sufficient=True,
+                        extracted_fact=f"{branch_k} 키워드 언급",
                     )
 
         if index < len(questions):
@@ -72,6 +78,8 @@ class StubQuestionGenerator:
                 text=questions[index].text,
                 rationale="[STUB] 대기 중인 참관자 지시가 없어 질문 리스트 순서대로 진행했습니다.",
                 next_question_index=index + 1,
+                is_sufficient=True,
+                extracted_fact="",
             )
 
         if index == len(questions):
@@ -79,12 +87,16 @@ class StubQuestionGenerator:
                 text="준비된 기본 질문은 모두 마쳤습니다! 혹시 참관 중인 리서치팀에서 추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요.",
                 rationale="[WRAPUP] 기본 질문 리스트를 모두 완료하여 리서치팀 추가 질문 확인 단계로 진입했습니다.",
                 next_question_index=index + 1,
+                is_sufficient=True,
+                extracted_fact="",
             )
 
         return GeneratedQuestion(
             text="확인 결과 추가 질문은 없으므로 오늘 인터뷰를 모두 마치겠습니다. 성실하고 소중한 답변 진심으로 감사드립니다! 상단의 나가기 버튼을 눌러 퇴장해 주시면 됩니다.",
             rationale="[END] 모든 인터뷰 절차가 성공적으로 종료되었습니다.",
             next_question_index=index + 1,
+            is_sufficient=True,
+            extracted_fact="",
         )
 
 
@@ -124,6 +136,9 @@ class AzureOpenAIQuestionGenerator:
             data = {"question": content.strip()}
 
         next_idx = int(data.get("next_question_index", session.current_question_index))
+        is_sufficient = bool(data.get("is_sufficient", True))
+        extracted_fact = str(data.get("extracted_fact", "")).strip()
+
         # State Machine Guard: Prevent jumping backward or skipping multiple steps
         if next_idx < session.current_question_index:
             next_idx = session.current_question_index
@@ -138,6 +153,8 @@ class AzureOpenAIQuestionGenerator:
             text=str(data.get("question", "")).strip() or "조금 더 자세히 말씀해 주시겠어요?",
             rationale=str(data.get("rationale", "")).strip(),
             next_question_index=next_idx,
+            is_sufficient=is_sufficient,
+            extracted_fact=extracted_fact,
         )
 
 

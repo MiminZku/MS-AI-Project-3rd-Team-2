@@ -244,18 +244,27 @@ async def handle_utterance(
     )
 
     # -----------------------------------------------------
-    # 질문 트리 진행 위치 갱신
+    # 질문 트리 진행 위치 및 상태 머신 갱신
     # -----------------------------------------------------
+    curr_idx = session.current_question_index
+    total_q = len(session.questions)
 
-    if (
-        0
-        <= generated.next_question_index
-        <= len(session.questions)
-    ):
+    # 획득한 사실(Fact) 업데이트
+    if generated.extracted_fact:
+        fact_key = f"질문_{curr_idx + 1}"
+        session.covered_facts[fact_key] = generated.extracted_fact
 
-        session.current_question_index = (
-            generated.next_question_index
-        )
+    # 답변 충족도 및 probe_count에 따른 전이 판단
+    # 1) 답변이 충분하거나(is_sufficient=True), 이미 꼬리질문 1회를 수행했거나, 모델이 다음 인덱스를 지정한 경우 -> 다음 질문으로 전이
+    if generated.is_sufficient or session.probe_count >= 1 or generated.next_question_index > curr_idx:
+        if curr_idx not in session.completed_question_indices and curr_idx < total_q:
+            session.completed_question_indices.append(curr_idx)
+        session.current_question_index = min(curr_idx + 1, total_q)
+        session.probe_count = 0
+    else:
+        # 2) 답변이 불충분하여 꼬리질문/재질문 1회 필요 -> 인덱스 유지 및 probe_count 증가
+        session.probe_count += 1
+        session.current_question_index = curr_idx
 
     await store.save_session(
         session
@@ -271,6 +280,8 @@ async def handle_utterance(
             "duration_minutes": session.duration_minutes,
             "questions": [q.model_dump(mode="json") for q in session.questions],
             "current_question_index": session.current_question_index,
+            "completed_question_indices": session.completed_question_indices,
+            "probe_count": session.probe_count,
         },
     )
     await manager.broadcast_to_observers(session.id, msg)
