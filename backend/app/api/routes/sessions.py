@@ -202,6 +202,23 @@ async def get_instructions(
 
 
 # =========================================================
+# Session 시작 (PM 수동 시작)
+# =========================================================
+
+@router.post(
+    "/{session_id}/start",
+    response_model=Session,
+)
+async def start_session_endpoint(
+    session: Session = Depends(load_session),
+) -> Session:
+
+    return await orchestrator.start_session(
+        session
+    )
+
+
+# =========================================================
 # Session 종료
 # =========================================================
 

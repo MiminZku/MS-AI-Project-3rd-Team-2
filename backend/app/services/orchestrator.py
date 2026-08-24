@@ -261,6 +261,20 @@ async def handle_utterance(
         session
     )
 
+    # 대시보드 트리 UI 동기화를 위해 변경된 세션 상태 브로드캐스트
+    msg = server_message(
+        "session.state",
+        session={
+            "id": session.id,
+            "title": session.title,
+            "status": session.status,
+            "duration_minutes": session.duration_minutes,
+            "questions": [q.model_dump(mode="json") for q in session.questions],
+            "current_question_index": session.current_question_index,
+        },
+    )
+    await manager.broadcast_to_observers(session.id, msg)
+
     # -----------------------------------------------------
     # ⑥ 인터뷰이에게는 질문만
     # -----------------------------------------------------
@@ -317,28 +331,42 @@ async def handle_utterance(
 
 
 # =========================================================
-# Session 시작
+# Session 시작 (PM 수동 시작 및 상태 브로드캐스트)
 # =========================================================
+
+async def start_session(
+    session: Session,
+) -> Session:
+    session.status = "running"
+    session.started_at = utcnow()
+    await get_store().save_session(session)
+
+    # D5: 비동기 격리된 폴링 태스크 (C9)
+    timekeeper.start(session.id)
+
+    # 인터뷰이와 참관자에게 session.state 실시간 브로드캐스트
+    msg = server_message(
+        "session.state",
+        session={
+            "id": session.id,
+            "title": session.title,
+            "status": session.status,
+            "duration_minutes": session.duration_minutes,
+            "questions": [q.model_dump(mode="json") for q in session.questions],
+        },
+    )
+    await manager.send_to_interviewee(session.id, msg)
+    await manager.broadcast_to_observers(session.id, msg)
+
+    return session
+
 
 async def start_session_if_needed(
     session: Session,
 ) -> Session:
 
     if session.status == "created":
-
-        session.status = "running"
-
-        session.started_at = utcnow()
-
-        await get_store().save_session(
-            session
-        )
-
-    # D5:
-    # 비동기 격리된 폴링 태스크 (C9)
-    timekeeper.start(
-        session.id
-    )
+        return await start_session(session)
 
     return session
 

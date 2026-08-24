@@ -102,12 +102,22 @@ export async function fetchSession(sessionId: string): Promise<SessionResponse> 
   return response.json();
 }
 
+export async function startSession(sessionId: string): Promise<Session> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/start`, {
+    method: "POST",
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`세션 시작 실패 (${response.status})`);
+  return response.json();
+}
+
 export async function endSession(sessionId: string): Promise<Session> {
   const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/end`, {
     method: "POST",
     headers: headers(),
   });
   if (!response.ok) throw new Error(`세션 종료 실패 (${response.status})`);
+
   return response.json();
 }
 

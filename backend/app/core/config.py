@@ -40,6 +40,9 @@ class Settings(BaseSettings):
     azure_openai_realtime_stt_deployment: str = "gpt-realtime-whisper"
     azure_openai_realtime_translate_deployment: str = "gpt-realtime-translate"
 
+    # STT 모델 (D8): gpt-transcribe | gpt-live-transcribe
+    stt_model: str = "gpt-transcribe"
+
     # D5: 타임키퍼 폴링 주기(초)
     timekeeper_interval_seconds: int = 60
 

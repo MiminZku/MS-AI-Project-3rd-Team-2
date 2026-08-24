@@ -23,9 +23,9 @@ BASE_SYSTEM_PROMPT = """너는 사용자 리서치를 진행하는 글로벌 수
 5. [대본 완주]: 응답자의 답변에 맞추어 대본의 모든 핵심 질문을 누락 없이 순차적으로 충실하게 소화한다.
 
 반드시 아래 JSON 형식으로만 답한다:
-{"question": "응답자에게 할 다음 질문 (인지 1구절 + 다음 질문 1구절)", "rationale": "이 질문을 선택한 논리적 근거", "next_question_index": 0}
-- rationale은 참관자(백룸)에게만 보이며 응답자에게 노출되지 않는다.
-- next_question_index는 이번 질문이 속한 메인 질문의 0-based 인덱스다."""
+{"question": "응답자에게 할 다음 질문", "rationale": "이 질문을 고른 판단 근거", "next_question_index": 0}
+- rationale은 참관자에게만 보이며 응답자에게 노출되지 않는다.
+- next_question_index는 이번에 할 질문이 질문 리스트의 몇 번째 항목인지 나타내는 0-based 인덱스(예: [index: 0]이면 0)다. 응답자가 아직 답변을 다 안 했으면 현재 인덱스를 유지하고, 충분히 답했으면 다음 인덱스로 넘어간다."""
 
 
 def build_system_prompt(session: Session, instruction: Instruction | None) -> str:

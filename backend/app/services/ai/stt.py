@@ -12,60 +12,122 @@ from __future__ import annotations
 import logging
 from typing import Protocol
 
+import httpx
+from openai import AsyncAzureOpenAI
 from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
 
 class Transcriber(Protocol):
-    async def transcribe(self, audio: bytes, *, mime_type: str = "audio/webm") -> str:
-        """오디오 한 턴을 텍스트로. 턴 기반 순차 파이프라인이므로 파일 단위 전사 (D1)."""
+    async def transcribe(self, audio: bytes, *, mime_type: str = "audio/wav") -> str:
+        """오디오 한 턴을 텍스트로 변환."""
         ...
 
 
-class NotConfiguredTranscriber:
-    """STT 미연결 상태. 프론트가 텍스트 발화를 직접 보내는 데모 모드에서 사용."""
+class AzureSpeechRestTranscriber:
+    """Azure AI Speech REST STT 어댑터 (별도 모델 배포 없이 Region/Key로 고속 한국어 인식)."""
 
-    async def transcribe(self, audio: bytes, *, mime_type: str = "audio/webm") -> str:
-        raise NotImplementedError(
-            "STT가 아직 연결되지 않았습니다. 데모에서는 utterance 메시지로 텍스트를 직접 전송하세요."
-        )
+    def __init__(self, key: str, region: str) -> None:
+        self.key = key
+        self.region = region
+
+    async def transcribe(self, audio: bytes, *, mime_type: str = "audio/wav") -> str:
+        url = f"https://{self.region}.stt.speech.microsoft.com/speech/recognition/conversation/cognitiveservices/v1?language=ko-KR"
+        headers = {
+            "Ocp-Apim-Subscription-Key": self.key,
+            "Content-Type": "audio/wav; codecs=audio/pcm; samplerate=24000",
+            "Accept": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, headers=headers, content=audio)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    status = data.get("RecognitionStatus")
+                    if status == "Success":
+                        text = data.get("DisplayText", "").strip()
+                        logger.info("Azure Speech REST STT 성공: %s", text)
+                        return text
+                    logger.info("Azure Speech 인식 결과: %s", status)
+        except Exception as e:
+            logger.warning("Azure Speech REST STT 요청 실패: %s", e)
+        return ""
 
 
 class GptTranscriber:
-    """gpt-transcribe / gpt-live-transcribe 어댑터."""
+    """Azure OpenAI Whisper STT 어댑터."""
 
     def __init__(self) -> None:
-        from openai import AsyncAzureOpenAI
         settings = get_settings()
-        self._model = settings.stt_model
+        self._model = settings.stt_model or "whisper"
         self._client = AsyncAzureOpenAI(
             azure_endpoint=settings.azure_openai_endpoint,
             api_key=settings.azure_openai_api_key,
             api_version=settings.azure_openai_api_version,
         )
 
-    async def transcribe(self, audio: bytes, *, mime_type: str = "audio/webm") -> str:
+    async def transcribe(self, audio: bytes, *, mime_type: str = "audio/wav") -> str:
         try:
-            # Whisper API expects a tuple (filename, file_content)
-            filename = "audio.webm" if "webm" in mime_type else "audio.wav"
+            filename = "audio.wav"
             response = await self._client.audio.transcriptions.create(
                 model=self._model,
                 file=(filename, audio),
                 language="ko",
-                response_format="text"
+                response_format="text",
             )
             text = str(response).strip()
-            logger.info("STT 변환 성공: %s", text)
+            logger.info("Azure OpenAI Whisper STT 성공: %s", text)
             return text
         except Exception as e:
-            logger.exception("STT 변환 실패")
-            raise e
+            logger.warning("Azure OpenAI Whisper STT (%s) 실패: %s", self._model, e)
+            try:
+                # 일반적인 whisper 모델명으로 다시 한번 시도
+                fallback_model = "whisper" if self._model != "whisper" else "whisper-1"
+                response = await self._client.audio.transcriptions.create(
+                    model=fallback_model,
+                    file=("audio.wav", audio),
+                    language="ko",
+                    response_format="text",
+                )
+                text = str(response).strip()
+                logger.info("Azure OpenAI Whisper STT (%s 폴백) 성공: %s", fallback_model, text)
+                return text
+            except Exception as e2:
+                logger.warning("Azure OpenAI Whisper STT (폴백 %s) 실패: %s", fallback_model, e2)
+                return ""
+
+
+class CompositeTranscriber:
+    """Azure Speech ➡️ Whisper 순차 폴백 지원 트랜스크라이버."""
+
+    def __init__(self) -> None:
+        self.settings = get_settings()
+        self.speech_transcriber = None
+        self.gpt_transcriber = None
+
+        if self.settings.azure_speech_key and self.settings.azure_speech_region:
+            self.speech_transcriber = AzureSpeechRestTranscriber(
+                self.settings.azure_speech_key, self.settings.azure_speech_region
+            )
+        if self.settings.use_azure_openai:
+            try:
+                self.gpt_transcriber = GptTranscriber()
+            except Exception as e:
+                logger.warning(f"GptTranscriber 초기화 실패: {e}")
+
+    async def transcribe(self, audio: bytes, *, mime_type: str = "audio/wav") -> str:
+        if self.speech_transcriber:
+            text = await self.speech_transcriber.transcribe(audio, mime_type=mime_type)
+            if text:
+                return text
+        if self.gpt_transcriber:
+            text = await self.gpt_transcriber.transcribe(audio, mime_type=mime_type)
+            if text:
+                return text
+        return ""
 
 
 def get_transcriber() -> Transcriber:
-    settings = get_settings()
-    if settings.use_azure_openai and settings.stt_model:
-        return GptTranscriber()
-    logger.warning("STT 미설정 — 텍스트 입력 데모 모드로 동작합니다.")
-    return NotConfiguredTranscriber()
+    return CompositeTranscriber()
+

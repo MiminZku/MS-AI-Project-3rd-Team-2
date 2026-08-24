@@ -25,6 +25,6 @@ def test_빈_스크립트는_빈_리스트():
 
 def test_프롬프트_렌더링에_현재위치가_표시된다():
     lines = render_for_prompt(parse_question_script(SCRIPT), current_index=1).splitlines()
-    assert lines[0].startswith("1. ")
+    assert lines[0].startswith("[index: 0] 1. ")
     assert lines[1].endswith("<== 현재 진행 중")
     assert lines[2].strip().startswith("[부담됨]")
