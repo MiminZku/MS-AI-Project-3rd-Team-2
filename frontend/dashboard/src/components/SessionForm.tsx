@@ -54,9 +54,9 @@ export function SessionListRows({
             <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
               {STATUS_LABEL[session.status]}
             </span>
-            <code>{formatSessionReference(session.id)}</code>
-            <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
-              {new Date(session.created_at).toLocaleString("ko-KR")}
+            <strong>{session.title || formatSessionReference(session.id)}</strong>
+            <span className="desc" style={{ width: "100%", margin: "2px 0 0" }}>
+              {session.id} · {new Date(session.created_at).toLocaleString("ko-KR")}
             </span>
           </button>
         );
@@ -739,7 +739,7 @@ function ProjectDetailView({
   }, [project.id]);
 
   const handleDeleteSession = async (session: Session) => {
-    if (!window.confirm(`세션 "${formatSessionReference(session.id)}"을(를) 삭제할까요?`)) return;
+    if (!window.confirm(`세션 "${session.title || formatSessionReference(session.id)}"을(를) 삭제할까요?`)) return;
     setError("");
     setBusyId(session.id);
     try {
@@ -778,8 +778,8 @@ function ProjectDetailView({
               <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
                 {STATUS_LABEL[session.status]}
               </span>{" "}
-              <code>{formatSessionReference(session.id)}</code>
-              <span className="desc">{new Date(session.created_at).toLocaleString("ko-KR")}</span>
+              <strong>{session.title || formatSessionReference(session.id)}</strong>
+              <span className="desc">{session.id} · {new Date(session.created_at).toLocaleString("ko-KR")}</span>
             </span>
             <button
               type="button"
