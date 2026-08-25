@@ -972,7 +972,7 @@ body {
   right: 14px;
   z-index: 15;
   display: flex;
-  justifyContent: space-between;
+  justify-content: space-between;
   align-items: center;
   pointer-events: none;
 }
