@@ -40,6 +40,7 @@ export interface Turn {
   index: number;
   speaker: Speaker;
   text: string;
+  text_en?: string | null;
   /** AI 판단 근거 — 참관자 전용 (C5). */
   rationale: string | null;
   instruction_id: string | null;

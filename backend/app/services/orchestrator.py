@@ -156,6 +156,8 @@ def _turn_payload(
 async def handle_utterance(
     session: Session,
     text: str,
+    *,
+    text_en: str | None = None,
 ) -> None:
 
     store = get_store()
@@ -181,6 +183,7 @@ async def handle_utterance(
         index=index,
         speaker="interviewee",
         text=text,
+        text_en=text_en,
     )
 
     await store.append_turn(

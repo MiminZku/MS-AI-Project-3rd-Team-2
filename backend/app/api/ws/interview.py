@@ -100,6 +100,7 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
 
     raw_pcm_chunks: list[bytes] = []
     utterance_buffer: list[str] = []
+    translate_buffer: list[str] = []
 
     async def on_stt_partial(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.partial", lang="ko", text=text))
@@ -114,6 +115,8 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
         
     async def on_translate_final(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.final", lang="en", text=text))
+        if text.strip():
+            translate_buffer.append(text.strip())
 
     try:
         while True:
@@ -123,6 +126,11 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
             if msg_type == "audio.start":
                 raw_pcm_chunks.clear()
                 utterance_buffer.clear()
+                translate_buffer.clear()
+                if stt_client:
+                    stt_client.reset_buffer()
+                if translate_client:
+                    translate_client.reset_buffer()
                 source_lang = message.get("source_lang", "Korean")
                 target_lang = message.get("target_lang", "English")
                 # Initialize Realtime clients if not created
@@ -165,6 +173,7 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                 await asyncio.sleep(0.8)
                 
                 realtime_candidate = " ".join(utterance_buffer).strip()
+                realtime_translation = " ".join(translate_buffer).strip() or (translate_client.current_text.strip() if translate_client else "")
                 
                 current = await store.get_session(session_id)
                 curr_q = ""
@@ -208,10 +217,14 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
 
                 raw_pcm_chunks.clear()
                 utterance_buffer.clear()
+                translate_buffer.clear()
+                if stt_client:
+                    stt_client.reset_buffer()
+                if translate_client:
+                    translate_client.reset_buffer()
 
-                current = await store.get_session(session_id)
                 if current:
-                    await orchestrator.handle_utterance(current, full_text)
+                    await orchestrator.handle_utterance(current, final_text, text_en=realtime_translation or None)
                 
             elif msg_type == "utterance":
                 # Fallback for text mode demo

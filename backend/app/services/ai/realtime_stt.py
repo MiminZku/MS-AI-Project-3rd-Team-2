@@ -167,7 +167,12 @@ class RealtimeSTTClient:
                 "type": "response.create"
             }))
 
+    def reset_buffer(self):
+        """턴 전환 시 이전 발화 버퍼 초기화."""
+        self.current_text = ""
+
     async def close(self):
         self.running = False
         if self.ws:
             await self.ws.close()
+
