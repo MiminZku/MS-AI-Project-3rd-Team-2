@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { startSession, endSession, fetchReport, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
+import { startSession, endSession, fetchReport, observerSocketUrl, fetchRtcToken, getProject, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
 import { useRemoteRecording } from "../hooks/useRemoteRecording";
 import VideoSubscriber from "./VideoSubscriber";
@@ -52,6 +52,8 @@ const QUICK_INSTRUCTIONS = [
   "다음 주제로 자연스럽게 넘어가 주세요.",
 ];
 
+const LANGUAGE_LABELS: Record<string, string> = { ko: "한국어", en: "English", ja: "日本語" };
+
 function phaseOf(session: Session | null, intervieweeOnline: boolean): Phase {
   if (!session || session.status === "created") {
     return intervieweeOnline ? "joined" : "wait";
@@ -91,7 +93,8 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [historyOpen, setHistoryOpen] = useState(false);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<"tree" | "link" | null>(null);
+  const [activePanel, setActivePanel] = useState<"tree" | "link" | "options" | null>(null);
+  const [clientAccessId, setClientAccessId] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -121,6 +124,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         .catch(err => console.error("ACS token fetch failed", err));
     }
   }, [sessionId]);
+
+  useEffect(() => {
+    if (!session?.study_id || sessionId === DEMO_SESSION_ID) return;
+    getProject(session.study_id)
+      .then((project) => setClientAccessId(project.access_id ?? null))
+      .catch((err) => console.error("프로젝트 조회 실패", err));
+  }, [session?.study_id, sessionId]);
 
   useEffect(() => {
     // 백엔드 없이 화면을 리뷰하기 위한 목데이터 모드 (§SessionForm "데모로 미리보기").
@@ -392,6 +402,19 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
               </svg>
             </span>
           </button>
+          <button
+            type="button"
+            className={`dock-icon options ${activePanel === "options" ? "on" : ""}`}
+            title="세션 옵션 · 인터뷰 시간 · 통역 언어"
+            onClick={() => setActivePanel((v) => (v === "options" ? null : "options"))}
+          >
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="10" cy="10" r="2.2" />
+                <path d="M10 3.5v2M10 14.5v2M16.5 10h-2M5.5 10h-2M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4M14.6 14.6l-1.4-1.4M6.8 6.8L5.4 5.4" />
+              </svg>
+            </span>
+          </button>
         </div>
         </div>
 
@@ -485,13 +508,40 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                         </button>
                       </p>
                     )}
-                    <p className="link-row">
-                      클라이언트: <span className="muted">준비 중</span>
-                    </p>
+                    {clientAccessId ? (
+                      <p className="link-row">
+                        클라이언트: <code>{clientAccessId}</code>
+                        <button className="ghost" onClick={() => navigator.clipboard.writeText(clientAccessId)}>
+                          복사
+                        </button>
+                      </p>
+                    ) : (
+                      <p className="link-row">
+                        클라이언트: <span className="muted">프로젝트에 연결된 세션이 아닙니다</span>
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="muted small">참관 전용 — 링크는 PM만 볼 수 있습니다.</p>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div className={`dock-panel ${activePanel === "options" ? "open" : ""}`}>
+            <div className="hover-drawer-section">
+              <div className="hover-drawer-label">• 세션 옵션</div>
+              <div className="p-body">
+                <p className="link-row">
+                  인터뷰 시간: <strong>{session?.duration_minutes ?? "-"}분</strong>
+                </p>
+                <p className="link-row">
+                  통역 언어:{" "}
+                  <strong>
+                    {LANGUAGE_LABELS[session?.interpretation_language ?? "ko"] ?? session?.interpretation_language}
+                  </strong>
+                </p>
+                <p className="muted small">실시간 통역 반영은 아직 준비 중이며, 위 값은 세션 생성 시 선택한 설정입니다.</p>
               </div>
             </div>
           </div>
@@ -689,7 +739,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         </section>
 
         {role === "pm" && (
-          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
+          <section className={`panel ${phase === "wait" || phase === "joined" ? "locked" : ""}`}>
             <button
               type="button"
               className="accordion-head"
@@ -703,33 +753,41 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             </button>
             {instructionsOpen && (
               <>
-                <div className="composer p-body">
-                  <textarea
-                    rows={2}
-                    value={draft}
-                    placeholder="예) 경쟁사 대비 장점을 물어봐"
-                    onChange={(event) => setDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        sendInstruction();
-                      }
-                    }}
-                  />
-                  <button onClick={sendInstruction} disabled={status !== "connected"}>
-                    지시 보내기
-                  </button>
-                </div>
-                <div className="quick">
-                  {QUICK_INSTRUCTIONS.map((text) => (
-                    <button key={text} onClick={() => setDraft(text)}>
-                      {text}
-                    </button>
-                  ))}
-                </div>
-                <p className="muted small" style={{ padding: "6px 16px 10px" }}>
-                  응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
-                </p>
+                {phase === "end" ? (
+                  <p className="muted small" style={{ padding: "10px 16px" }}>
+                    세션이 종료되어 새 지시는 보낼 수 없습니다. 아래에서 지시 이력만 확인할 수 있습니다.
+                  </p>
+                ) : (
+                  <>
+                    <div className="composer p-body">
+                      <textarea
+                        rows={2}
+                        value={draft}
+                        placeholder="예) 경쟁사 대비 장점을 물어봐"
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            sendInstruction();
+                          }
+                        }}
+                      />
+                      <button onClick={sendInstruction} disabled={status !== "connected"}>
+                        지시 보내기
+                      </button>
+                    </div>
+                    <div className="quick">
+                      {QUICK_INSTRUCTIONS.map((text) => (
+                        <button key={text} onClick={() => setDraft(text)}>
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="muted small" style={{ padding: "6px 16px 10px" }}>
+                      응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
+                    </p>
+                  </>
+                )}
 
                 <button
                   type="button"

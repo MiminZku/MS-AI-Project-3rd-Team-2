@@ -22,6 +22,7 @@ function multipartHeaders(): HeadersInit {
 export interface CreateSessionInput {
   title: string;
   duration_minutes: number;
+  interpretation_language?: string;
   question_script: string;
   study_id?: string;
 }
@@ -70,6 +71,15 @@ export async function listProjects(): Promise<Project[]> {
   });
   if (!response.ok) throw new Error(`프로젝트 목록 조회 실패 (${response.status})`);
   return response.json();
+}
+
+export async function getProject(studyId: string): Promise<Project> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${studyId}`, {
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`프로젝트 조회 실패 (${response.status})`);
+  const { study } = await response.json();
+  return study;
 }
 
 export async function createProject(input: CreateProjectInput): Promise<{ study: Project }> {

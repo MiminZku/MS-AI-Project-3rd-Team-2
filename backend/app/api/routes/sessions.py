@@ -86,6 +86,7 @@ async def create_session(
             duration_minutes=(
                 payload.duration_minutes
             ),
+            interpretation_language=payload.interpretation_language,
 
             # ⭐ 중요
             # 질문지를 다시 파싱하지 않고
@@ -109,6 +110,7 @@ async def create_session(
             duration_minutes=(
                 payload.duration_minutes
             ),
+            interpretation_language=payload.interpretation_language,
             questions=questions,
         )
 

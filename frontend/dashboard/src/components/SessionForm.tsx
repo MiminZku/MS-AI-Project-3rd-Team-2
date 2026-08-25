@@ -54,9 +54,9 @@ export function SessionListRows({
             <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
               {STATUS_LABEL[session.status]}
             </span>
-            <code>{formatSessionReference(session.id)}</code>
-            <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
-              {new Date(session.created_at).toLocaleString("ko-KR")}
+            <strong>{session.title || formatSessionReference(session.id)}</strong>
+            <span className="desc" style={{ width: "100%", margin: "2px 0 0" }}>
+              {session.id} · {new Date(session.created_at).toLocaleString("ko-KR")}
             </span>
           </button>
         );
@@ -401,6 +401,7 @@ export function NewSessionView({
       const result = await createSession({
         title: normalizeParticipantId(participantId),
         duration_minutes: duration,
+        interpretation_language: language,
         study_id: projectId,
         question_script: "",
       });
@@ -495,16 +496,18 @@ export function NewSessionView({
                 일회용 · 1회 입장 후 만료
               </span>
             </div>
-            <div className="linkrow">
-              <span className="lk-tag">클라이언트</span>
-              <code>준비 중</code>
-              <button type="button" className="btn-sm" disabled title="곧 지원 예정">
-                복사
-              </button>
-              <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
-                관찰 전용 · 세션 종료 시 만료 (곧 지원 예정)
-              </span>
-            </div>
+            {selectedProject?.access_id && (
+              <div className="linkrow">
+                <span className="lk-tag">클라이언트</span>
+                <code>{selectedProject.access_id}</code>
+                <button type="button" className="btn-sm" onClick={() => copyLink(selectedProject.access_id!)}>
+                  {copied ? "복사됨" : "복사"}
+                </button>
+                <span className="desc" style={{ width: "100%", margin: "4px 0 0" }}>
+                  이 프로젝트 소속 세션 전체를 관찰 전용으로 볼 수 있는 ID입니다 (세션 개별 링크 아님)
+                </span>
+              </div>
+            )}
             <div className="form-actions">
               <button onClick={() => onCreated(created.session, created.intervieweeUrl)}>백룸 열기 →</button>
             </div>
@@ -736,7 +739,7 @@ function ProjectDetailView({
   }, [project.id]);
 
   const handleDeleteSession = async (session: Session) => {
-    if (!window.confirm(`세션 "${formatSessionReference(session.id)}"을(를) 삭제할까요?`)) return;
+    if (!window.confirm(`세션 "${session.title || formatSessionReference(session.id)}"을(를) 삭제할까요?`)) return;
     setError("");
     setBusyId(session.id);
     try {
@@ -775,8 +778,8 @@ function ProjectDetailView({
               <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
                 {STATUS_LABEL[session.status]}
               </span>{" "}
-              <code>{formatSessionReference(session.id)}</code>
-              <span className="desc">{new Date(session.created_at).toLocaleString("ko-KR")}</span>
+              <strong>{session.title || formatSessionReference(session.id)}</strong>
+              <span className="desc">{session.id} · {new Date(session.created_at).toLocaleString("ko-KR")}</span>
             </span>
             <button
               type="button"

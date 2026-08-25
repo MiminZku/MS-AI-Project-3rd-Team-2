@@ -16,6 +16,7 @@ export interface Session {
   title: string;
   status: "created" | "running" | "ended";
   duration_minutes: number;
+  interpretation_language?: string;
   questions: QuestionNode[];
   current_question_index: number;
   active_branch?: string | null;
