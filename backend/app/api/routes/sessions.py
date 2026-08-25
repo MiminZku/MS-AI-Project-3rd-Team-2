@@ -19,7 +19,6 @@ from app.services.question_script import parse_question_script
 from app.services.recordings import RecordingUploadResponse, save_recording
 from app.services.store import get_store
 from app.schemas.messages import server_message
-from app.services.storage import get_storage_service
 
 
 router = APIRouter(
@@ -242,7 +241,13 @@ async def upload_recording(
     if not content:
         raise HTTPException(status_code=422, detail="Recording file is empty.")
 
-    return await save_recording(session.id, content)
+    result = await save_recording(session.id, content)
+
+    # 저장된 녹화본 URL을 세션에도 반영해야 종료 후 리포트/대시보드에서 다시 찾을 수 있다.
+    session.video_recording_url = result.video_recording_url
+    await get_store().save_session(session)
+
+    return result
 
 
 @router.post(
@@ -288,38 +293,7 @@ async def get_report(
     return report
 
 
-# =========================================================
-# Recording 업로드 (영상/음성 녹화 파일 저장)
-# =========================================================
-
-@router.post(
-    "/{session_id}/recording",
-    status_code=200,
-)
-async def upload_recording(
-    file: UploadFile = File(...),
-    session: Session = Depends(load_session),
-) -> dict:
-    storage = get_storage_service()
-    content = await file.read()
-
-    # 확장자 유지 (.webm / .mp4 / .wav 등)
-    ext = file.filename.split(".")[-1] if file.filename and "." in file.filename else "webm"
-    target_filename = f"{session.id}/recording.{ext}"
-
-    url = await storage.upload_file(
-        file_bytes=content,
-        filename=target_filename,
-        content_type=file.content_type or "video/webm",
-        container_name="recordings",
-    )
-
-    session.video_recording_url = url
-    await get_store().save_session(session)
-
-    return {
-        "session_id": session.id,
-        "video_recording_url": url,
-        "size_bytes": len(content),
-        "status": "uploaded",
-    }
+# NOTE: 과거 이 위치에 POST /{session_id}/recording 핸들러가 중복 정의되어 있었다.
+# FastAPI 는 먼저 등록된 라우트를 사용하므로 이 두 번째 정의는 한 번도 실행되지 않는 죽은 코드였고
+# (openapi 생성 시 Duplicate Operation ID 경고 발생), 녹화본 URL 이 세션에 저장되지 않는 원인이었다.
+# 실제 동작하던 위쪽 핸들러(save_recording 사용)에 세션 저장 로직을 합치고 이 중복 정의는 제거했다.

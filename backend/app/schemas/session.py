@@ -39,6 +39,14 @@ class Session(BaseModel):
     duration_minutes: int = 20
     questions: list[QuestionNode] = Field(default_factory=list)
     current_question_index: int = 0
+    # current_question_index의 메인 질문을 응답자에게 실제로 물었는지 여부.
+    # False면 파생질문/전이보다 메인 질문 발화가 우선한다 (파생질문 선행 방지).
+    main_question_asked: bool = False
+    probe_count: int = 0
+    completed_question_indices: list[int] = Field(default_factory=list)
+    covered_facts: dict[str, str] = Field(default_factory=dict)
+    active_branch: str | None = None
+    taken_branches: list[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=utcnow)
     started_at: datetime | None = None
     ended_at: datetime | None = None
@@ -46,7 +54,7 @@ class Session(BaseModel):
     audio_recording_url: str | None = None
 
     def covered_count(self) -> int:
-        return min(self.current_question_index, len(self.questions))
+        return min(len(self.completed_question_indices), len(self.questions))
 
 
 class Turn(BaseModel):

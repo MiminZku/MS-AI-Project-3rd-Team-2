@@ -23,6 +23,15 @@ class GeneratedQuestion:
     text: str
     rationale: str
     next_question_index: int
+    is_sufficient: bool = True
+    extracted_fact: str = ""
+    selected_branch: str | None = None
+    # STT 전사가 질문과 문맥상 맞지 않거나 알아들을 수 없을 때, 모델이 "이해한 척"하지 않고
+    # 스스로 신고하는 플래그. True면 orchestrator가 다음 질문으로 넘어가지 않고 재확인시킨다.
+    needs_clarification: bool = False
+    # 이번 발화가 작별 인사(종료 멘트)라는 신고. True면 orchestrator가 이 발화를 전달한 뒤
+    # 세션을 자동 종료한다 (대본을 모두 마쳤고 대기 중인 참관자 지시가 없을 때에 한함).
+    is_closing: bool = False
 
 
 class QuestionGenerator(Protocol):
@@ -53,38 +62,82 @@ class StubQuestionGenerator:
                 text=f"방금 말씀 중에 궁금한 점이 있는데요, {instruction.text} 관련해서 조금 더 들려주시겠어요?",
                 rationale=f"[STUB] 참관자 지시 '{instruction.text}'를 이번 턴에 주입했습니다.",
                 next_question_index=index,
+                is_sufficient=False,
+                extracted_fact="참관자 지시 질문 수행",
+                selected_branch=None,
             )
 
-        # 직전 답변에 분기(Branch) 키워드가 매칭되는지 확인
+        # 아직 전달되지 않은 메인 질문이 있으면 파생질문보다 항상 먼저 묻는다.
+        if index < len(questions) and not session.main_question_asked:
+            return GeneratedQuestion(
+                text=questions[index].text,
+                rationale="[STUB] 아직 묻지 않은 메인 질문을 순서대로 진행했습니다.",
+                next_question_index=index,
+                is_sufficient=False,
+                extracted_fact="",
+                selected_branch=None,
+            )
+
+        # 메인 질문 답변을 받은 뒤에만 분기(Branch) 키워드를 확인한다
         last_turn = transcript[-1] if transcript else None
         if last_turn and last_turn.speaker == "interviewee" and index < len(questions):
             curr_q = questions[index]
             for branch_k, branch_q in curr_q.branches.items():
-                if branch_k in last_turn.text:
+                if branch_k in last_turn.text and branch_k not in session.taken_branches:
                     return GeneratedQuestion(
                         text=branch_q,
                         rationale=f"[STUB] 응답자의 키워드 '{branch_k}'에 매칭되어 파생 꼬리질문으로 전이했습니다.",
-                        next_question_index=index + 1,
+                        next_question_index=index,
+                        is_sufficient=False,
+                        extracted_fact=f"{branch_k} 키워드 언급",
+                        selected_branch=branch_k,
                     )
+
+        # 현재 질문을 마무리하고 같은 발화에서 다음 메인 질문을 그대로 묻는다
+        if index + 1 < len(questions):
+            return GeneratedQuestion(
+                text=questions[index + 1].text,
+                rationale="[STUB] 현재 질문의 답변을 받아 다음 메인 질문으로 전이했습니다.",
+                next_question_index=index + 1,
+                is_sufficient=True,
+                extracted_fact="",
+                selected_branch=None,
+            )
 
         if index < len(questions):
             return GeneratedQuestion(
-                text=questions[index].text,
-                rationale="[STUB] 대기 중인 참관자 지시가 없어 질문 리스트 순서대로 진행했습니다.",
-                next_question_index=index + 1,
+                text="준비된 기본 질문은 모두 마쳤습니다! 혹시 참관 중인 리서치팀에서 추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요.",
+                rationale="[WRAPUP] 마지막 질문의 답변까지 받아 리서치팀 추가 질문 확인 단계로 진입했습니다.",
+                next_question_index=len(questions),
+                is_sufficient=True,
+                extracted_fact="",
+                selected_branch=None,
             )
 
-        if index == len(questions):
+        # 대본 종료 구간(index == len(questions))에서는 인덱스가 더 올라가지 않으므로,
+        # 마무리 멘트를 이미 했는지는 대화 기록으로 판별한다. (같은 멘트 무한 반복 방지)
+        already_wrapped_up = any(
+            turn.speaker == "assistant" and (turn.rationale or "").startswith("[WRAPUP]")
+            for turn in transcript
+        )
+        if not already_wrapped_up:
             return GeneratedQuestion(
                 text="준비된 기본 질문은 모두 마쳤습니다! 혹시 참관 중인 리서치팀에서 추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요.",
                 rationale="[WRAPUP] 기본 질문 리스트를 모두 완료하여 리서치팀 추가 질문 확인 단계로 진입했습니다.",
-                next_question_index=index + 1,
+                next_question_index=index,
+                is_sufficient=True,
+                extracted_fact="",
+                selected_branch=None,
             )
 
         return GeneratedQuestion(
             text="확인 결과 추가 질문은 없으므로 오늘 인터뷰를 모두 마치겠습니다. 성실하고 소중한 답변 진심으로 감사드립니다! 상단의 나가기 버튼을 눌러 퇴장해 주시면 됩니다.",
             rationale="[END] 모든 인터뷰 절차가 성공적으로 종료되었습니다.",
-            next_question_index=index + 1,
+            next_question_index=index,
+            is_sufficient=True,
+            extracted_fact="",
+            selected_branch=None,
+            is_closing=True,
         )
 
 
@@ -111,8 +164,8 @@ class AzureOpenAIQuestionGenerator:
         response = await self._client.chat.completions.create(
             model=self._deployment,
             messages=messages,
-            temperature=0.7,
-            max_completion_tokens=1300,
+            temperature=0.3,
+            max_completion_tokens=1000,
             response_format={"type": "json_object"},
         )
         content = response.choices[0].message.content or "{}"
@@ -124,16 +177,35 @@ class AzureOpenAIQuestionGenerator:
             data = {"question": content.strip()}
 
         next_idx = int(data.get("next_question_index", session.current_question_index))
+        is_sufficient = bool(data.get("is_sufficient", True))
+        extracted_fact = str(data.get("extracted_fact", "")).strip()
+        needs_clarification = bool(data.get("needs_clarification", False))
+        is_closing = bool(data.get("is_closing", False))
+        selected_branch = data.get("selected_branch")
+        if selected_branch:
+            selected_branch = str(selected_branch).strip()
+            if selected_branch.lower() in ("null", "none", ""):
+                selected_branch = None
+
         # State Machine Guard: Prevent jumping backward or skipping multiple steps
         if next_idx < session.current_question_index:
             next_idx = session.current_question_index
         elif next_idx > session.current_question_index + 1:
             next_idx = session.current_question_index + 1
 
+        total_questions = len(session.questions)
+        if session.current_question_index >= total_questions:
+            next_idx = total_questions
+
         return GeneratedQuestion(
             text=str(data.get("question", "")).strip() or "조금 더 자세히 말씀해 주시겠어요?",
             rationale=str(data.get("rationale", "")).strip(),
             next_question_index=next_idx,
+            is_sufficient=is_sufficient,
+            extracted_fact=extracted_fact,
+            selected_branch=selected_branch,
+            needs_clarification=needs_clarification,
+            is_closing=is_closing,
         )
 
 
