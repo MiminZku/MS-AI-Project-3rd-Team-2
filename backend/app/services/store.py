@@ -64,6 +64,12 @@ class Store(Protocol):
     ) -> list[ResearchStudy]:
         ...
 
+    async def delete_study(
+        self,
+        study_id: str,
+    ) -> None:
+        ...
+
     # -----------------------------------------------------
     # Session
     # -----------------------------------------------------
@@ -84,6 +90,12 @@ class Store(Protocol):
         self,
         study_id: str | None = None,
     ) -> list[Session]:
+        ...
+
+    async def delete_session(
+        self,
+        session_id: str,
+    ) -> None:
         ...
 
     # -----------------------------------------------------
@@ -240,6 +252,14 @@ class InMemoryStore:
         return studies
 
 
+    async def delete_study(
+        self,
+        study_id: str,
+    ) -> None:
+
+        self._studies.pop(study_id, None)
+
+
     # -----------------------------------------------------
     # Session
     # -----------------------------------------------------
@@ -280,6 +300,18 @@ class InMemoryStore:
         )
 
         return sessions
+
+
+    async def delete_session(
+        self,
+        session_id: str,
+    ) -> None:
+
+        self._sessions.pop(session_id, None)
+        self._transcripts.pop(session_id, None)
+        self._queue.pop(session_id, None)
+        self._instructions.pop(session_id, None)
+        self._reports.pop(session_id, None)
 
 
     # -----------------------------------------------------
@@ -562,6 +594,25 @@ class RedisStore:
         return studies
 
 
+    async def delete_study(
+        self,
+        study_id: str,
+    ) -> None:
+
+        study = await self.get_study(study_id)
+
+        keys = [
+            self._study_key(study_id),
+            self._study_sessions_key(study_id),
+        ]
+        if study and study.access_id:
+            keys.append(
+                self._study_access_key(study.access_id)
+            )
+
+        await self._redis.delete(*keys)
+
+
     # -----------------------------------------------------
     # Session
     # -----------------------------------------------------
@@ -673,6 +724,31 @@ class RedisStore:
         )
 
         return sessions
+
+
+    async def delete_session(
+        self,
+        session_id: str,
+    ) -> None:
+
+        session = await self.get_session(session_id)
+
+        keys = [
+            self._key(session_id),
+            self._key(session_id, ":transcript"),
+            self._key(session_id, ":queue"),
+            self._key(session_id, ":instructions"),
+            self._key(session_id, ":instr_order"),
+            self._key(session_id, ":report"),
+        ]
+
+        await self._redis.delete(*keys)
+
+        if session and session.study_id:
+            await self._redis.srem(
+                self._study_sessions_key(session.study_id),
+                session_id,
+            )
 
 
     # -----------------------------------------------------

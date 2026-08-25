@@ -100,6 +100,16 @@ class CosmosStore:
         studies.sort(key=lambda s: s.created_at, reverse=True)
         return studies
 
+    async def delete_study(self, study_id: str) -> None:
+        await self._ensure_init()
+        try:
+            await self.projects_container.delete_item(
+                item=study_id,
+                partition_key=study_id,
+            )
+        except CosmosResourceNotFoundError:
+            pass
+
     # -----------------------------------------------------
     # Session (Interviews)
     # -----------------------------------------------------
@@ -145,6 +155,19 @@ class CosmosStore:
                 logger.warning("Session 문서 검증 실패 (id=%s): %s", item.get("id"), e)
         sessions.sort(key=lambda s: s.created_at, reverse=True)
         return sessions
+
+    async def delete_session(self, session_id: str) -> None:
+        await self._ensure_init()
+        item = await self._get_session_doc(session_id)
+        if not item:
+            return
+        try:
+            await self.interviews_container.delete_item(
+                item=session_id,
+                partition_key=item.get("project_id", "default"),
+            )
+        except CosmosResourceNotFoundError:
+            pass
 
     # -----------------------------------------------------
     # Transcript
