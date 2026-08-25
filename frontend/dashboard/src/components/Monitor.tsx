@@ -76,6 +76,10 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [draft, setDraft] = useState("");
   const [liveTextKo, setLiveTextKo] = useState("");
   const [liveTextEn, setLiveTextEn] = useState("");
+  const liveTextEnRef = useRef("");
+  const pendingTranslationIndexRef = useRef<number | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translations, setTranslations] = useState<Record<number, string>>({});
   const [report, setReport] = useState<Report | null>(null);
   const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
@@ -150,14 +154,36 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         case "transcript.append":
           setTranscript((prev) => [...prev, message.turn]);
           if (message.turn.speaker === "interviewee") {
-            setLiveTextKo("");
-            setLiveTextEn("");
+            // 번역 스트림은 원문 STT 확정보다 한참 늦게 끝나는 경우가 많아서,
+            // 지금까지 온 부분 번역이 있으면 우선 붙여두고 계속 이어서 갱신되도록 대기 상태로 둔다.
+            if (liveTextEnRef.current) {
+              const idx = message.turn.index;
+              const text = liveTextEnRef.current;
+              setTranslations((prev) => ({ ...prev, [idx]: text }));
+            }
+            pendingTranslationIndexRef.current = message.turn.index;
+            // 자막 표시(liveTextKo/En)는 여기서 비우지 않는다 — 마이크가 잠깐 꺼져 다음 발화의
+            // partial이 오기 전까지도 방금 턴의 자막이 화면에 계속 보이도록 유지한다.
+            liveTextEnRef.current = "";
           }
           break;
         case "transcript.partial":
         case "transcript.final":
           if (message.lang === "ko") setLiveTextKo(message.text);
-          if (message.lang === "en") setLiveTextEn(message.text);
+          if (message.lang === "en") {
+            setLiveTextEn(message.text);
+            liveTextEnRef.current = message.text;
+            if (pendingTranslationIndexRef.current !== null) {
+              // 번역 완료(transcript.final)를 기다리지 않고 부분 결과가 올 때마다 계속 갱신한다 —
+              // 실측상 번역 스트림이 partial만 계속 보내고 final을 안 보내는 경우가 있어(ponytail: 백엔드
+              // translate_client가 완료 이벤트를 못 보내는 케이스, 재현 시 백엔드팀 확인 필요),
+              // final만 기다리면 번역이 영영 안 붙는 문제가 있었다.
+              const idx = pendingTranslationIndexRef.current;
+              const text = message.text;
+              setTranslations((prev) => ({ ...prev, [idx]: text }));
+              if (message.type === "transcript.final") pendingTranslationIndexRef.current = null;
+            }
+          }
           break;
         case "instruction.queued":
           setInstructions((prev) => [...prev, message.instruction]);
@@ -563,9 +589,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                   <button type="button" className="on" disabled title="곧 지원 예정">
                     원문 음성
                   </button>
-                  <button type="button" disabled title="곧 지원 예정">
-                    통역 음성
-                  </button>
                 </div>
               </div>
             </>
@@ -604,10 +627,10 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <div className="sub">STT 변환 · AI 판단 · 질문/답변 순</div>
               </div>
               <div className="lang-toggle">
-                <button type="button" className="active" disabled title="곧 지원 예정">
+                <button type="button" className={!showTranslation ? "active" : ""} onClick={() => setShowTranslation(false)}>
                   원문
                 </button>
-                <button type="button" disabled title="곧 지원 예정">
+                <button type="button" className={showTranslation ? "active" : ""} onClick={() => setShowTranslation(true)}>
                   원문+번역
                 </button>
               </div>
@@ -623,6 +646,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                     </time>
                   </div>
                   <p>{turn.text}</p>
+                  {showTranslation && turn.speaker === "interviewee" && translations[turn.index] && (
+                    <p className="turn-translation">{translations[turn.index]}</p>
+                  )}
                   {/* AI 판단 근거는 참관자에게만 보인다 (C5) */}
                   {turn.rationale && (
                     <div className="rationale">

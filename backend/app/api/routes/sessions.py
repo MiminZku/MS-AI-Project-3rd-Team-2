@@ -148,6 +148,30 @@ async def list_sessions() -> list[Session]:
 
 
 # =========================================================
+# Session 삭제
+# =========================================================
+
+@router.delete(
+    "/{session_id}",
+    status_code=204,
+)
+async def delete_session(
+    session_id: str,
+) -> None:
+
+    store = get_store()
+
+    session = await store.get_session(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="세션을 찾을 수 없습니다.",
+        )
+
+    await store.delete_session(session_id)
+
+
+# =========================================================
 # Session 조회
 # =========================================================
 

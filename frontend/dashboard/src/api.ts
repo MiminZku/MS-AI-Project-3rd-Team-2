@@ -90,6 +90,22 @@ export async function listProjectSessions(studyId: string): Promise<Session[]> {
   return response.json();
 }
 
+export async function deleteProject(studyId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${studyId}`, {
+    method: "DELETE",
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`프로젝트 삭제 실패 (${response.status})`);
+}
+
+export async function deleteSession(sessionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers: headers(),
+  });
+  if (!response.ok) throw new Error(`세션 삭제 실패 (${response.status})`);
+}
+
 export async function listSessions(): Promise<Session[]> {
   const response = await fetch(`${API_BASE_URL}/api/sessions`, {
     headers: headers(),

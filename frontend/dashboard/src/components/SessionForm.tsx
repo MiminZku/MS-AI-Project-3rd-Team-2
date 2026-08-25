@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import {
   createProject,
   createSession,
+  deleteProject,
+  deleteSession,
   fetchSession,
   listProjects,
   listProjectSessions,
@@ -20,7 +22,7 @@ const STATUS_LABEL: Record<Session["status"], string> = {
   ended: "종료",
 };
 
-type View = "new-project" | "new-session" | "session-list" | null;
+type View = "new-project" | "new-session" | "session-list" | "manage-projects" | null;
 
 interface Props {
   role: "pm" | "client";
@@ -71,9 +73,24 @@ export default function SessionForm({ role, onCreated }: Props) {
   );
 
   useEffect(() => {
-    listProjects()
-      .then(setProjects)
-      .catch((cause: unknown) => console.error("프로젝트 목록 조회 실패", cause));
+    let cancelled = false;
+    // 페이지 로드 직후 첫 요청이 간헐적으로 실패하는 경우가 있어 짧게 재시도한다.
+    const loadProjects = async (attempt = 0) => {
+      try {
+        const result = await listProjects();
+        if (!cancelled) setProjects(result);
+      } catch (cause) {
+        if (attempt < 4) {
+          setTimeout(() => loadProjects(attempt + 1), 500 * (attempt + 1));
+        } else {
+          console.error("프로젝트 목록 조회 실패", cause);
+        }
+      }
+    };
+    loadProjects();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   if (view === null) {
@@ -91,15 +108,15 @@ export default function SessionForm({ role, onCreated }: Props) {
 
         <div className="dock dashboard-action-grid">
           {role === "pm" && (
-            <button type="button" className="dock-icon project" title="새 프로젝트 만들기" onClick={() => setView("new-project")}>
+            <button type="button" className="dock-icon project" title="프로젝트 생성 및 삭제" onClick={() => setView("manage-projects")}>
               <span className="dock-icon-glyph">
                 <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3.5 5.75A1.75 1.75 0 0 1 5.25 4h3l1.5 1.75h5A1.75 1.75 0 0 1 16.5 7.5v7A1.75 1.75 0 0 1 14.75 16h-9A1.75 1.75 0 0 1 4 14.25v-8.5z" />
                   <path d="M10 8.5v4M8 10.5h4" />
                 </svg>
               </span>
-              <span className="dock-icon-label">새 프로젝트 만들기</span>
-              <span className="dock-icon-help">새 주제와 질문 가이드를 등록합니다</span>
+              <span className="dock-icon-label">프로젝트 생성 및 삭제</span>
+              <span className="dock-icon-help">프로젝트를 만들거나 관리·삭제합니다</span>
             </button>
           )}
           {role === "pm" && (
@@ -151,6 +168,7 @@ export default function SessionForm({ role, onCreated }: Props) {
         />
       )}
       {view === "session-list" && <SessionListView projects={projects} onCreated={onCreated} />}
+      {view === "manage-projects" && <ProjectManageView projects={projects} setProjects={setProjects} />}
     </main>
   );
 }
@@ -554,6 +572,205 @@ function SessionListView({
         )}
 
         <SessionListRows sessions={sessions} busy={busy} onOpen={open} />
+        {error && <p className="error">{error}</p>}
+      </div>
+    </section>
+  );
+}
+
+function ProjectManageView({
+  projects,
+  setProjects,
+}: {
+  projects: Project[];
+  setProjects: Dispatch<SetStateAction<Project[]>>;
+}) {
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? null;
+
+  const handleDeleteProject = async (project: Project) => {
+    if (
+      !window.confirm(
+        `"${project.title}" 프로젝트를 삭제할까요?\n이 프로젝트의 인터뷰 세션도 모두 함께 삭제됩니다.`,
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setBusyId(project.id);
+    try {
+      await deleteProject(project.id);
+      setProjects((prev) => prev.filter((item) => item.id !== project.id));
+      if (selectedProjectId === project.id) setSelectedProjectId(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  if (creating) {
+    return (
+      <NewProjectView
+        onCreated={(project) => {
+          setProjects((current) => [project, ...current.filter((item) => item.id !== project.id)]);
+          setCreating(false);
+        }}
+      />
+    );
+  }
+
+  if (selectedProject) {
+    return (
+      <ProjectDetailView
+        project={selectedProject}
+        onBack={() => setSelectedProjectId(null)}
+        onDeleteProject={() => handleDeleteProject(selectedProject)}
+        deletingProject={busyId === selectedProject.id}
+      />
+    );
+  }
+
+  return (
+    <section className="panel">
+      <header className="p-head">
+        <div>
+          <h2>프로젝트 생성 및 삭제</h2>
+          <div className="sub">프로젝트를 새로 만들거나, 목록에서 선택해 세션까지 관리·삭제하세요</div>
+        </div>
+      </header>
+      <div className="p-body">
+        <div className="form-actions" style={{ marginBottom: 12 }}>
+          <button type="button" onClick={() => setCreating(true)}>
+            + 새 프로젝트 만들기
+          </button>
+        </div>
+
+        {projects.length === 0 && <p className="muted small">등록된 프로젝트가 없습니다.</p>}
+
+        {projects.map((project) => (
+          <div key={project.id} className="project-row">
+            <button
+              type="button"
+              className="project-row-title row-main"
+              onClick={() => setSelectedProjectId(project.id)}
+            >
+              <strong>{project.title}</strong>
+              <span className="desc">{new Date(project.created_at).toLocaleString("ko-KR")}</span>
+            </button>
+            <button
+              type="button"
+              className="btn-sm danger"
+              disabled={busyId === project.id}
+              onClick={() => handleDeleteProject(project)}
+            >
+              {busyId === project.id ? "삭제 중…" : "삭제"}
+            </button>
+          </div>
+        ))}
+        {error && <p className="error">{error}</p>}
+      </div>
+    </section>
+  );
+}
+
+function ProjectDetailView({
+  project,
+  onBack,
+  onDeleteProject,
+  deletingProject,
+}: {
+  project: Project;
+  onBack: () => void;
+  onDeleteProject: () => void;
+  deletingProject: boolean;
+}) {
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    // 페이지 로드 직후 첫 요청이 간헐적으로 실패하는 경우가 있어 짧게 재시도한다.
+    const loadSessions = async (attempt = 0) => {
+      try {
+        const result = await listProjectSessions(project.id);
+        if (!cancelled) setSessions(result);
+        if (!cancelled) setLoading(false);
+      } catch (cause) {
+        if (attempt < 4) {
+          setTimeout(() => loadSessions(attempt + 1), 500 * (attempt + 1));
+        } else {
+          console.error("세션 목록 조회 실패", cause);
+          if (!cancelled) setLoading(false);
+        }
+      }
+    };
+    loadSessions();
+    return () => {
+      cancelled = true;
+    };
+  }, [project.id]);
+
+  const handleDeleteSession = async (session: Session) => {
+    if (!window.confirm(`세션 "${formatSessionReference(session.id)}"을(를) 삭제할까요?`)) return;
+    setError("");
+    setBusyId(session.id);
+    try {
+      await deleteSession(session.id);
+      setSessions((prev) => prev.filter((item) => item.id !== session.id));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  return (
+    <section className="panel">
+      <header className="p-head">
+        <div>
+          <button type="button" className="ghost" style={{ marginBottom: 8 }} onClick={onBack}>
+            ← 목록으로
+          </button>
+          <h2>{project.title}</h2>
+          <div className="sub">{project.research_purpose}</div>
+        </div>
+        <button type="button" className="btn-sm danger" disabled={deletingProject} onClick={onDeleteProject}>
+          {deletingProject ? "삭제 중…" : "이 프로젝트 삭제"}
+        </button>
+      </header>
+      <div className="p-body">
+        <h3 style={{ fontSize: 13, margin: "4px 0 8px" }}>인터뷰 세션</h3>
+        {loading && <p className="muted small">불러오는 중…</p>}
+        {!loading && sessions.length === 0 && (
+          <p className="muted small">이 프로젝트엔 아직 생성된 세션이 없습니다.</p>
+        )}
+        {sessions.map((session) => (
+          <div key={session.id} className="project-row">
+            <span className="row-main">
+              <span className={`badge ${session.status === "running" ? "connected" : ""}`}>
+                {STATUS_LABEL[session.status]}
+              </span>{" "}
+              <code>{formatSessionReference(session.id)}</code>
+              <span className="desc">{new Date(session.created_at).toLocaleString("ko-KR")}</span>
+            </span>
+            <button
+              type="button"
+              className="btn-sm danger"
+              disabled={busyId === session.id}
+              onClick={() => handleDeleteSession(session)}
+            >
+              {busyId === session.id ? "삭제 중…" : "삭제"}
+            </button>
+          </div>
+        ))}
         {error && <p className="error">{error}</p>}
       </div>
     </section>
