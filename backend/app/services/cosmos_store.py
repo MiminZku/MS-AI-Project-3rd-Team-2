@@ -116,7 +116,10 @@ class CosmosStore:
 
     async def save_session(self, session: Session) -> None:
         await self._ensure_init()
-        doc = session.model_dump(mode="json")
+        # 기존 문서를 베이스로 병합한다 — 통째로 새로 쓰면 append_turn/push_instruction 등이
+        # 같은 문서에 붙여둔 transcripts/instructions/report 필드가 지워진다.
+        doc = await self._get_session_doc(session.id) or {}
+        doc.update(session.model_dump(mode="json"))
         doc["type"] = "interview"
         doc["project_id"] = session.study_id or "default"
         await self.interviews_container.upsert_item(doc)
