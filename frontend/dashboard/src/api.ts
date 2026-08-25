@@ -82,7 +82,37 @@ export async function createProject(input: CreateProjectInput): Promise<{ study:
   return response.json();
 }
 
+export interface ProjectAggregateReport {
+  project_id: string;
+  status: "NOT_GENERATED" | "GENERATING" | "COMPLETED" | "FAILED";
+  generated_at: string | null;
+  included_session_ids: string[];
+  respondent_count: number;
+  content: Record<string, unknown> | null;
+  error_message: string | null;
+  updated_at: string;
+}
+
+export async function fetchProjectAggregateReport(studyId: string): Promise<ProjectAggregateReport> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${studyId}/aggregate-report`, { headers: headers() });
+  if (!response.ok) throw new Error(`프로젝트 리포트 조회 실패 (${response.status})`);
+  return response.json();
+}
+
+export async function generateProjectAggregateReport(studyId: string): Promise<ProjectAggregateReport> {
+  const response = await fetch(`${API_BASE_URL}/api/projects/${studyId}/aggregate-report`, {
+    method: "POST",
+    headers: headers(),
+  });
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null);
+    throw new Error(detail?.detail ?? `프로젝트 리포트 생성 실패 (${response.status})`);
+  }
+  return response.json();
+}
+
 export async function listProjectSessions(studyId: string): Promise<Session[]> {
+
   const response = await fetch(`${API_BASE_URL}/api/projects/${studyId}/sessions`, {
     headers: headers(),
   });

@@ -37,13 +37,11 @@ export default function App() {
                 >
                   {topbarStatus.starting ? "시작 중..." : "인터뷰 시작"}
                 </button>
-              )}
-              {topbarStatus.role === "pm" && topbarStatus.phase === "end" && (
-                <button className="sess-btn go" disabled={!topbarStatus.hasReport} onClick={topbarStatus.onOpenReport}>
-                  {topbarStatus.hasReport ? "리포트 열기" : "리포트 생성 중…"}
-                </button>
-              )}
+                            )}
+
               {topbarStatus.role === "pm" && topbarStatus.phase === "live" && (
+
+
                 <button className="sess-btn stop" disabled={topbarStatus.ending} onClick={topbarStatus.onEndSession}>
                   인터뷰 종료
                 </button>

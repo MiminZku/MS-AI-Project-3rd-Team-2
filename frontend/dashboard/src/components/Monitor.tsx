@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { startSession, endSession, fetchReport, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
+import { startSession, endSession, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
 import { useRemoteRecording } from "../hooks/useRemoteRecording";
 import VideoSubscriber from "./VideoSubscriber";
@@ -82,6 +82,8 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [recordingRequested, setRecordingRequested] = useState(false);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [projectSaveState, setProjectSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
   const [elapsedSec, setElapsedSec] = useState(0);
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
@@ -119,6 +121,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   }, [sessionId]);
 
   useEffect(() => {
+
     // 백엔드 없이 화면을 리뷰하기 위한 목데이터 모드 (§SessionForm "데모로 미리보기").
     if (sessionId === DEMO_SESSION_ID) {
       setSession(DEMO_SESSION);
@@ -194,23 +197,8 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     return () => socket.close();
   }, [sessionId]);
 
-  // report.ready 이벤트를 놓쳤을 경우를 대비한 폴백 폴링.
   useEffect(() => {
-    if (sessionId === DEMO_SESSION_ID || session?.status !== "ended" || report) return;
-    let cancelled = false;
-    const poll = async () => {
-      const result = await fetchReport(sessionId).catch(() => null);
-      if (!cancelled && result) setReport(result);
-    };
-    poll();
-    const timer = setInterval(poll, 4000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [sessionId, session?.status, report]);
 
-  useEffect(() => {
     if (session?.status !== "running" || !session.started_at) return;
     const startedAt = new Date(session.started_at).getTime();
     const tick = () => setElapsedSec((Date.now() - startedAt) / 1000);
@@ -260,10 +248,14 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     setStarting(false);
   }, [sessionId]);
 
-  const handleEndSession = useCallback(async () => {
+    const handleEndSession = useCallback(async () => {
     setEnding(true);
     setRecordingRequested(false);
     setActionError(null);
+    // transcript는 발화마다 저장되어 있으며, 종료 요청은 세션 완료 정보를
+    // 프로젝트(study_id)별 개인 인터뷰 레코드에 확정 저장한 뒤에만 성공한다.
+    setProjectSaveState("saving");
+
     if (sessionId === DEMO_SESSION_ID) {
       const endedAt = new Date().toISOString();
       setSession((prev) => (prev ? { ...prev, status: "ended", ended_at: endedAt } : prev));
@@ -275,14 +267,18 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         console.error("Failed to upload interview recording", error);
         setActionError("녹화 파일 업로드에 실패했습니다. 인터뷰는 종료합니다.");
       }
-      try {
+            try {
         setSession(await endSession(sessionId));
+        setProjectSaveState("saved");
       } catch (error) {
         console.error("Failed to end interview", error);
-        setActionError("인터뷰를 종료하지 못했습니다. 다시 시도해 주세요.");
+        setProjectSaveState("error");
+        setActionError("프로젝트 인터뷰 DB에 종료 상태를 저장하지 못했습니다. 다시 시도해 주세요.");
       }
     }
+    if (sessionId === DEMO_SESSION_ID) setProjectSaveState("saved");
     setEnding(false);
+
   }, [sessionId, stopAndUploadRecording]);
 
   const handleOpenReport = useCallback(() => {
@@ -501,7 +497,11 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 ＋10분
               </button>
               <span className={`badge ${status}`}>{status}</span>
+                            {projectSaveState === "saving" && <span className="muted small">프로젝트 개인 인터뷰 DB 저장 중…</span>}
+              {projectSaveState === "saved" && <span className="connected small">프로젝트 개인 인터뷰 DB 저장 완료</span>}
+              {projectSaveState === "error" && <span className="error-text" style={{ color: "red", fontSize: "12px", marginLeft: "8px" }}>DB 저장 실패</span>}
               {actionError && <span className="error-text" style={{ color: "red", fontSize: "12px", marginLeft: "8px" }}>{actionError}</span>}
+
             </div>
           </div>
         </header>
@@ -641,17 +641,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
               )}
             </div>
 
-            {phase === "end" && (
+                        {phase === "end" && (
               <div className="report-note">
-                {!report ? (
-                  <>세션이 종료되었습니다. <b>AI 리포트</b>를 생성하고 있습니다 — 완료되면 아래에 표시됩니다.</>
-                ) : (
-                  <>
-                    <b>AI 리포트</b>가 생성되었습니다.
-                  </>
-                )}
+                                세션과 답변은 프로젝트별 개인 인터뷰 DB에 저장됩니다. 저장 완료 후 프로젝트 목록에서 완료된 인터뷰를 확인하고 <b>프로젝트 리포트 생성</b>을 실행하세요.
+
               </div>
             )}
+
             {report && (
               <div className="report-highlight" ref={reportRef}>
                 {typeof report.data.summary === "string" && <p>{report.data.summary}</p>}

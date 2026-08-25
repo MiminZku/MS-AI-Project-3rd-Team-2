@@ -52,9 +52,14 @@ class Session(BaseModel):
     ended_at: datetime | None = None
     video_recording_url: str | None = None
     audio_recording_url: str | None = None
+        # PM 시나리오/가상 응답자 데이터는 실제 프로젝트 종합 리포트에서 제외한다.
+    is_simulation: bool = False
 
     def covered_count(self) -> int:
         return min(len(self.completed_question_indices), len(self.questions))
+
+
+
 
 
 class Turn(BaseModel):
