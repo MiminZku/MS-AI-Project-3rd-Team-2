@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { WS_BASE_URL, sessionIdFromUrl } from "./config";
 import type { ServerMessage, Turn, QuestionNode } from "./types";
 import WaitingScreen from "./components/WaitingScreen";
+import InterviewHelpModal from "./components/InterviewHelpModal";
 import PermissionExplainerModal from "./components/PermissionExplainerModal";
 import { useAudioLevelMonitor } from "./hooks/useAudioLevelMonitor";
 import AvatarMonitor from "./components/AvatarMonitor";
@@ -34,15 +35,17 @@ const DUMMY_REACTIONS = [
 ];
 
 interface OpeningParams {
-  title?: string;
+  projectTitle?: string;
   durationMinutes?: number;
 }
 
-function buildOpeningSpeech({ title, durationMinutes = 15 }: OpeningParams): string {
-  const projectTitle = title ? `"${title}" 조사` : "오늘 인터뷰";
+function buildOpeningSpeech({ projectTitle, durationMinutes = 15 }: OpeningParams): string {
+  const projectGreeting = projectTitle
+    ? `"${projectTitle}"에 참여해 주셔서 감사합니다.`
+    : "인터뷰에 참여해 주셔서 감사합니다.";
   const durationText = durationMinutes ? `약 ${durationMinutes}분 동안 ` : "";
 
-  return `안녕하세요! 오늘 ${projectTitle}에 소중한 시간 내어 참여해 주셔서 진심으로 감사드립니다. 저는 오늘 대화를 진행할 AI 모더레이터입니다. 본 인터뷰는 ${durationText}AI와 나누는 편안한 대화로 진행되며, AI 진행 특성상 대화 호흡이 다소 매끄럽지 못할 수 있는 점 미리 양해 부탁드립니다. 오늘 질문에는 정해진 정답이나 오답이 전혀 없으니, 평소 느끼고 경험하신 생각을 편안하고 솔직하게 말씀해 주시면 됩니다. 본격적인 질문에 앞서, 하시는 일이나 관심 분야 등 간단한 자기소개를 부탁드려도 될까요?`;
+  return `안녕하세요! ${projectGreeting} 저는 오늘 대화를 진행할 AI 모더레이터입니다. 본 인터뷰는 ${durationText}AI와 나누는 편안한 대화로 진행되며, AI 진행 특성상 대화 호흡이 다소 매끄럽지 못할 수 있는 점 미리 양해 부탁드립니다. 오늘 질문에는 정해진 정답이나 오답이 전혀 없으니, 평소 느끼고 경험하신 생각을 편안하고 솔직하게 말씀해 주시면 됩니다. 본격적인 질문에 앞서, 하시는 일이나 관심 분야 등 간단한 자기소개를 부탁드려도 될까요?`;
 }
 
 export default function App() {
@@ -58,11 +61,12 @@ export default function App() {
   const [isRecording, setIsRecording] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isExplainerOpen, setIsExplainerOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const [isAgreedToRecord, setIsAgreedToRecord] = useState(false);
   const [isAgreedToPrivacy, setIsAgreedToPrivacy] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
 
-  const [title, setTitle] = useState(isDirectAvatarTest ? "AI 도구 사용 경험 인터뷰" : "");
+  const [projectTitle, setProjectTitle] = useState(isDirectAvatarTest ? "AI 도구 사용 경험 인터뷰" : "");
   const [durationMinutes, setDurationMinutes] = useState<number>(15);
   const [sessionQuestions, setSessionQuestions] = useState<QuestionNode[]>([]);
   const [dummyQuestionIndex, setDummyQuestionIndex] = useState(0);
@@ -112,7 +116,7 @@ export default function App() {
       // 0.8초 후 자연스럽게 오프닝 인사 및 자기소개 요청 발화 (음성과 자막 완벽 일치)
       const timer = setTimeout(() => {
         const fullIntroSpeech = buildOpeningSpeech({
-          title,
+          projectTitle,
           durationMinutes,
         });
         setQuestion(fullIntroSpeech);
@@ -126,7 +130,7 @@ export default function App() {
 
       return () => clearTimeout(timer);
     }
-  }, [entryStep, avatar.status, title, durationMinutes, speechSpeed]);
+  }, [entryStep, avatar.status, projectTitle, durationMinutes, speechSpeed]);
 
   // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 3s (단독 테스트 모드가 아닐 때만)
   useEffect(() => {
@@ -160,7 +164,7 @@ export default function App() {
     socket.onmessage = (event) => {
       const message: ServerMessage = JSON.parse(event.data);
       if (message.type === "session.state") {
-        setTitle(message.session.title);
+        setProjectTitle(message.session.project_title?.trim() || message.session.title?.trim() || "");
         if (message.session.status === "ended") {
           // 백엔드는 AI 작별 인사를 보낸 직후 세션을 자동 종료한다. 여기서 곧바로 종료 화면으로
           // 갈아치우면 아바타가 인사를 말하는 도중에 잘리므로, 발화가 끝난 뒤에 전환한다.
@@ -407,7 +411,7 @@ export default function App() {
         <main className="shell">
           <div className="landing-welcome-container">
             <h1 className="welcome-title">
-              {title ? `"${title}"에 온 것을 환영합니다` : "인터뷰에 온 것을 환영합니다"}
+              {projectTitle ? `"${projectTitle}"에 참여해 주셔서 감사합니다.` : "인터뷰에 참여해 주셔서 감사합니다."}
             </h1>
             <div className="code-input-panel">
               <button
@@ -537,7 +541,7 @@ export default function App() {
     return (
       <div className="app-frame">
         <main className="shell">
-          <WaitingScreen title={title || "AI 인터뷰 대기실"} />
+          <WaitingScreen title={projectTitle} onOpenHelp={() => setIsHelpOpen(true)} />
           <div style={{ display: "flex", flexDirection: "column", gap: "16px", marginTop: "24px", alignItems: "center" }}>
             <button className="btn-secondary" onClick={() => setEntryStep("consent")}>
               이전 단계 (동의 재설정)
@@ -552,6 +556,7 @@ export default function App() {
           {rtcCreds && (
             <VideoPublisher token={rtcCreds.token} groupId={rtcCreds.group_id} />
           )}
+          <InterviewHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
         </main>
       </div>
     );
@@ -588,11 +593,19 @@ export default function App() {
       <main className="stage-shell">
         <header className="main-header stage-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div className="title-area" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <h1>{title || "AI 인터뷰"}</h1>
+            <h1>{projectTitle || "AI 인터뷰"}</h1>
           </div>
           <div style={{ fontSize: "0.8rem", color: "var(--muted)", display: "flex", alignItems: "center", gap: 8 }}>
             <span>예정 시간: 약 {durationMinutes}분</span>
           </div>
+          <button
+            className="interview-help-trigger"
+            type="button"
+            aria-label="인터뷰 이용 안내 열기"
+            onClick={() => setIsHelpOpen(true)}
+          >
+            ?
+          </button>
         </header>
 
         <div className="monitor-grid">
@@ -673,6 +686,7 @@ export default function App() {
         {rtcCreds && (
           <VideoPublisher token={rtcCreds.token} groupId={rtcCreds.group_id} />
         )}
+        <InterviewHelpModal isOpen={isHelpOpen} onClose={() => setIsHelpOpen(false)} />
       </main>
     </div>
   );

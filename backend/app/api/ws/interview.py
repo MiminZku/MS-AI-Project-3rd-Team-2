@@ -9,6 +9,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, UploadFile, File,
 from app.schemas.messages import server_message
 from app.services import orchestrator
 from app.services.connections import manager
+from app.services.respondent_session_state import build_respondent_session_state
 from app.services.store import get_store
 from app.services.ai.realtime_stt import RealtimeSTTClient
 from app.core.config import get_settings
@@ -77,13 +78,7 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
     await websocket.send_json(
         server_message(
             "session.state",
-            session={
-                "id": session.id,
-                "title": session.title,
-                "status": session.status,
-                "duration_minutes": session.duration_minutes,
-                "questions": [q.model_dump(mode="json") for q in session.questions],
-            },
+            session=await build_respondent_session_state(session),
         )
     )
     await manager.broadcast_to_observers(
