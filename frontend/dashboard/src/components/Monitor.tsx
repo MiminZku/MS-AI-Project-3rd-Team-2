@@ -739,7 +739,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         </section>
 
         {role === "pm" && (
-          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
+          <section className={`panel ${phase === "wait" || phase === "joined" ? "locked" : ""}`}>
             <button
               type="button"
               className="accordion-head"
@@ -753,33 +753,41 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             </button>
             {instructionsOpen && (
               <>
-                <div className="composer p-body">
-                  <textarea
-                    rows={2}
-                    value={draft}
-                    placeholder="예) 경쟁사 대비 장점을 물어봐"
-                    onChange={(event) => setDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        sendInstruction();
-                      }
-                    }}
-                  />
-                  <button onClick={sendInstruction} disabled={status !== "connected"}>
-                    지시 보내기
-                  </button>
-                </div>
-                <div className="quick">
-                  {QUICK_INSTRUCTIONS.map((text) => (
-                    <button key={text} onClick={() => setDraft(text)}>
-                      {text}
-                    </button>
-                  ))}
-                </div>
-                <p className="muted small" style={{ padding: "6px 16px 10px" }}>
-                  응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
-                </p>
+                {phase === "end" ? (
+                  <p className="muted small" style={{ padding: "10px 16px" }}>
+                    세션이 종료되어 새 지시는 보낼 수 없습니다. 아래에서 지시 이력만 확인할 수 있습니다.
+                  </p>
+                ) : (
+                  <>
+                    <div className="composer p-body">
+                      <textarea
+                        rows={2}
+                        value={draft}
+                        placeholder="예) 경쟁사 대비 장점을 물어봐"
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            sendInstruction();
+                          }
+                        }}
+                      />
+                      <button onClick={sendInstruction} disabled={status !== "connected"}>
+                        지시 보내기
+                      </button>
+                    </div>
+                    <div className="quick">
+                      {QUICK_INSTRUCTIONS.map((text) => (
+                        <button key={text} onClick={() => setDraft(text)}>
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="muted small" style={{ padding: "6px 16px 10px" }}>
+                      응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
+                    </p>
+                  </>
+                )}
 
                 <button
                   type="button"
