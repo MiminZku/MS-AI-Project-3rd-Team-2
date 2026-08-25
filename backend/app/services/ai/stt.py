@@ -98,13 +98,18 @@ class GptTranscriber:
                 return ""
 
 
-class CompositeTranscriber:
-    """Azure Speech ➡️ Whisper 순차 폴백 지원 트랜스크라이버."""
+import asyncio
+from app.services.ai.stt_judge import TranscriptValidationResult, get_transcript_validator
+
+
+class DualPassTranscriber:
+    """1차 Azure Speech + 2차 Whisper 동시 실행 및 LLM Validator(STT Judge) 검증 트랜스크라이버."""
 
     def __init__(self) -> None:
         self.settings = get_settings()
         self.speech_transcriber = None
         self.gpt_transcriber = None
+        self.validator = get_transcript_validator()
 
         if self.settings.azure_speech_key and self.settings.azure_speech_region:
             self.speech_transcriber = AzureSpeechRestTranscriber(
@@ -117,17 +122,42 @@ class CompositeTranscriber:
                 logger.warning(f"GptTranscriber 초기화 실패: {e}")
 
     async def transcribe(self, audio: bytes, *, mime_type: str = "audio/wav") -> str:
+        """기존 단일 인터페이스 호환."""
+        res = await self.transcribe_dual_pass(audio, question_context="", mime_type=mime_type)
+        return res.selected
+
+    async def transcribe_dual_pass(
+        self,
+        audio: bytes,
+        *,
+        question_context: str = "",
+        mime_type: str = "audio/wav"
+    ) -> TranscriptValidationResult:
+        """1차 & 2차 STT 병렬 실행 후 STT Judge로 최적의 전사 및 신뢰도 확정."""
+        tasks = []
         if self.speech_transcriber:
-            text = await self.speech_transcriber.transcribe(audio, mime_type=mime_type)
-            if text:
-                return text
+            tasks.append(self.speech_transcriber.transcribe(audio, mime_type=mime_type))
+        else:
+            tasks.append(asyncio.sleep(0, result=""))
+
         if self.gpt_transcriber:
-            text = await self.gpt_transcriber.transcribe(audio, mime_type=mime_type)
-            if text:
-                return text
-        return ""
+            tasks.append(self.gpt_transcriber.transcribe(audio, mime_type=mime_type))
+        else:
+            tasks.append(asyncio.sleep(0, result=""))
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        c1 = results[0] if isinstance(results[0], str) else ""
+        c2 = results[1] if isinstance(results[1], str) else ""
+
+        return await self.validator.validate(question_context, c1, c2)
 
 
-def get_transcriber() -> Transcriber:
-    return CompositeTranscriber()
+class CompositeTranscriber(DualPassTranscriber):
+    """기존 클래스명 호환."""
+    pass
+
+
+def get_transcriber() -> DualPassTranscriber:
+    return DualPassTranscriber()
+
 
