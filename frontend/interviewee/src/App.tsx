@@ -70,6 +70,8 @@ export default function App() {
   const [speechSpeed, setSpeechSpeed] = useState<number>(1.1); // 기본 1.1x — 1.25x는 발음이 뭉개진다는 QC 피드백 반영, 사용자가 화면에서 직접 올릴 수 있음
   const [history, setHistory] = useState<Turn[]>([]);
   const [isWaitingForAdditional, setIsWaitingForAdditional] = useState(false);
+  // 세션이 종료됐지만 아바타의 작별 인사가 아직 재생 중인 상태
+  const [isPendingEnd, setIsPendingEnd] = useState(false);
 
   // Constant audio level monitor when on running step
   const isVoiceDetected = useAudioLevelMonitor(entryStep === "running");
@@ -159,7 +161,13 @@ export default function App() {
       const message: ServerMessage = JSON.parse(event.data);
       if (message.type === "session.state") {
         setTitle(message.session.title);
-        setSessionStatus(message.session.status);
+        if (message.session.status === "ended") {
+          // 백엔드는 AI 작별 인사를 보낸 직후 세션을 자동 종료한다. 여기서 곧바로 종료 화면으로
+          // 갈아치우면 아바타가 인사를 말하는 도중에 잘리므로, 발화가 끝난 뒤에 전환한다.
+          setIsPendingEnd(true);
+        } else {
+          setSessionStatus(message.session.status);
+        }
         if (message.session.duration_minutes) {
           setDurationMinutes(message.session.duration_minutes);
         }
@@ -219,6 +227,15 @@ export default function App() {
       setOrbState("idle");
     }
   }, [entryStep, sessionStatus]);
+
+  // 3-1. 자동 종료 신호를 받았어도 아바타가 말하는 중이면 기다렸다가 종료 화면으로 전환한다.
+  // avatar.status 는 발화가 끝나면 "connected" 로 돌아오므로 그때 전환한다.
+  // (아바타가 아예 발화를 시작하지 못한 경우를 대비해 짧은 유예 시간을 둔다.)
+  useEffect(() => {
+    if (!isPendingEnd || avatar.status === "speaking") return;
+    const timer = setTimeout(() => setSessionStatus("ended"), 1200);
+    return () => clearTimeout(timer);
+  }, [isPendingEnd, avatar.status]);
   // 4. Log interview history for debugging/future logging purposes
   useEffect(() => {
     if (history.length > 0) {

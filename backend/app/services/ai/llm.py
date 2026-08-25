@@ -29,6 +29,9 @@ class GeneratedQuestion:
     # STT 전사가 질문과 문맥상 맞지 않거나 알아들을 수 없을 때, 모델이 "이해한 척"하지 않고
     # 스스로 신고하는 플래그. True면 orchestrator가 다음 질문으로 넘어가지 않고 재확인시킨다.
     needs_clarification: bool = False
+    # 이번 발화가 작별 인사(종료 멘트)라는 신고. True면 orchestrator가 이 발화를 전달한 뒤
+    # 세션을 자동 종료한다 (대본을 모두 마쳤고 대기 중인 참관자 지시가 없을 때에 한함).
+    is_closing: bool = False
 
 
 class QuestionGenerator(Protocol):
@@ -134,6 +137,7 @@ class StubQuestionGenerator:
             is_sufficient=True,
             extracted_fact="",
             selected_branch=None,
+            is_closing=True,
         )
 
 
@@ -176,6 +180,7 @@ class AzureOpenAIQuestionGenerator:
         is_sufficient = bool(data.get("is_sufficient", True))
         extracted_fact = str(data.get("extracted_fact", "")).strip()
         needs_clarification = bool(data.get("needs_clarification", False))
+        is_closing = bool(data.get("is_closing", False))
         selected_branch = data.get("selected_branch")
         if selected_branch:
             selected_branch = str(selected_branch).strip()
@@ -200,6 +205,7 @@ class AzureOpenAIQuestionGenerator:
             extracted_fact=extracted_fact,
             selected_branch=selected_branch,
             needs_clarification=needs_clarification,
+            is_closing=is_closing,
         )
 
 

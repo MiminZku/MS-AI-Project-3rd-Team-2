@@ -38,13 +38,14 @@ from app.schemas.session import (
     utcnow,
 )
 from app.services.ai import timekeeper
-from app.services.ai.llm import get_question_generator
+from app.services.ai.llm import GeneratedQuestion, get_question_generator
 from app.services.connections import manager
 from app.services.report import generator as report_generator
 from app.services.report.study_analyzer import (
     get_study_report_analyzer,
 )
 from app.services.store import (
+    Store,
     ack_instruction,
     get_store,
 )
@@ -155,6 +156,15 @@ async def handle_utterance(
 ) -> None:
 
     store = get_store()
+
+    # 이미 종료된 세션에서는 어떤 경로로 발화가 더 들어와도 새 질문을 만들지 않는다.
+    # (자동 종료 직후 응답자 마이크가 한 번 더 열려 있는 경우 등)
+    if session.status == "ended":
+        logger.info(
+            "종료된 세션의 발화 무시 session=%s",
+            session.id,
+        )
+        return
 
     # -----------------------------------------------------
     # ① 응답자 발화 기록
@@ -393,6 +403,61 @@ async def handle_utterance(
             ),
         )
 
+    # -----------------------------------------------------
+    # ⑦ 작별 인사를 전달했다면 참관자가 종료 버튼을 누른 것과 동일하게 자동 종료
+    # -----------------------------------------------------
+
+    if await _should_auto_end(session, generated, store):
+
+        logger.info(
+            "AI 종료 멘트 후 세션 자동 종료 session=%s",
+            session.id,
+        )
+
+        await end_session(session)
+
+
+# =========================================================
+# 자동 종료 판단
+# =========================================================
+
+async def _should_auto_end(
+    session: Session,
+    generated: GeneratedQuestion,
+    store: Store,
+) -> bool:
+    """AI가 작별 인사를 마쳤고, 더 진행할 것이 남아있지 않은지 판단한다.
+
+    참관자가 종료 버튼을 누르는 것과 같은 효과이므로 조건을 보수적으로 잡는다.
+    셋 중 하나라도 어긋나면 종료하지 않고 인터뷰를 계속한다.
+    """
+
+    # ① 모델이 이번 발화를 작별 인사로 신고했는가
+    if not generated.is_closing:
+        return False
+
+    # ② 대본의 모든 질문을 마쳤는가
+    #    (모델이 중간에 잘못 판단해 인터뷰를 조기 종료시키는 것을 막는 안전장치)
+    if session.current_question_index < len(session.questions):
+        return False
+
+    # ③ 대기 중인 참관자 지시가 없는가
+    #    이번 턴에 소비된 지시는 위에서 이미 applied 처리됐으므로 queued에 잡히지 않는다.
+    try:
+        instructions = await store.list_instructions(session.id)
+    except Exception:
+        # 큐 조회에 실패했으면 남은 지시가 있는지 확신할 수 없으므로 자동 종료하지 않는다.
+        logger.exception(
+            "자동 종료 판단용 지시 큐 조회 실패 session=%s",
+            session.id,
+        )
+        return False
+
+    return not any(
+        instruction.status == "queued"
+        for instruction in instructions
+    )
+
 
 # =========================================================
 # Session 시작 (PM 수동 시작 및 상태 브로드캐스트)
@@ -450,6 +515,11 @@ async def start_session_if_needed(
 async def end_session(
     session: Session,
 ) -> Session:
+
+    # 자동 종료와 참관자의 수동 종료가 겹칠 수 있다. 리포트가 두 번 생성되지 않도록
+    # 이미 종료된 세션은 그대로 돌려준다.
+    if session.status == "ended":
+        return session
 
     session.status = "ended"
 

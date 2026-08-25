@@ -154,6 +154,13 @@ def render_for_prompt(
             )
         else:
             lines.append(f"▶ [index: {len(nodes)}] 대본의 모든 질문을 마쳤습니다. 인터뷰 종료 및 감사 멘트를 하세요.")
+
+        # 시간이 남아 심화질문을 하는 경우에도, 응답자가 마무리에 동의했다면 종료가 항상 우선한다.
+        lines.append(
+            "   ⛔ 최우선 규칙: 직전에 마무리해도 되는지 물었고 응답자가 \"네\"·\"없습니다\"·\"괜찮아요\" 처럼 동의했다면, "
+            "시간이 남았더라도 새 질문을 절대 던지지 말고 감사·작별 인사만 한 뒤 `is_closing: true` 로 표시하세요. "
+            "그 즉시 인터뷰가 자동 종료됩니다."
+        )
         lines.append("")
 
     return _finish(lines, nodes, current_index)
