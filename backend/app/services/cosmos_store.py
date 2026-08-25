@@ -10,6 +10,8 @@ from azure.cosmos.exceptions import CosmosResourceNotFoundError
 
 from app.core.config import get_settings
 from app.schemas.report import Report
+from app.schemas.project_report import ProjectAggregateReport
+
 from app.schemas.session import Instruction, Session, Turn, utcnow
 from app.schemas.study import ResearchStudy
 
@@ -263,8 +265,9 @@ class CosmosStore:
         await self.interviews_container.upsert_item(item)
 
     # -----------------------------------------------------
-    # Report
+    # Session-level report (legacy)
     # -----------------------------------------------------
+
 
     async def save_report(self, report: Report) -> None:
         await self._ensure_init()
@@ -280,7 +283,30 @@ class CosmosStore:
             return Report.model_validate(item["report"])
         return None
 
+            # -----------------------------------------------------
+    # Project aggregate report
+
+    # -----------------------------------------------------
+
+    async def save_project_report(self, report: ProjectAggregateReport) -> None:
+        await self._ensure_init()
+        doc = report.model_dump(mode="json")
+        doc["id"] = f"project-report:{report.project_id}"
+        doc["type"] = "project_aggregate_report"
+                # The projects container is partitioned by document id, as are ResearchStudy documents.
+
+        await self.projects_container.upsert_item(doc)
+
+    async def get_project_report(self, project_id: str) -> ProjectAggregateReport | None:
+        await self._ensure_init()
+        query = "SELECT * FROM c WHERE c.id = @id"
+        parameters = [{"name": "@id", "value": f"project-report:{project_id}"}]
+        async for item in self.projects_container.query_items(query=query, parameters=parameters):
+            return ProjectAggregateReport.model_validate(item)
+        return None
+
     async def close(self) -> None:
+
         if self.client:
             await self.client.close()
             self._initialized = False

@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Gromit · PM 인터뷰 참관 대시보드</title>
+  <style>
+    :root {
+      --bg: #050507;
+      --surface: rgba(27, 27, 31, .84);
+      --surface-2: #222228;
+      --line: rgba(255, 255, 255, .12);
+      --text: #f5f5f7;
+      --muted: #a1a1aa;
+      --blue: #0a84ff;
+      --blue-soft: rgba(10, 132, 255, .16);
+      --green: #30d158;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 12% -10%, rgba(10,132,255,.25), transparent 33rem),
+        radial-gradient(circle at 92% 5%, rgba(93,71,255,.16), transparent 28rem),
+        var(--bg);
+    }
+
+    button, textarea { font: inherit; }
+    button { cursor: pointer; }
+
+    .shell {
+      width: min(1480px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 22px 0 56px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: rgba(20,20,24,.72);
+      backdrop-filter: blur(18px);
+      position: sticky;
+      top: 12px;
+      z-index: 5;
+    }
+
+    .brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 750; }
+    .brand-mark {
+      width: 30px; height: 30px; display: grid; place-items: center;
+      border-radius: 10px; background: var(--blue); color: white; font-size: 12px;
+      box-shadow: 0 8px 24px rgba(10,132,255,.32);
+    }
+
+    .top-actions, .chips, .demo-buttons { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .chip {
+      padding: 7px 10px; border-radius: 999px; border: 1px solid var(--line);
+      color: var(--muted); font-size: 12px;
+    }
+    .chip.live { color: #8cf7a8; border-color: rgba(48,209,88,.4); background: rgba(48,209,88,.09); }
+    .btn {
+      border: 1px solid transparent; border-radius: 10px; padding: 10px 14px;
+      color: white; background: var(--blue); font-weight: 700;
+    }
+    .btn.secondary { background: transparent; border-color: var(--line); color: var(--text); }
+    .btn.small { padding: 8px 10px; font-size: 12px; }
+
+    .hero { padding: 62px 0 28px; }
+    .eyebrow { color: #66b4ff; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; }
+    h1 {
+      margin: 10px 0 12px; max-width: 840px; font-size: clamp(34px, 5vw, 66px);
+      line-height: 1.03; letter-spacing: -.06em;
+    }
+    .hero p { max-width: 720px; margin: 0; color: var(--muted); font-size: 17px; line-height: 1.65; }
+
+    .dashboard {
+      display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(310px, .8fr); gap: 18px;
+    }
+    .card {
+      overflow: hidden; border: 1px solid var(--line); border-radius: 22px;
+      background: var(--surface); box-shadow: 0 20px 80px rgba(0,0,0,.24);
+    }
+    .card-head {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      padding: 16px 18px; border-bottom: 1px solid var(--line);
+    }
+    .card-title { margin: 0; font-size: 15px; }
+    .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .card-body { padding: 16px; }
+
+    .screen {
+      min-height: 330px; display: grid; place-items: center; position: relative; overflow: hidden;
+      border-radius: 16px; background:
+        radial-gradient(circle at 50% 24%, rgba(10,132,255,.3), transparent 11rem),
+        linear-gradient(145deg, #25252b, #111114 62%);
+    }
+    .avatar {
+      width: 108px; height: 108px; display: grid; place-items: center; border-radius: 50%;
+      color: #c9e3ff; font-size: 48px;
+      background: linear-gradient(145deg, rgba(92,167,255,.6), rgba(40,42,58,.85));
+      border: 1px solid rgba(255,255,255,.22);
+      box-shadow: 0 0 0 16px rgba(10,132,255,.05), 0 26px 70px rgba(0,0,0,.5);
+    }
+    .screen-caption { position: absolute; left: 18px; bottom: 16px; }
+    .screen-caption strong { display: block; font-size: 16px; }
+    .screen-caption span { color: var(--muted); font-size: 12px; }
+    .question-overlay {
+      position: absolute; left: 18px; right: 18px; top: 16px; padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+      background: rgba(5,5,7,.58); backdrop-filter: blur(12px); font-size: 14px;
+    }
+
+    .transcript { margin-top: 14px; max-height: 170px; overflow: auto; display: grid; gap: 8px; }
+    .turn {
+      padding: 10px 12px; border-radius: 12px; color: #dadade; font-size: 13px; line-height: 1.45;
+      background: rgba(255,255,255,.05);
+    }
+    .turn b { color: #7fc2ff; margin-right: 8px; font-size: 11px; }
+
+    .progress-number { font-size: 46px; letter-spacing: -.06em; margin: 8px 0 3px; }
+    .bar { height: 8px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.09); }
+    .bar > i { display: block; height: 100%; width: 25%; border-radius: inherit; background: linear-gradient(90deg, #0a84ff, #64b5ff); transition: width .35s ease; }
+
+    .flow { margin-top: 18px; display: grid; gap: 10px; }
+    .flow-row { display: flex; gap: 10px; align-items: flex-start; color: var(--muted); font-size: 13px; }
+    .flow-dot {
+      flex: 0 0 20px; width: 20px; height: 20px; display: grid; place-items: center;
+      border-radius: 50%; color: #7dbfff; background: var(--blue-soft); font-size: 11px;
+    }
+    .flow-row.active { color: var(--text); }
+    .flow-row.active .flow-dot { color: white; background: var(--blue); }
+
+    .control { margin-top: 18px; }
+    textarea {
+      width: 100%; min-height: 84px; resize: vertical; padding: 13px;
+      color: var(--text); border: 1px solid var(--line); border-radius: 13px;
+      background: rgba(255,255,255,.045); outline: none;
+    }
+    textarea:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(10,132,255,.17); }
+    .control-actions { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-top: 10px; }
+    .hint { color: var(--muted); font-size: 12px; }
+
+    .scenario {
+      margin-top: 18px; border: 1px solid rgba(83,166,255,.32); border-radius: 24px;
+      background: linear-gradient(125deg, rgba(21,35,55,.9), rgba(29,28,34,.88));
+      box-shadow: 0 30px 90px rgba(0,0,0,.25);
+    }
+    .scenario-head {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 18px;
+      padding: 23px 24px 18px; border-bottom: 1px solid var(--line);
+    }
+    .scenario-head h2 { margin: 5px 0 0; font-size: clamp(22px, 3vw, 32px); letter-spacing: -.04em; }
+    .scenario-head p { margin: 7px 0 0; color: var(--muted); font-size: 13px; }
+
+    .scenario-body { padding: 20px 24px 24px; }
+    .waiting {
+      display: flex; align-items: center; gap: 12px; padding: 18px;
+      color: var(--muted); border: 1px dashed var(--line); border-radius: 16px;
+    }
+    .pulse {
+      width: 10px; height: 10px; border-radius: 50%; background: var(--blue);
+      box-shadow: 0 0 0 8px rgba(10,132,255,.15); animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 50% { transform: scale(.7); opacity: .65; } }
+
+    .summary {
+      display: grid; grid-template-columns: 1.3fr auto auto; gap: 12px; align-items: center;
+      margin-bottom: 16px;
+    }
+    .profile-label { color: #87c7ff; font-size: 12px; }
+    .profile-name { margin-top: 5px; font-size: 26px; font-weight: 750; letter-spacing: -.04em; }
+    .badge {
+      padding: 8px 10px; border-radius: 999px; font-size: 12px; color: #bce2ff;
+      background: var(--blue-soft); border: 1px solid rgba(10,132,255,.3);
+    }
+    .badge.neutral { color: #d8d8de; background: rgba(255,255,255,.06); border-color: var(--line); }
+
+    .signals { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .signal {
+      padding: 8px 10px; color: #d5d5da; border: 1px solid var(--line); border-radius: 999px;
+      background: rgba(255,255,255,.04); font-size: 12px;
+    }
+
+    .guides { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .guide {
+      min-height: 150px; padding: 18px; border: 1px solid var(--line); border-radius: 16px;
+      background: rgba(0,0,0,.16);
+    }
+    .guide .guide-label { color: #89c9ff; font-size: 12px; }
+    .guide.avoid .guide-label { color: #ffb1aa; }
+    .guide p { margin: 13px 0 0; color: #ececf0; font-size: 14px; line-height: 1.6; }
+
+    .preset {
+      color: #cbdced; border: 1px solid var(--line); border-radius: 999px; padding: 8px 10px;
+      background: rgba(255,255,255,.04); font-size: 12px;
+    }
+    .preset:hover, .preset.active { color: white; border-color: rgba(10,132,255,.65); background: var(--blue-soft); }
+
+    @media (max-width: 800px) {
+      .shell { width: min(100% - 20px, 1480px); padding-top: 10px; }
+      .topbar, .scenario-head, .summary, .control-actions { align-items: stretch; flex-direction: column; }
+      .topbar { position: static; }
+      .dashboard, .guides { grid-template-columns: 1fr; }
+      .scenario-head, .scenario-body { padding-left: 16px; padding-right: 16px; }
+      h1 { font-size: 39px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">AI</span> Gromit</div>
+      <div class="top-actions">
+        <span class="chip">PM dashboard</span>
+        <span class="chip live">● 실시간 참관 중</span>
+        <button class="btn small" type="button">인터뷰 시작</button>
+        <button class="btn secondary small" type="button">세션 목록</button>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">Live respondent guidance</div>
+      <h1>응답에 맞춰, 다음 질문을 더 정확하게.</h1>
+      <p>실제 서버 연결 없이 동작하는 PM 시연 화면입니다. 아래 예시를 누르거나 직접 응답을 넣으면 응답자 맞춤 시나리오가 즉시 바뀝니다.</p>
+    </section>
+
+    <section class="dashboard">
+      <article class="card">
+        <header class="card-head">
+          <div>
+            <h2 class="card-title">응답자 화면</h2>
+            <div class="sub">실시간 인터뷰 미리보기 · 음성 연결됨</div>
+          </div>
+          <span class="chip live">00:08:42</span>
+        </header>
+        <div class="card-body">
+          <div class="screen">
+            <div class="question-overlay" id="currentQuestion"></div>
+            <div class="avatar">◉</div>
+            <div class="screen-caption">
+              <strong>AI Interviewer</strong>
+              <span>응답자 대화 흐름을 수집하고 있습니다</span>
+            </div>
+          </div>
+          <div class="transcript" id="transcript"></div>
+        </div>
+      </article>
+
+      <aside class="card">
+        <header class="card-head">
+          <div>
+            <h2 class="card-title">실시간 진행 상황</h2>
+            <div class="sub">확정된 응답만 시나리오에 반영됩니다</div>
+          </div>
+          <span class="chip">한국어</span>
+        </header>
+        <div class="card-body">
+          <div class="sub">응답 수</div>
+          <div class="progress-number"><span id="answerCount">0</span><small style="font-size:17px;color:#a1a1aa"> 건</small></div>
+          <div class="bar"><i id="progressBar"></i></div>
+          <div class="flow" id="flow"></div>
+        </div>
+      </aside>
+    </section>
+
+    <section class="card control">
+      <header class="card-head">
+        <div>
+          <h2 class="card-title">시연 응답 입력</h2>
+          <div class="sub">이 HTML 내부에서만 처리되며 저장·전송되지 않습니다.</div>
+        </div>
+        <button class="btn secondary small" id="resetButton" type="button">시연 초기화</button>
+      </header>
+      <div class="card-body">
+        <div class="demo-buttons">
+          <button class="preset" data-preset="comparative" type="button">비교·검토형 시연</button>
+          <button class="preset" data-preset="brand" type="button">브랜드 선호형 시연</button>
+          <button class="preset" data-preset="detailed" type="button">상세 설명형 시연</button>
+          <button class="preset" data-preset="brief" type="button">짧은 응답형 시연</button>
+          <button class="preset" data-preset="balanced" type="button">균형 응답형 시연</button>
+        </div>
+
+        <div style="height:12px"></div>
+        <textarea id="answerInput" placeholder="응답 예시를 직접 입력하세요. 예: 가격과 카메라를 비교해 봤는데 배터리도 중요해요."></textarea>
+        <div class="control-actions">
+          <span class="hint">응답 2개부터 맞춤 진행 가이드가 생성됩니다.</span>
+          <button class="btn" id="addAnswer" type="button">응답 반영 →</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="scenario" aria-live="polite">
+      <header class="scenario-head">
+        <div>
+          <div class="eyebrow">Adaptive scenario</div>
+          <h2>응답자 맞춤 시나리오</h2>
+          <p>현재 화면에 들어온 확정 응답만 기준으로 PM의 다음 진행 방식을 안내합니다.</p>
+        </div>
+        <span class="chip" id="coverage">핵심 질문 0 / 4</span>
+      </header>
+
+      <div class="scenario-body" id="scenarioBody"></div>
+    </section>
+  </main>
+
+  <script>
+    const questions = [
+      "스마트폰을 선택할 때 가장 중요하게 보는 기준은 무엇인가요?",
+      "현재 제품에서 만족하는 점과 아쉬운 점을 말씀해주세요.",
+      "다른 제품으로 바꾸게 되는 조건이 있다면 무엇인가요?",
+      "최종 구매를 결정하게 만드는 가장 중요한 한 가지는 무엇인가요?"
+    ];
+
+    const presets = {
+      comparative: [
+        "갤럭시와 아이폰을 비교해 봤는데 가격과 카메라 성능이 가장 중요해요.",
+        "둘 다 장단점이 있지만 기능 차이와 배터리 시간을 더 꼼꼼히 보고 결정할 것 같아요."
+      ],
+      brand: [
+        "저는 갤럭시를 오래 써서 갤럭시 사용성이 가장 편하다고 생각해요.",
+        "다음에도 갤럭시를 우선 보겠지만 갤럭시 가격이 너무 높으면 고민할 것 같아요."
+      ],
+      detailed: [
+        "저는 구매 전에 사용 시간, 카메라 결과물, 화면 크기, AS 접근성, 가격 할인 시점까지 여러 기준을 정리해요. 특히 출퇴근 중 영상과 업무 메신저를 오래 쓰기 때문에 배터리 효율과 화면 밝기가 일상 만족도에 큰 영향을 준다고 느껴요.",
+        "현재 제품은 카메라와 연동성은 좋지만 저장 공간이 부족하고 충전 속도가 아쉬워요. 다음 제품에서는 장기 사용 기준으로 수리 비용, 업데이트 기간, 중고 판매 가치까지 모두 비교한 뒤에 결정하려고 합니다."
+      ],
+      brief: ["가격이요.", "배터리요."],
+      balanced: [
+        "가격이 너무 높지 않으면서 카메라와 배터리가 일상적으로 충분하면 좋겠어요.",
+        "직접 써봤을 때 편한 제품을 고르겠지만, 할인 조건도 최종 결정에 영향을 줄 것 같아요."
+      ]
+    };
+
+    const guidance = {
+      comparative: {
+        name: "비교·검토형",
+        signals: ["비교 표현이 반복됩니다", "선택 기준을 나누어 확인하는 것이 좋습니다"],
+        now: "응답자가 말한 비교 기준을 하나씩 분리해 우선순위를 확인해주세요.",
+        next: "가격·기능·사용 경험 중 최종 선택을 가르는 기준을 물어보세요.",
+        avoid: "제품별 장단점을 PM이 대신 정리하거나 특정 결론을 유도하지 마세요."
+      },
+      brand: {
+        name: "브랜드 선호형",
+        signals: ["특정 브랜드 언급이 반복됩니다", "선호가 바뀌는 조건을 확인할 시점입니다"],
+        now: "선호 이유와 선호가 바뀔 수 있는 조건을 균형 있게 확인해주세요.",
+        next: "선호 브랜드 외 대안을 고려하게 만드는 상황을 물어보세요.",
+        avoid: "선호 브랜드를 정답처럼 전제하거나 반대 선택을 유도하지 마세요."
+      },
+      detailed: {
+        name: "상세 설명형",
+        signals: ["답변에 구체적 조건이 많습니다", "핵심 기준을 정리하며 진행하세요"],
+        now: "설명을 충분히 들은 뒤 핵심 기준을 짧게 정리해 확인해주세요.",
+        next: "가장 큰 영향을 준 조건 하나의 우선순위를 물어보세요.",
+        avoid: "이미 말한 내용을 반복해서 묻거나 답변을 성급히 끊지 마세요."
+      },
+      brief: {
+        name: "짧은 응답형",
+        signals: ["답변 길이가 짧습니다", "한 번에 하나의 기준을 묻는 흐름이 적합합니다"],
+        now: "한 번에 하나씩, 짧고 구체적인 질문으로 답변 범위를 좁혀주세요.",
+        next: "선택 이유를 한 가지 경험이나 상황과 연결해 확인해보세요.",
+        avoid: "여러 조건을 한 번에 묻거나 긴 설명을 요구하지 마세요."
+      },
+      balanced: {
+        name: "균형 응답형",
+        signals: ["다양한 기준을 고르게 언급합니다", "현재 인터뷰 흐름을 유지해도 좋습니다"],
+        now: "현재 흐름을 유지하며 사례와 선택 기준을 차례로 확인해주세요.",
+        next: "결정에 가장 크게 작용한 조건을 하나 골라 구체화해보세요.",
+        avoid: "응답에 없는 의도나 선호를 단정하지 마세요."
+      }
+    };
+
+    let answers = [...presets.comparative];
+
+    const escapeHtml = (text) => text.replace(/[&<>"']/g, (char) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;"
+    }[char]));
+
+    function occurrence(text, term) {
+      return text.split(term).length - 1;
+    }
+
+    function analyze() {
+      if (answers.length < 2) return null;
+
+      const text = answers.join(" ").toLowerCase();
+      const comparisonTerms = ["vs", "비교", "장단점", "둘 다", "가격", "기능"];
+      const brands = ["갤럭시", "아이폰", "삼성", "애플", "lg", "샤오미"];
+
+      if (comparisonTerms.filter((term) => text.includes(term)).length >= 2) return "comparative";
+      if (brands.some((brand) => occurrence(text, brand) >= 2)) return "brand";
+
+      const words = answers.flatMap((answer) => answer.match(/[0-9a-zA-Z가-힣]+/g) || []);
+      const average = words.length / answers.length;
+      if (average > 58) return "detailed";
+      if (average < 12) return "brief";
+      return "balanced";
+    }
+
+    function render() {
+      const profile = analyze();
+      const count = answers.length;
+      const completed = Math.min(Math.floor(count / 2), questions.length);
+      const questionIndex = Math.min(completed, questions.length - 1);
+
+      document.getElementById("answerCount").textContent = count;
+      document.getElementById("coverage").textContent = `핵심 질문 ${completed} / ${questions.length}`;
+      document.getElementById("progressBar").style.width = `${Math.max(8, (completed / questions.length) * 100)}%`;
+      document.getElementById("currentQuestion").textContent = `현재 질문 · ${questions[questionIndex]}`;
+
+      document.getElementById("transcript").innerHTML = answers.length
+        ? answers.map((answer, index) => `<div class="turn"><b>응답 ${String(index + 1).padStart(2, "0")}</b>${escapeHtml(answer)}</div>`).join("")
+        : `<div class="turn"><b>대기</b>응답을 추가하면 인터뷰 흐름이 시작됩니다.</div>`;
+
+      document.getElementById("flow").innerHTML = questions.map((question, index) => {
+        const active = index === questionIndex;
+        const done = index < completed;
+        return `<div class="flow-row ${active ? "active" : ""}"><span class="flow-dot">${done ? "✓" : index + 1}</span><span>${question}</span></div>`;
+      }).join("");
+
+      const body = document.getElementById("scenarioBody");
+      if (!profile) {
+        body.innerHTML = `<div class="waiting"><span class="pulse"></span><div><strong>응답을 두 번 이상 받으면 맞춤 시나리오가 표시됩니다.</strong><br><span style="font-size:13px">현재 확정 응답 ${count}건 · 인터뷰 흐름은 그대로 유지됩니다.</span></div></div>`;
+        return;
+      }
+
+      const item = guidance[profile];
+      const confidence = count >= 5 ? "높은 신뢰도" : count >= 3 ? "보통 신뢰도" : "초기 판단";
+      body.innerHTML = `
+        <div class="summary">
+          <div><div class="profile-label">현재 응답 스타일</div><div class="profile-name">${item.name}</div></div>
+          <span class="badge">${confidence}</span>
+          <span class="badge neutral">시연 규칙 기반</span>
+        </div>
+        <div class="signals">
+          ${item.signals.map((signal) => `<span class="signal">${signal}</span>`).join("")}
+          <span class="signal">확정 응답 ${count}건 기준</span>
+        </div>
+        <div class="guides">
+          <article class="guide"><div class="guide-label">권장 진행 방식</div><p>${item.now}</p></article>
+          <article class="guide"><div class="guide-label">다음 확인 포인트</div><p>${item.next}</p></article>
+          <article class="guide avoid"><div class="guide-label">피해야 할 방식</div><p>${item.avoid}</p></article>
+        </div>`;
+    }
+
+    document.querySelectorAll("[data-preset]").forEach((button) => {
+      button.addEventListener("click", () => {
+        answers = [...presets[button.dataset.preset]];
+        document.querySelectorAll("[data-preset]").forEach((item) => item.classList.remove("active"));
+        button.classList.add("active");
+        render();
+      });
+    });
+
+    document.getElementById("addAnswer").addEventListener("click", () => {
+      const input = document.getElementById("answerInput");
+      const text = input.value.trim();
+      if (!text) return input.focus();
+      answers.push(text);
+      input.value = "";
+      document.querySelectorAll("[data-preset]").forEach((item) => item.classList.remove("active"));
+      render();
+    });
+
+    document.getElementById("resetButton").addEventListener("click", () => {
+      answers = [];
+      document.querySelectorAll("[data-preset]").forEach((item) => item.classList.remove("active"));
+      render();
+    });
+
+    document.getElementById("answerInput").addEventListener("keydown", (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") document.getElementById("addAnswer").click();
+    });
+
+    document.querySelector('[data-preset="comparative"]').classList.add("active");
+    render();
+  </script>
+</body>
+</html>

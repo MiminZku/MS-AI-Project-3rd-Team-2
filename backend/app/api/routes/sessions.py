@@ -283,10 +283,10 @@ async def upload_recording(
 async def end_session(
     session: Session = Depends(load_session),
 ) -> Session:
+    # orchestrator는 종료 시각과 상태를 store에 await하여 확정 저장한다.
+    # transcript는 발화마다 이미 같은 study_id 세션 레코드에 저장되어 있다.
+    return await orchestrator.end_session(session)
 
-    return await orchestrator.end_session(
-        session
-    )
 
 
 # =========================================================

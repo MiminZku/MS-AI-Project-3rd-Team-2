@@ -5,11 +5,16 @@ import {
   deleteProject,
   deleteSession,
   fetchSession,
+  fetchProjectAggregateReport,
+  generateProjectAggregateReport,
   listProjects,
+
   listProjectSessions,
   uploadGuideFile,
 } from "../api";
 import type { Project, Session } from "../types";
+import type { ProjectAggregateReport } from "../api";
+
 import {
   formatSessionReference,
   normalizeParticipantId,
@@ -533,6 +538,8 @@ function SessionListView({
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [aggregateReport, setAggregateReport] = useState<ProjectAggregateReport | null>(null);
+  const [generatingReport, setGeneratingReport] = useState(false);
 
   useEffect(() => {
     if (presetProjectId && !projectId) {
@@ -543,14 +550,32 @@ function SessionListView({
   useEffect(() => {
     if (!projectId) {
       setSessions([]);
+      setAggregateReport(null);
       return;
     }
     setLoading(true);
-    listProjectSessions(projectId)
-      .then(setSessions)
-      .catch((cause: unknown) => console.error("세션 목록 조회 실패", cause))
+    Promise.all([listProjectSessions(projectId), fetchProjectAggregateReport(projectId)])
+      .then(([projectSessions, projectReport]) => {
+        setSessions(projectSessions);
+        setAggregateReport(projectReport);
+      })
+      .catch((cause: unknown) => console.error("프로젝트 데이터 조회 실패", cause))
       .finally(() => setLoading(false));
   }, [projectId]);
+
+  const generateReport = async () => {
+    if (!projectId) return;
+    setGeneratingReport(true);
+    setError("");
+    try {
+      setAggregateReport(await generateProjectAggregateReport(projectId));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setGeneratingReport(false);
+    }
+  };
+
 
   const open = async (session: Session) => {
     setBusy(true);
@@ -586,7 +611,27 @@ function SessionListView({
           </select>
         </label>
 
+                {projectId && (
+          <section className="project-access-id-card" aria-label="프로젝트 종합 리포트">
+            <div>
+              <p>PROJECT REPORT</p>
+              <strong>{aggregateReport?.status === "COMPLETED" ? "생성된 리포트 스냅샷" : "프로젝트 종합 리포트"}</strong>
+              <small>
+                완료된 실제 인터뷰 {aggregateReport?.respondent_count ?? 0}건을 기준으로 생성합니다.
+                종료만으로는 자동 생성되지 않으며, 새 인터뷰 반영은 재생성 시에만 이뤄집니다.
+              </small>
+            </div>
+            <button type="button" className="btn-sm solid" disabled={generatingReport} onClick={generateReport}>
+              {generatingReport ? "생성 중…" : aggregateReport?.status === "COMPLETED" ? "새 인터뷰 반영하여 재생성" : "프로젝트 리포트 생성"}
+            </button>
+            {aggregateReport?.status === "COMPLETED" && aggregateReport.generated_at && (
+              <small>마지막 생성: {new Date(aggregateReport.generated_at).toLocaleString("ko-KR")}</small>
+            )}
+          </section>
+        )}
+
         {loading && <p className="muted small">불러오는 중…</p>}
+
         {!loading && projectId && sessions.length === 0 && (
           <p className="muted small">이 프로젝트엔 아직 생성된 세션이 없습니다.</p>
         )}

@@ -6,14 +6,9 @@
   ⑤ GPT-4o가 다음 질문 + 판단 근거 생성
   ⑥ 인터뷰이에게 질문 전송 / 참관자에게 근거 포함 전송
 
-인터뷰 종료 후:
-  ① 개별 인터뷰 Report 생성
-  ② 같은 Study의 Session 상태 확인
-  ③ 모든 Session이 종료되고 개별 Report가 준비되면
-  ④ StudyReportAnalyzer로 종합 분석
-  ⑤ study_report.json 저장
-  ⑥ Word / Power BI Excel 자동 생성
-  ⑦ Azure Blob Storage reports 컨테이너 자동 업로드
+인터뷰 종료 후에는 답변 저장 상태를 보존하고 세션만 완료 처리한다.
+프로젝트 종합 리포트는 PM이 프로젝트 화면에서 명시적으로 생성한다.
+
 """
 
 from __future__ import annotations
@@ -562,39 +557,20 @@ async def end_session(
         ),
     )
 
-    # 인터뷰이에게도 종료 상태를 전파해야 메인룸이 종료 화면으로 전환된다.
-    # 인터뷰이 클라이언트는 session.state 만 구독하므로 start_session 과 동일한 형식으로 보낸다.
+    # 인터뷰이도 종료 상태를 받아 종료 화면으로 전환해야 한다.
     await manager.send_to_interviewee(
         session.id,
         server_message(
             "session.state",
-            session={
-                "id": session.id,
-                "title": session.title,
-                "status": session.status,
-                "duration_minutes": session.duration_minutes,
-                "questions": [q.model_dump(mode="json") for q in session.questions],
-            },
+            session=await build_respondent_session_state(session),
         ),
     )
 
-    # -----------------------------------------------------
-    # D6:
-    #
-    # 별도 Azure Event Grid / Functions 없이
-    # 백엔드 내부 비동기 태스크로 개별 리포트 생성.
-    #
-    # 종료 API 응답을 막지 않도록
-    # fire-and-forget.
-    # -----------------------------------------------------
-
-    asyncio.create_task(
-        _generate_report(
-            session.id
-        )
-    )
+    # transcript는 turn 단위로 이미 저장됐다. 여기서는 종료 상태만 확정하며,
+    # 리포트 생성은 PM의 명시적 프로젝트 종합 리포트 요청에서만 수행한다.
 
     return session
+
 
 
 # =========================================================

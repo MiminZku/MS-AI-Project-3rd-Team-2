@@ -5,7 +5,9 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from app.api.deps import require_admin
+from app.schemas.project_report import ProjectAggregateReport
 from app.schemas.session import QuestionNode, Session
+
 from app.schemas.study import (
     ResearchStudy,
     ResearchStudyCreateRequest,
@@ -15,6 +17,8 @@ from app.services.ai.document_parser import get_document_parser
 from app.services.question_script import parse_question_script
 from app.services.report.slot_generator import get_slot_generator
 from app.services.project_access import issue_project_access_id
+from app.services.project_report import completed_real_sessions, generate_project_report
+
 from app.services.store import get_store
 from app.services.storage import get_storage_service
 
@@ -177,11 +181,45 @@ async def list_studies() -> list[ResearchStudy]:
 
 
 # =========================================================
+# Project aggregate report (PM only)
+# =========================================================
+
+@router.get("/{study_id}/aggregate-report", response_model=ProjectAggregateReport)
+async def get_aggregate_report(study_id: str) -> ProjectAggregateReport:
+    store = get_store()
+    if await store.get_study(study_id) is None:
+        raise HTTPException(status_code=404, detail="ResearchStudy를 찾을 수 없습니다.")
+    report = await store.get_project_report(study_id)
+    if report is not None:
+        return report
+    sessions = completed_real_sessions(await store.list_sessions(study_id))
+    return ProjectAggregateReport(
+        project_id=study_id,
+        respondent_count=0,
+        included_session_ids=[],
+    )
+
+
+@router.post("/{study_id}/aggregate-report", response_model=ProjectAggregateReport)
+async def create_aggregate_report(study_id: str) -> ProjectAggregateReport:
+    try:
+        report = await generate_project_report(study_id)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    if report.status == "FAILED":
+        raise HTTPException(status_code=500, detail=report.error_message or "프로젝트 리포트 생성에 실패했습니다.")
+    return report
+
+
+# =========================================================
 # Research Study 조회
 # =========================================================
 
 @router.get(
     "/{study_id}",
+
     response_model=ResearchStudyCreateResponse,
 )
 async def get_study(

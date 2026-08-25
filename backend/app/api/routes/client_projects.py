@@ -5,6 +5,7 @@ from datetime import datetime
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel, Field
 
+from app.schemas.project_report import ProjectAggregateReport
 from app.schemas.session import SessionStatus
 from app.services.client_project_access import (
     issue_client_project_token,
@@ -83,6 +84,18 @@ async def get_client_project(
     if study is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "프로젝트를 찾을 수 없습니다.")
     return _project_summary(study)
+
+
+@router.get("/{study_id}/aggregate-report", response_model=ProjectAggregateReport | None)
+async def get_client_project_aggregate_report(
+    study_id: str,
+    x_project_access_token: str | None = Header(default=None),
+) -> ProjectAggregateReport | None:
+    _require_project_token(study_id, x_project_access_token)
+    if await get_store().get_study(study_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "프로젝트를 찾을 수 없습니다.")
+    report = await get_store().get_project_report(study_id)
+    return report if report and report.status == "COMPLETED" else None
 
 
 @router.get("/{study_id}/sessions", response_model=list[ClientSessionSummary])

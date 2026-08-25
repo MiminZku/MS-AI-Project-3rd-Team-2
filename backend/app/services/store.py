@@ -22,6 +22,8 @@ from typing import Protocol
 
 from app.core.config import get_settings
 from app.schemas.report import Report
+from app.schemas.project_report import ProjectAggregateReport
+
 from app.schemas.session import (
     Instruction,
     Session,
@@ -160,13 +162,34 @@ class Store(Protocol):
         ...
 
     async def get_report(
+
         self,
         session_id: str,
     ) -> Report | None:
         ...
 
+
+
+
+    # -----------------------------------------------------
+    # Project aggregate report
+    # -----------------------------------------------------
+
+    async def save_project_report(
+        self,
+        report: ProjectAggregateReport,
+    ) -> None:
+        ...
+
+    async def get_project_report(
+        self,
+        project_id: str,
+    ) -> ProjectAggregateReport | None:
+        ...
+
     # -----------------------------------------------------
     # Close
+
     # -----------------------------------------------------
 
     async def close(self) -> None:
@@ -204,8 +227,14 @@ class InMemoryStore:
             dict[str, Instruction],
         ] = {}
 
-        # Reports
+        # Session-level reports (legacy; no longer generated at interview end).
         self._reports: dict[str, Report] = {}
+
+
+
+        # PM-created project aggregate report snapshots.
+        self._project_reports: dict[str, ProjectAggregateReport] = {}
+
 
 
     # -----------------------------------------------------
@@ -433,10 +462,8 @@ class InMemoryStore:
         self,
         report: Report,
     ) -> None:
+        self._reports[report.session_id] = report
 
-        self._reports[
-            report.session_id
-        ] = report
 
 
     async def get_report(
@@ -449,8 +476,30 @@ class InMemoryStore:
         )
 
 
+
+
+
+    # -----------------------------------------------------
+    # Project aggregate report
+    # -----------------------------------------------------
+
+    async def save_project_report(
+        self,
+        report: ProjectAggregateReport,
+    ) -> None:
+        self._project_reports[report.project_id] = report
+
+
+    async def get_project_report(
+        self,
+        project_id: str,
+    ) -> ProjectAggregateReport | None:
+        return self._project_reports.get(project_id)
+
+
     # -----------------------------------------------------
     # Close
+
     # -----------------------------------------------------
 
     async def close(self) -> None:
@@ -480,24 +529,26 @@ class RedisStore:
 
 
     # -----------------------------------------------------
-    # Redis Key
+        # Redis Key
     # -----------------------------------------------------
 
     def _key(
         self,
+
         session_id: str,
         suffix: str = "",
     ) -> str:
 
-        return (
-            f"session:{session_id}{suffix}"
-        )
+        return f"session:{session_id}{suffix}"
+
+
 
 
     def _study_key(
         self,
         study_id: str,
     ) -> str:
+
 
         return f"study:{study_id}"
 
@@ -506,6 +557,7 @@ class RedisStore:
         self,
         study_id: str,
     ) -> str:
+
 
         return f"study:{study_id}:sessions"
 
@@ -516,6 +568,16 @@ class RedisStore:
     ) -> str:
 
         return f"project-access:{access_id}"
+
+
+
+
+    def _project_report_key(
+        self,
+        project_id: str,
+    ) -> str:
+        return f"study:{project_id}:aggregate-report"
+
 
 
     # -----------------------------------------------------
@@ -959,14 +1021,8 @@ class RedisStore:
         self,
         report: Report,
     ) -> None:
-
-        key = self._key(
-            report.session_id,
-            ":report",
-        )
-
         await self._redis.set(
-            key,
+            self._key(report.session_id, ":report"),
             report.model_dump_json(),
             ex=self._ttl,
         )
@@ -976,13 +1032,8 @@ class RedisStore:
         self,
         session_id: str,
     ) -> Report | None:
+        raw = await self._redis.get(self._key(session_id, ":report"))
 
-        raw = await self._redis.get(
-            self._key(
-                session_id,
-                ":report",
-            )
-        )
 
         if not raw:
             return None
@@ -994,7 +1045,31 @@ class RedisStore:
 
 
     # -----------------------------------------------------
+    # Project aggregate report
+    # -----------------------------------------------------
+
+    async def save_project_report(
+        self,
+        report: ProjectAggregateReport,
+    ) -> None:
+        await self._redis.set(
+            self._project_report_key(report.project_id),
+            report.model_dump_json(),
+            ex=self._ttl,
+        )
+
+
+    async def get_project_report(
+        self,
+        project_id: str,
+    ) -> ProjectAggregateReport | None:
+        raw = await self._redis.get(self._project_report_key(project_id))
+        return ProjectAggregateReport.model_validate_json(raw) if raw else None
+
+
+    # -----------------------------------------------------
     # Close
+
     # -----------------------------------------------------
 
     async def close(self) -> None:
