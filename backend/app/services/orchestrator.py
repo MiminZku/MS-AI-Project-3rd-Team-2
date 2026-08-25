@@ -40,6 +40,9 @@ from app.schemas.session import (
 from app.services.ai import timekeeper
 from app.services.ai.llm import get_question_generator
 from app.services.connections import manager
+from app.services.respondent_session_state import (
+    build_respondent_session_state,
+)
 from app.services.report import generator as report_generator
 from app.services.report.study_analyzer import (
     get_study_report_analyzer,
@@ -347,19 +350,23 @@ async def start_session(
     timekeeper.start(session.id)
 
     # 인터뷰이와 참관자에게 session.state 실시간 브로드캐스트
-    msg = server_message(
+    respondent_message = server_message(
         "session.state",
-        session={
-            "id": session.id,
-            "title": session.title,
-            "status": session.status,
-            "duration_minutes": session.duration_minutes,
-            "questions": [q.model_dump(mode="json") for q in session.questions],
-        },
+        session=await build_respondent_session_state(session),
     )
-    await manager.send_to_interviewee(session.id, msg)
+    await manager.send_to_interviewee(session.id, respondent_message)
     if broadcast_observer_state:
-        await manager.broadcast_to_observers(session.id, msg)
+        observer_message = server_message(
+            "session.state",
+            session={
+                "id": session.id,
+                "title": session.title,
+                "status": session.status,
+                "duration_minutes": session.duration_minutes,
+                "questions": [q.model_dump(mode="json") for q in session.questions],
+            },
+        )
+        await manager.broadcast_to_observers(session.id, observer_message)
 
     return session
 
