@@ -431,18 +431,6 @@ export default function App() {
                 {isChecking ? "권한 확인 중..." : "시작하기"}
               </button>
 
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  setSessionStatus("running");
-                  setEntryStep("running");
-                  setStatus("connected");
-                }}
-                style={{ marginTop: 12, border: "1px solid #3b82f6", color: "#60a5fa" }}
-              >
-                ⚡ [개발자용] 백룸 없이 아바타 화면 바로 테스트
-              </button>
-
               {errorMessage && <p className="error-alert">{errorMessage}</p>}
             </div>
           </div>
