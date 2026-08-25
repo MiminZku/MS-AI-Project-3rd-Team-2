@@ -15,6 +15,7 @@ from app.services.ai.realtime_stt import RealtimeSTTClient
 from app.core.config import get_settings
 
 from app.services.ai.stt import get_transcriber
+from app.services.ai.stt_judge import get_transcript_validator
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -23,7 +24,7 @@ router = APIRouter()
 
 @router.post("/api/interview/{session_id}/audio")
 async def handle_audio(session_id: str, audio: UploadFile = File(...)) -> dict:
-    """오디오 턴 단위 업로드 API (REST 파일 전송 및 STT 연동)."""
+    """오디오 턴 단위 업로드 API (REST 파일 전송 및 Dual-pass STT & Judge 연동)."""
     store = get_store()
     session = await store.get_session(session_id)
     if not session or session.status == "ended":
@@ -33,10 +34,19 @@ async def handle_audio(session_id: str, audio: UploadFile = File(...)) -> dict:
         session = await orchestrator.start_session_if_needed(session)
 
     audio_bytes = await audio.read()
+    curr_q = ""
+    if session.questions and 0 <= session.current_question_index < len(session.questions):
+        curr_q = session.questions[session.current_question_index].text
+
     text = ""
     try:
         transcriber = get_transcriber()
-        text = await transcriber.transcribe(audio_bytes, mime_type=audio.content_type or "audio/webm")
+        val_res = await transcriber.transcribe_dual_pass(
+            audio_bytes, question_context=curr_q, mime_type=audio.content_type or "audio/webm"
+        )
+        text = val_res.selected
+        if val_res.status == "low_confidence":
+            logger.info("REST STT Judge Low Confidence 판정 (%s): %s", session_id, val_res.reason)
     except Exception as e:
         logger.warning("STT 변환 예외 발생 (안전 폴백 적용): %s", e)
         text = "네, 말씀해 주신 내용 잘 들었습니다."
@@ -51,7 +61,6 @@ async def handle_audio(session_id: str, audio: UploadFile = File(...)) -> dict:
 import io
 import wave
 import base64
-from app.services.ai.stt import get_transcriber
 
 def pcm_to_wav(pcm_bytes: bytes, sample_rate: int = 24000, channels: int = 1, sample_width: int = 2) -> bytes:
     wav_io = io.BytesIO()
@@ -91,6 +100,7 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
 
     raw_pcm_chunks: list[bytes] = []
     utterance_buffer: list[str] = []
+    translate_buffer: list[str] = []
 
     async def on_stt_partial(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.partial", lang="ko", text=text))
@@ -105,6 +115,8 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
         
     async def on_translate_final(text: str):
         await manager.broadcast_to_observers(session_id, server_message("transcript.final", lang="en", text=text))
+        if text.strip():
+            translate_buffer.append(text.strip())
 
     try:
         while True:
@@ -114,6 +126,11 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
             if msg_type == "audio.start":
                 raw_pcm_chunks.clear()
                 utterance_buffer.clear()
+                translate_buffer.clear()
+                if stt_client:
+                    stt_client.reset_buffer()
+                if translate_client:
+                    translate_client.reset_buffer()
                 source_lang = message.get("source_lang", "Korean")
                 target_lang = message.get("target_lang", "English")
                 # Initialize Realtime clients if not created
@@ -152,46 +169,62 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                 if stt_client: await stt_client.commit_audio()
                 if translate_client: await translate_client.commit_audio()
                 
-                # VAD가 여러 번 발동했을 수 있으므로 모든 텍스트가 도착할 때까지 잠시 대기 후 하나로 합쳐서 질문 생성
                 # Realtime 스트림 도착 대기
-                await asyncio.sleep(1.0)
+                await asyncio.sleep(0.8)
                 
-                full_text = " ".join(utterance_buffer).strip()
+                realtime_candidate = " ".join(utterance_buffer).strip()
+                realtime_translation = " ".join(translate_buffer).strip() or (translate_client.current_text.strip() if translate_client else "")
                 
-                # Realtime STT가 텍스트를 반환하지 못했을 경우 PCM 오디오로 STT 폴백
-                if not full_text and raw_pcm_chunks:
+                current = await store.get_session(session_id)
+                curr_q = ""
+                if current and current.questions and 0 <= current.current_question_index < len(current.questions):
+                    curr_q = current.questions[current.current_question_index].text
+
+                final_text = ""
+                validator = get_transcript_validator()
+                
+                if raw_pcm_chunks:
                     all_pcm = b"".join(raw_pcm_chunks)
                     if len(all_pcm) >= 4800:  # 최소 0.1초 이상 분량
                         try:
                             wav_bytes = pcm_to_wav(all_pcm, sample_rate=24000)
                             transcriber = get_transcriber()
-                            fallback_text = await transcriber.transcribe(wav_bytes, mime_type="audio/wav")
                             
-                            # 다시 한번 버퍼 확인 (fallback 진행 중에 Realtime 응답이 왔을 수 있음)
-                            full_text = " ".join(utterance_buffer).strip()
-                            
-                            if not full_text and fallback_text:
-                                logger.info("폴백 STT 인식 성공: %s", fallback_text)
-                                full_text = fallback_text
-                                await on_stt_final(full_text)
+                            if realtime_candidate and transcriber.gpt_transcriber:
+                                # 1차 Realtime STT 텍스트와 2차 Whisper STT 텍스트를 대조 검증
+                                whisper_candidate = await transcriber.gpt_transcriber.transcribe(wav_bytes, mime_type="audio/wav")
+                                val_result = await validator.validate(curr_q, realtime_candidate, whisper_candidate)
+                                final_text = val_result.selected
+                                if val_result.status == "low_confidence":
+                                    logger.info("WebSocket STT Judge Low Confidence: %s", val_result.reason)
+                            else:
+                                # Realtime 수신이 없었을 경우 Dual-Pass 전사기 전체 가동
+                                val_result = await transcriber.transcribe_dual_pass(wav_bytes, question_context=curr_q, mime_type="audio/wav")
+                                final_text = val_result.selected
                         except Exception as e:
-                            logger.warning("폴백 STT 전사 오류: %s", e)
+                            logger.warning("Dual-pass STT 검증 오류: %s", e)
+                            final_text = realtime_candidate
 
-                if not full_text:
-                    full_text = " ".join(utterance_buffer).strip()
+                if not final_text:
+                    final_text = realtime_candidate or " ".join(utterance_buffer).strip()
 
-                # 무음이거나 텍스트가 비어있어도 인터뷰 흐름이 멈추지 않도록 처리
-                if not full_text:
-                    full_text = "(음성이 감지되지 않았거나 무음 상태입니다. 답변이 잘 들리지 않았음을 정중히 알리고 현재 질문을 다시 질문하세요.)"
+                if final_text:
+                    await on_stt_final(final_text)
+                else:
+                    final_text = "(음성이 감지되지 않았거나 무음 상태입니다. 마지막 답변이 잘 들리지 않았음을 정중히 알리고 다시 말씀해주시겠어요? 라고 재질문하세요.)"
                     logger.warning("STT 인식 텍스트 없음 - 무음 처리: %s", session_id)
                     await on_stt_final("🎙️ (음성이 감지되지 않았습니다.)")
 
                 raw_pcm_chunks.clear()
                 utterance_buffer.clear()
+                translate_buffer.clear()
+                if stt_client:
+                    stt_client.reset_buffer()
+                if translate_client:
+                    translate_client.reset_buffer()
 
-                current = await store.get_session(session_id)
                 if current:
-                    await orchestrator.handle_utterance(current, full_text)
+                    await orchestrator.handle_utterance(current, final_text, text_en=realtime_translation or None)
                 
             elif msg_type == "utterance":
                 # Fallback for text mode demo

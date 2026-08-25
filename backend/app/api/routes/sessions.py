@@ -86,6 +86,7 @@ async def create_session(
             duration_minutes=(
                 payload.duration_minutes
             ),
+            interpretation_language=payload.interpretation_language,
 
             # ⭐ 중요
             # 질문지를 다시 파싱하지 않고
@@ -109,6 +110,7 @@ async def create_session(
             duration_minutes=(
                 payload.duration_minutes
             ),
+            interpretation_language=payload.interpretation_language,
             questions=questions,
         )
 
@@ -145,6 +147,30 @@ async def create_session(
 async def list_sessions() -> list[Session]:
 
     return await get_store().list_sessions()
+
+
+# =========================================================
+# Session 삭제
+# =========================================================
+
+@router.delete(
+    "/{session_id}",
+    status_code=204,
+)
+async def delete_session(
+    session_id: str,
+) -> None:
+
+    store = get_store()
+
+    session = await store.get_session(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=404,
+            detail="세션을 찾을 수 없습니다.",
+        )
+
+    await store.delete_session(session_id)
 
 
 # =========================================================

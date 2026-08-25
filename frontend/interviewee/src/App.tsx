@@ -240,6 +240,15 @@ export default function App() {
     const timer = setTimeout(() => setSessionStatus("ended"), 1200);
     return () => clearTimeout(timer);
   }, [isPendingEnd, avatar.status]);
+  // 3-2. 위 전환은 avatar.status가 "speaking"에서 벗어나야 발동하는데, 아바타 음성 합성이
+  // 네트워크 문제 등으로 응답을 영영 안 주면 status가 "speaking"에 멈춰서 종료 화면이 영원히
+  // 안 뜬다 — PM이 대시보드에서 종료를 눌러도 인터뷰이 화면이 계속 살아있는 것처럼 보이는
+  // 원인. avatar.status와 무관하게 최대 대기 시간을 두어 반드시 종료 화면으로 넘어가게 한다.
+  useEffect(() => {
+    if (!isPendingEnd) return;
+    const timer = setTimeout(() => setSessionStatus("ended"), 8000);
+    return () => clearTimeout(timer);
+  }, [isPendingEnd]);
   // 4. Log interview history for debugging/future logging purposes
   useEffect(() => {
     if (history.length > 0) {

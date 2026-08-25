@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import os
@@ -6,8 +6,9 @@ import re
 from typing import Any
 
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
+from openai import AsyncAzureOpenAI
 
+from app.core.config import get_settings
 from app.schemas.study import ResearchStudy
 from app.schemas.study_report import (
     StudyEvidenceReference,
@@ -31,20 +32,11 @@ class StudyReportAnalyzer:
     """
 
     def __init__(self) -> None:
-        endpoint = os.getenv(
-            "AZURE_OPENAI_ENDPOINT",
-            "",
-        ).strip()
-
-        api_key = os.getenv(
-            "AZURE_OPENAI_API_KEY",
-            "",
-        ).strip()
-
-        deployment = os.getenv(
-            "AZURE_OPENAI_CHAT_DEPLOYMENT",
-            "gpt-5.1",
-        ).strip()
+        settings = get_settings()
+        endpoint = settings.azure_openai_endpoint
+        api_key = settings.azure_openai_api_key
+        deployment = settings.azure_openai_chat_deployment
+        api_version = settings.azure_openai_api_version
 
         if not endpoint:
             raise RuntimeError(
@@ -58,12 +50,10 @@ class StudyReportAnalyzer:
 
         self.deployment = deployment
 
-        self.client = AsyncOpenAI(
+        self.client = AsyncAzureOpenAI(
+            azure_endpoint=endpoint,
             api_key=api_key,
-            base_url=(
-                endpoint.rstrip("/")
-                + "/openai/v1/"
-            ),
+            api_version=api_version,
         )
 
     async def analyze(

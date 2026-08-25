@@ -151,6 +151,8 @@ def _turn_payload(
 async def handle_utterance(
     session: Session,
     text: str,
+    *,
+    text_en: str | None = None,
 ) -> None:
 
     store = get_store()
@@ -176,6 +178,7 @@ async def handle_utterance(
         index=index,
         speaker="interviewee",
         text=text,
+        text_en=text_en,
     )
 
     await store.append_turn(
@@ -405,7 +408,7 @@ async def handle_utterance(
     # ⑦ 작별 인사를 전달했다면 참관자가 종료 버튼을 누른 것과 동일하게 자동 종료
     # -----------------------------------------------------
 
-    if await _should_auto_end(session, generated, store):
+    if await _should_auto_end(session, generated, store, instruction):
 
         logger.info(
             "AI 종료 멘트 후 세션 자동 종료 session=%s",
@@ -423,11 +426,12 @@ async def _should_auto_end(
     session: Session,
     generated: GeneratedQuestion,
     store: Store,
+    instruction: Instruction | None = None,
 ) -> bool:
     """AI가 작별 인사를 마쳤고, 더 진행할 것이 남아있지 않은지 판단한다.
 
     참관자가 종료 버튼을 누르는 것과 같은 효과이므로 조건을 보수적으로 잡는다.
-    셋 중 하나라도 어긋나면 종료하지 않고 인터뷰를 계속한다.
+    넷 중 하나라도 어긋나면 종료하지 않고 인터뷰를 계속한다.
     """
 
     # ① 모델이 이번 발화를 작별 인사로 신고했는가
@@ -439,7 +443,13 @@ async def _should_auto_end(
     if session.current_question_index < len(session.questions):
         return False
 
-    # ③ 대기 중인 참관자 지시가 없는가
+    # ③ 이번 턴이 방금 처리한 참관자 지시에 대한 응답은 아닌가
+    #    참관자가 직접 개입해서 무언가 물어보라고 지시했는데, 모델이 그 응답을
+    #    작별 인사로 마무리해버렸다고 해서 곧바로 세션을 끝내면 참관자 의도와 어긋난다.
+    if instruction is not None:
+        return False
+
+    # ④ 대기 중인 참관자 지시가 없는가
     #    이번 턴에 소비된 지시는 위에서 이미 applied 처리됐으므로 queued에 잡히지 않는다.
     try:
         instructions = await store.list_instructions(session.id)

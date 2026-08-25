@@ -16,6 +16,7 @@ export interface Session {
   title: string;
   status: "created" | "running" | "ended";
   duration_minutes: number;
+  interpretation_language?: string;
   questions: QuestionNode[];
   current_question_index: number;
   active_branch?: string | null;
@@ -40,6 +41,7 @@ export interface Turn {
   index: number;
   speaker: Speaker;
   text: string;
+  text_en?: string | null;
   /** AI 판단 근거 — 참관자 전용 (C5). */
   rationale: string | null;
   instruction_id: string | null;

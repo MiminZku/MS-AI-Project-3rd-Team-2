@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { startSession, endSession, observerSocketUrl, fetchRtcToken, uploadGuideFile } from "../api";
+import { startSession, endSession, fetchReport, observerSocketUrl, fetchRtcToken, getProject, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
 import { useRemoteRecording } from "../hooks/useRemoteRecording";
 import VideoSubscriber from "./VideoSubscriber";
@@ -52,6 +52,8 @@ const QUICK_INSTRUCTIONS = [
   "다음 주제로 자연스럽게 넘어가 주세요.",
 ];
 
+const LANGUAGE_LABELS: Record<string, string> = { ko: "한국어", en: "English", ja: "日本語" };
+
 function phaseOf(session: Session | null, intervieweeOnline: boolean): Phase {
   if (!session || session.status === "created") {
     return intervieweeOnline ? "joined" : "wait";
@@ -76,7 +78,12 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [draft, setDraft] = useState("");
   const [liveTextKo, setLiveTextKo] = useState("");
   const [liveTextEn, setLiveTextEn] = useState("");
+  const liveTextEnRef = useRef("");
+  const pendingTranslationIndexRef = useRef<number | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+  const [translations, setTranslations] = useState<Record<number, string>>({});
   const [report, setReport] = useState<Report | null>(null);
+  const [reportJsonOpen, setReportJsonOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [recordingRequested, setRecordingRequested] = useState(false);
@@ -89,7 +96,8 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   // 백엔드가 세션 상태를 자동으로 넘겨주기 전까지, 화면 미리보기용 수동 오버라이드.
   const [historyOpen, setHistoryOpen] = useState(false);
   const [instructionsOpen, setInstructionsOpen] = useState(false);
-  const [activePanel, setActivePanel] = useState<"tree" | "link" | null>(null);
+  const [activePanel, setActivePanel] = useState<"tree" | "link" | "options" | null>(null);
+  const [clientAccessId, setClientAccessId] = useState<string | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [fileFormat, setFileFormat] = useState<FileFormat>("md");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -121,7 +129,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   }, [sessionId]);
 
   useEffect(() => {
+    if (!session?.study_id || sessionId === DEMO_SESSION_ID) return;
+    getProject(session.study_id)
+      .then((project) => setClientAccessId(project.access_id ?? null))
+      .catch((err) => console.error("프로젝트 조회 실패", err));
+  }, [session?.study_id, sessionId]);
 
+  useEffect(() => {
     // 백엔드 없이 화면을 리뷰하기 위한 목데이터 모드 (§SessionForm "데모로 미리보기").
     if (sessionId === DEMO_SESSION_ID) {
       setSession(DEMO_SESSION);
@@ -153,14 +167,36 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         case "transcript.append":
           setTranscript((prev) => [...prev, message.turn]);
           if (message.turn.speaker === "interviewee") {
-            setLiveTextKo("");
-            setLiveTextEn("");
+            const idx = message.turn.index;
+            if (message.turn.text_en) {
+              setTranslations((prev) => ({ ...prev, [idx]: message.turn.text_en! }));
+              pendingTranslationIndexRef.current = null;
+            } else if (liveTextEnRef.current) {
+              const text = liveTextEnRef.current;
+              setTranslations((prev) => ({ ...prev, [idx]: text }));
+              pendingTranslationIndexRef.current = idx;
+            } else {
+              pendingTranslationIndexRef.current = idx;
+            }
+            liveTextEnRef.current = "";
+          } else {
+            pendingTranslationIndexRef.current = null;
+            liveTextEnRef.current = "";
           }
           break;
         case "transcript.partial":
         case "transcript.final":
           if (message.lang === "ko") setLiveTextKo(message.text);
-          if (message.lang === "en") setLiveTextEn(message.text);
+          if (message.lang === "en") {
+            setLiveTextEn(message.text);
+            liveTextEnRef.current = message.text;
+            if (pendingTranslationIndexRef.current !== null) {
+              const idx = pendingTranslationIndexRef.current;
+              const text = message.text;
+              setTranslations((prev) => ({ ...prev, [idx]: text }));
+              if (message.type === "transcript.final") pendingTranslationIndexRef.current = null;
+            }
+          }
           break;
         case "instruction.queued":
           setInstructions((prev) => [...prev, message.instruction]);
@@ -362,6 +398,19 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
               </svg>
             </span>
           </button>
+          <button
+            type="button"
+            className={`dock-icon options ${activePanel === "options" ? "on" : ""}`}
+            title="세션 옵션 · 인터뷰 시간 · 통역 언어"
+            onClick={() => setActivePanel((v) => (v === "options" ? null : "options"))}
+          >
+            <span className="dock-icon-glyph">
+              <svg width="21" height="21" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="10" cy="10" r="2.2" />
+                <path d="M10 3.5v2M10 14.5v2M16.5 10h-2M5.5 10h-2M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4M14.6 14.6l-1.4-1.4M6.8 6.8L5.4 5.4" />
+              </svg>
+            </span>
+          </button>
         </div>
         </div>
 
@@ -455,13 +504,40 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                         </button>
                       </p>
                     )}
-                    <p className="link-row">
-                      클라이언트: <span className="muted">준비 중</span>
-                    </p>
+                    {clientAccessId ? (
+                      <p className="link-row">
+                        클라이언트: <code>{clientAccessId}</code>
+                        <button className="ghost" onClick={() => navigator.clipboard.writeText(clientAccessId)}>
+                          복사
+                        </button>
+                      </p>
+                    ) : (
+                      <p className="link-row">
+                        클라이언트: <span className="muted">프로젝트에 연결된 세션이 아닙니다</span>
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="muted small">참관 전용 — 링크는 PM만 볼 수 있습니다.</p>
                 )}
+              </div>
+            </div>
+          </div>
+
+          <div className={`dock-panel ${activePanel === "options" ? "open" : ""}`}>
+            <div className="hover-drawer-section">
+              <div className="hover-drawer-label">• 세션 옵션</div>
+              <div className="p-body">
+                <p className="link-row">
+                  인터뷰 시간: <strong>{session?.duration_minutes ?? "-"}분</strong>
+                </p>
+                <p className="link-row">
+                  통역 언어:{" "}
+                  <strong>
+                    {LANGUAGE_LABELS[session?.interpretation_language ?? "ko"] ?? session?.interpretation_language}
+                  </strong>
+                </p>
+                <p className="muted small">실시간 통역 반영은 아직 준비 중이며, 위 값은 세션 생성 시 선택한 설정입니다.</p>
               </div>
             </div>
           </div>
@@ -563,9 +639,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                   <button type="button" className="on" disabled title="곧 지원 예정">
                     원문 음성
                   </button>
-                  <button type="button" disabled title="곧 지원 예정">
-                    통역 음성
-                  </button>
                 </div>
               </div>
             </>
@@ -604,10 +677,10 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 <div className="sub">STT 변환 · AI 판단 · 질문/답변 순</div>
               </div>
               <div className="lang-toggle">
-                <button type="button" className="active" disabled title="곧 지원 예정">
+                <button type="button" className={!showTranslation ? "active" : ""} onClick={() => setShowTranslation(false)}>
                   원문
                 </button>
-                <button type="button" disabled title="곧 지원 예정">
+                <button type="button" className={showTranslation ? "active" : ""} onClick={() => setShowTranslation(true)}>
                   원문+번역
                 </button>
               </div>
@@ -623,6 +696,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                     </time>
                   </div>
                   <p>{turn.text}</p>
+                  {showTranslation && turn.speaker === "interviewee" && (turn.text_en || translations[turn.index]) && (
+                    <p className="turn-translation">{turn.text_en || translations[turn.index]}</p>
+                  )}
                   {/* AI 판단 근거는 참관자에게만 보인다 (C5) */}
                   {turn.rationale && (
                     <div className="rationale">
@@ -649,17 +725,49 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             )}
 
             {report && (
-              <div className="report-highlight" ref={reportRef}>
-                {typeof report.data.summary === "string" && <p>{report.data.summary}</p>}
-                <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 11 }}>
-                  {JSON.stringify(report.data, null, 2)}
-                </pre>
+              <div className="report-container" ref={reportRef}>
+                <div className="report-header">
+                  <span className="report-title">📊 AI 인터뷰 분석 리포트</span>
+                  <span className="report-time">
+                    {new Date(report.generated_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                {typeof report.data.summary === "string" && report.data.summary && (
+                  <div className="report-summary-card">
+                    <strong className="summary-title">💡 종합 요약</strong>
+                    <p className="summary-text">{report.data.summary}</p>
+                  </div>
+                )}
+                {typeof report.data.key_findings === "object" && Array.isArray(report.data.key_findings) && report.data.key_findings.length > 0 && (
+                  <div className="report-findings-card">
+                    <strong className="findings-title">📌 주요 발견점</strong>
+                    <ul>
+                      {report.data.key_findings.map((item: any, i: number) => (
+                        <li key={i}>{typeof item === "string" ? item : JSON.stringify(item)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div className="report-json-section">
+                  <button
+                    type="button"
+                    className="report-json-toggle"
+                    onClick={() => setReportJsonOpen((v) => !v)}
+                  >
+                    <span>세부 JSON 데이터 {reportJsonOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+                  </button>
+                  {reportJsonOpen && (
+                    <pre className="report-json-pre">
+                      {JSON.stringify(report.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
               </div>
             )}
         </section>
 
         {role === "pm" && (
-          <section className={`panel ${phase !== "live" ? "locked" : ""}`}>
+          <section className={`panel ${phase === "wait" || phase === "joined" ? "locked" : ""}`}>
             <button
               type="button"
               className="accordion-head"
@@ -673,33 +781,41 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             </button>
             {instructionsOpen && (
               <>
-                <div className="composer p-body">
-                  <textarea
-                    rows={2}
-                    value={draft}
-                    placeholder="예) 경쟁사 대비 장점을 물어봐"
-                    onChange={(event) => setDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter" && !event.shiftKey) {
-                        event.preventDefault();
-                        sendInstruction();
-                      }
-                    }}
-                  />
-                  <button onClick={sendInstruction} disabled={status !== "connected"}>
-                    지시 보내기
-                  </button>
-                </div>
-                <div className="quick">
-                  {QUICK_INSTRUCTIONS.map((text) => (
-                    <button key={text} onClick={() => setDraft(text)}>
-                      {text}
-                    </button>
-                  ))}
-                </div>
-                <p className="muted small" style={{ padding: "6px 16px 10px" }}>
-                  응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
-                </p>
+                {phase === "end" ? (
+                  <p className="muted small" style={{ padding: "10px 16px" }}>
+                    세션이 종료되어 새 지시는 보낼 수 없습니다. 아래에서 지시 이력만 확인할 수 있습니다.
+                  </p>
+                ) : (
+                  <>
+                    <div className="composer p-body">
+                      <textarea
+                        rows={2}
+                        value={draft}
+                        placeholder="예) 경쟁사 대비 장점을 물어봐"
+                        onChange={(event) => setDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" && !event.shiftKey) {
+                            event.preventDefault();
+                            sendInstruction();
+                          }
+                        }}
+                      />
+                      <button onClick={sendInstruction} disabled={status !== "connected"}>
+                        지시 보내기
+                      </button>
+                    </div>
+                    <div className="quick">
+                      {QUICK_INSTRUCTIONS.map((text) => (
+                        <button key={text} onClick={() => setDraft(text)}>
+                          {text}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="muted small" style={{ padding: "6px 16px 10px" }}>
+                      응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
+                    </p>
+                  </>
+                )}
 
                 <button
                   type="button"

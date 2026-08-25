@@ -4,6 +4,7 @@ export interface ClientProject {
   id: string;
   title: string;
   research_purpose: string;
+  access_id?: string;
   created_at: string;
 }
 

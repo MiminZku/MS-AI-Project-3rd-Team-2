@@ -37,6 +37,8 @@ class Session(BaseModel):
     title: str = "제목 없는 인터뷰"
     status: SessionStatus = "created"
     duration_minutes: int = 20
+    # 백룸에 표시용 — 실시간 통역 파이프라인이 실제로 이 언어로 통역하지는 않는다 (준비 중).
+    interpretation_language: str = "ko"
     questions: list[QuestionNode] = Field(default_factory=list)
     current_question_index: int = 0
     # current_question_index의 메인 질문을 응답자에게 실제로 물었는지 여부.
@@ -89,6 +91,7 @@ class SessionCreateRequest(BaseModel):
     study_id: str | None = None
     title: str = "제목 없는 인터뷰"
     duration_minutes: int = 20
+    interpretation_language: str = "ko"
     # §4.2의 텍스트 포맷. 파싱해서 questions로 변환된다.
     question_script: str = ""
 

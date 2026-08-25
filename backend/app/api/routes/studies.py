@@ -242,6 +242,34 @@ async def get_study(
 
 
 # =========================================================
+# Research Study 삭제 (산하 세션도 함께 삭제)
+# =========================================================
+
+@router.delete(
+    "/{study_id}",
+    status_code=204,
+)
+async def delete_study(
+    study_id: str,
+) -> None:
+
+    store = get_store()
+
+    study = await store.get_study(study_id)
+    if study is None:
+        raise HTTPException(
+            status_code=404,
+            detail="ResearchStudy를 찾을 수 없습니다.",
+        )
+
+    sessions = await store.list_sessions(study_id)
+    for session in sessions:
+        await store.delete_session(session.id)
+
+    await store.delete_study(study_id)
+
+
+# =========================================================
 # Research Study 산하 Sessions 목록 조회
 # =========================================================
 
