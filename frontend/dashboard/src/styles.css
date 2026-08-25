@@ -476,6 +476,12 @@ body:has(.dock-panel.open) .monitor {
   color: var(--warning);
 }
 
+.dock-icon.options {
+  background: rgba(110, 110, 115, 0.08);
+  border-color: rgba(110, 110, 115, 0.18);
+  color: var(--muted);
+}
+
 .dock-icon.tree.on,
 .dock-icon.session.on {
   background: rgba(0, 113, 227, 0.2);
@@ -485,6 +491,11 @@ body:has(.dock-panel.open) .monitor {
 .dock-icon.link.on {
   background: rgba(52, 199, 89, 0.2);
   border-color: var(--success);
+}
+
+.dock-icon.options.on {
+  background: rgba(110, 110, 115, 0.2);
+  border-color: var(--muted);
 }
 
 .dock-icon.list.on {
