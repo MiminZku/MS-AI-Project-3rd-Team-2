@@ -66,11 +66,14 @@ export function SessionListRows({
 }
 
 export default function SessionForm({ role, onCreated }: Props) {
-  const [view, setView] = useState<View>(null);
-  const [projects, setProjects] = useState<Project[]>([]);
   const [presetProjectId, setPresetProjectId] = useState(
     () => new URLSearchParams(window.location.search).get("project") ?? "",
   );
+  const [view, setView] = useState<View>(() => {
+    const p = new URLSearchParams(window.location.search).get("project");
+    return p ? "session-list" : null;
+  });
+  const [projects, setProjects] = useState<Project[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +170,13 @@ export default function SessionForm({ role, onCreated }: Props) {
           onCreated={onCreated}
         />
       )}
-      {view === "session-list" && <SessionListView projects={projects} onCreated={onCreated} />}
+      {view === "session-list" && (
+        <SessionListView
+          projects={projects}
+          presetProjectId={presetProjectId}
+          onCreated={onCreated}
+        />
+      )}
       {view === "manage-projects" && <ProjectManageView projects={projects} setProjects={setProjects} />}
     </main>
   );
@@ -509,16 +518,24 @@ export function NewSessionView({
 
 function SessionListView({
   projects,
+  presetProjectId = "",
   onCreated,
 }: {
   projects: Project[];
+  presetProjectId?: string;
   onCreated: (session: Session, intervieweeUrl: string) => void;
 }) {
-  const [projectId, setProjectId] = useState("");
+  const [projectId, setProjectId] = useState(presetProjectId || "");
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (presetProjectId && !projectId) {
+      setProjectId(presetProjectId);
+    }
+  }, [presetProjectId]);
 
   useEffect(() => {
     if (!projectId) {

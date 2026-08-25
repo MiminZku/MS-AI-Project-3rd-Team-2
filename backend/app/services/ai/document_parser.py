@@ -82,10 +82,11 @@ class DocumentParser:
             # Stub/Rule-based Fallback
             return self._fallback_rule_parse(raw_text)
 
-        from openai import AsyncOpenAI
-        client = AsyncOpenAI(
+        from openai import AsyncAzureOpenAI
+        client = AsyncAzureOpenAI(
+            azure_endpoint=self.settings.azure_openai_endpoint,
             api_key=self.settings.azure_openai_api_key,
-            base_url=self.settings.azure_openai_endpoint.rstrip("/") + "/openai/v1/",
+            api_version=self.settings.azure_openai_api_version,
             timeout=90.0,
         )
 
@@ -94,7 +95,7 @@ class DocumentParser:
 AI 인터뷰어가 실시간 인터뷰에서 활용할 구조화된 질문 트리 JSON을 생성하세요.
 
 [추출 및 정제 지침]
-1. title: 인터뷰 주제/제목 (명확하고 간결하게)
+1. title: 인터뷰 주제/제목 (원문에서 파악된 주제를 명확하고 간결하게 작성)
 2. research_purpose: 이 인터뷰를 통해 밝혀내고자 하는 핵심 조사 목적 및 문제의식
 3. target_screening: 참가자 선정 조건 (없으면 빈 문자열)
 4. questions: 인터뷰에서 진행할 핵심 질문 목록 (순서대로)
@@ -104,13 +105,6 @@ AI 인터뷰어가 실시간 인터뷰에서 활용할 구조화된 질문 트�
    - keywords: 질문과 관련된 핵심 키워드 3~5개
    - branches: 인터뷰이의 답변 내용이나 상황 조건에 따라 파생될 꼬리질문 딕셔너리 (키-값 쌍)
      ⚠️ 중요: branches의 key는 "탐색 갈래 1" 같은 모호한 이름이 아니라, **"어떤 답변이나 상황일 때 이 질문을 하는지" 구체적인 조건/상황/관점**을 명시하세요.
-              별다른 조건이 없다면, 그 꼬리질문은 일단 물어보세요.
-     예시:
-     - "일상 코딩과 리팩토링 툴이 다를 때": "평소 일상적인 코딩과 복잡한 리팩토링 시 사용하는 툴이 다른가요?"
-     - "UX/인터페이스 관점 선호": "터미널 환경에서 대화 흐름이나 멀티스텝 작업 처리가 어떻게 더 편리하다고 느끼시나요?"
-     - "컨텍스트 및 자율성 만족": "대규모 코드베이스 수정 시 Claude가 의도를 더 잘 파악한다고 느낀 구체적인 순간이 있나요?"
-     - "도구 개입 번거로움 경험": "결과물 검토 과정에서 불필요하게 개입해야 했던 번거로움이 있었나요?"
-     - "비용/속도/자율성 아쉬움": "속도, 비용, 혹은 자율성 중 어떤 요소가 가장 아쉬웠나요?"
 """
 
         try:
@@ -127,89 +121,120 @@ AI 인터뷰어가 실시간 인터뷰에서 활용할 구조화된 질문 트�
             data = json.loads(content)
             return ParsedGuideResult.model_validate(data)
         except Exception as e:
-            logger.exception("LLM 질문 가이드 파싱 실패: %s", e)
+            logger.exception("LLM 질문 가이드 파싱 실패 (룰 기반 파서로 대체): %s", e)
             return self._fallback_rule_parse(raw_text)
 
     def _fallback_rule_parse(self, text: str) -> ParsedGuideResult:
-        """Azure OpenAI 미설정 시에도 더 정교하게 Section 및 Probing을 파싱하는 휴리스틱 파서."""
-        title = "Claude Code vs OpenAI 터미널 개발 경험 심층 인터뷰"
-        purpose = "터미널 기반 작업에서 개발자들의 도구 선호 요인 및 OpenAI 제품적 갭 도출"
+        """Azure OpenAI 호출 실패 또는 오프라인 시 문서 원문에서 동적으로 제목, 목적, 질문을 추출하는 룰 기반 파서."""
+        lines = [line.strip() for line in text.splitlines() if line.strip()]
+        
+        # 1. 제목 동적 추출
+        title = "사용자 리서치 인터뷰"
+        title_match = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
+        if not title_match:
+            title_match = re.search(r"(?:인터뷰\s*주제|프로젝트명|제목)\s*[:：]\s*(.+)", text)
+        if not title_match:
+            title_match = re.search(r"^##\s+(.+)$", text, re.MULTILINE)
+        
+        if title_match:
+            title = title_match.group(1).strip(" #*\"'")
+        elif lines:
+            # 첫 번째 의미 있는 줄을 제목으로 사용
+            candidate = lines[0].strip(" #*\"'-")
+            if len(candidate) >= 3:
+                title = candidate
+
+        # 2. 조사 목적 동적 추출
+        purpose = f"{title} 관련 사용자 경험 및 심층 의견 파악"
+        purpose_match = re.search(r"(?:조사\s*목적|목적|연구\s*목적|배경)\s*[:：]\s*(.+?)(?=\n\*|\n---|\n##|\n\n|$)", text, re.DOTALL)
+        if purpose_match:
+            purpose = purpose_match.group(1).strip(" *\"'\n\r")
+
+        # 3. 질문 및 파생질문 동적 추출
         questions: list[ExtractedQuestion] = []
         
-        # 1. 조사 목적 추출
-        purpose_match = re.search(r"\*\s*\*\*조사 목적:\*\*\s*(.+?)(?=\n\*|\n---|\n##|$)", text, re.DOTALL)
-        if purpose_match:
-            purpose = purpose_match.group(1).strip()
-
-        # 2. 섹션별 분할
+        # 방식 A: Markdown Section 포맷 (### [Section N])
         sections = re.split(r"###\s*\[Section\s*\d+\]", text)
-        order = 1
-        for sec in sections[1:]:
-            lines = sec.strip().splitlines()
-            sec_header = lines[0] if lines else ""
-            
-            # 목표 추출
-            goal_match = re.search(r"\*\s*\*\*목표:\*\*\s*(.+)", sec)
-            goal_text = goal_match.group(1).strip() if goal_match else "사용자 피드백 탐색"
-            
-            # 핵심 질문 추출
-            core_q_match = re.search(r"\*\s*\*\*핵심 질문:\*\*\s*\n\s*\*\s*[\"\'\*]*(.+?)[\"\'\*]*\s*$", sec, re.MULTILINE)
-            if not core_q_match:
-                core_q_match = re.search(r"\*\s*\*\*핵심 질문:\*\*\s*\n\s*\*\s*(.+)", sec)
-            
-            if core_q_match:
-                q_text = core_q_match.group(1).strip(" *\"'")
+        if len(sections) > 1:
+            order = 1
+            for sec in sections[1:]:
+                goal_match = re.search(r"\*\s*\*\*목표:\*\*\s*(.+)", sec)
+                goal_text = goal_match.group(1).strip() if goal_match else "핵심 현황 파악"
                 
-                # Probing 갈래 추출
-                branches: dict[str, str] = {}
-                probing_part = sec.split("Probing (탐색 갈래):")[-1] if "Probing (탐색 갈래):" in sec else ""
-                probing_lines = [l.strip() for l in probing_part.splitlines() if l.strip().startswith("*")]
+                core_q_match = re.search(r"\*\s*\*\*핵심 질문:\*\*\s*\n\s*\*\s*[\"\'\*]*(.+?)[\"\'\*]*\s*$", sec, re.MULTILINE)
+                if not core_q_match:
+                    core_q_match = re.search(r"\*\s*\*\*핵심 질문:\*\*\s*\n\s*\*\s*(.+)", sec)
                 
-                for pl in probing_lines:
-                    pl_clean = re.sub(r"^\*\s*", "", pl).strip()
-                    if not pl_clean or pl_clean == "*":
-                        continue
-                    # **(조건):** 질문 형태 또는 (조건): 질문
-                    cond_match = re.match(r"^\*?\*?\((.+?)\):?\*?\*?\s*(.+)", pl_clean)
-                    if cond_match:
-                        branches[cond_match.group(1).strip()] = cond_match.group(2).strip()
-                    else:
-                        # 질문 내용 자체에서 핵심 상황 요약 추출
-                        clean_branch_q = pl_clean.strip(" *\"'")
-                        if "일상적인 코딩" in clean_branch_q:
-                            cond_name = "일상 코딩과 리팩토링 툴이 다를 때"
-                        elif "불필요하게 개입" in clean_branch_q:
-                            cond_name = "수동 수정 및 개입 번거로움 경험 시"
-                        elif "속도, 비용" in clean_branch_q:
-                            cond_name = "속도/비용/자율성 아쉬움 언급 시"
+                if core_q_match:
+                    q_text = core_q_match.group(1).strip(" *\"'")
+                    branches: dict[str, str] = {}
+                    probing_part = sec.split("Probing (탐색 갈래):")[-1] if "Probing (탐색 갈래):" in sec else ""
+                    probing_lines = [l.strip() for l in probing_part.splitlines() if l.strip().startswith("*")]
+                    
+                    for pl in probing_lines:
+                        pl_clean = re.sub(r"^\*\s*", "", pl).strip()
+                        if not pl_clean or pl_clean == "*":
+                            continue
+                        cond_match = re.match(r"^\*?\*?\((.+?)\):?\*?\*?\s*(.+)", pl_clean)
+                        if cond_match:
+                            branches[cond_match.group(1).strip()] = cond_match.group(2).strip()
                         else:
-                            cond_name = f"심층 탐색 ({clean_branch_q[:15]}...)"
-                        branches[cond_name] = clean_branch_q
+                            clean_branch_q = pl_clean.strip(" *\"'")
+                            branches[f"상세 경험 ({clean_branch_q[:12]}...)"] = clean_branch_q
 
-                questions.append(ExtractedQuestion(
-                    order=order,
-                    text=q_text,
-                    intent=goal_text,
-                    keywords=["개발환경", "CLI", "Claude Code", "OpenAI"],
-                    branches=branches,
-                ))
-                order += 1
+                    questions.append(ExtractedQuestion(
+                        order=order,
+                        text=q_text,
+                        intent=goal_text,
+                        keywords=[title[:10], "경험", "사용성"],
+                        branches=branches,
+                    ))
+                    order += 1
+
+        # 방식 B: 번호 매겨진 질문 목록 (1. ..., 2. ...) 또는 Q1, Q2
+        if not questions:
+            q_matches = re.findall(r"(?:^|\n)(?:Q?\s*(\d+)[\.\)]|\*\s*(\d+)[\.\)])\s*(.+)", text)
+            if q_matches:
+                for idx, match in enumerate(q_matches, start=1):
+                    q_num = match[0] or match[1] or str(idx)
+                    q_content = match[2].strip(" *\"'")
+                    if len(q_content) >= 5:
+                        questions.append(ExtractedQuestion(
+                            order=int(q_num) if q_num.isdigit() else idx,
+                            text=q_content,
+                            intent=f"{title} 관련 {idx}번 핵심 확인",
+                            keywords=[title[:10], f"항목{idx}"],
+                            branches={},
+                        ))
+
+        # 방식 C: 최종 fallback
+        if not questions:
+            for idx, line in enumerate(lines[:5], start=1):
+                clean_line = line.strip(" #*\"'-")
+                if len(clean_line) >= 8 and any(clean_line.endswith(end) for end in ("?", "요", "까", "음")):
+                    questions.append(ExtractedQuestion(
+                        order=idx,
+                        text=clean_line,
+                        intent=f"{title} 관련 질문",
+                        keywords=[title[:10]],
+                        branches={},
+                    ))
 
         if not questions:
             questions = [
                 ExtractedQuestion(
                     order=1,
-                    text="현재 터미널이나 개발 환경에서 주로 어떤 AI 툴 조합을 사용하고 계시나요?",
-                    intent="주력 툴 체인 확인 및 라포 형성",
-                    keywords=["Claude Code", "Cursor", "OpenAI"],
-                    branches={"일상 코딩 vs 리팩토링": "평소 일상적인 코딩과 복잡한 리팩토링 시 사용하는 툴이 다른가요?"},
+                    text=f"안녕하세요, {title}에 대한 경험이나 생각에 대해 편하게 말씀해 주시겠어요?",
+                    intent="초기 현황 파악 및 라포 형성",
+                    keywords=[title[:10], "기본경험"],
+                    branches={},
                 )
             ]
 
         return ParsedGuideResult(
             title=title,
             research_purpose=purpose,
-            target_screening="최근 1개월 내 Claude Code 및 OpenAI 툴 실무 사용자",
+            target_screening="해당 주제 관련 실사용자 또는 관심 대상자",
             questions=questions,
         )
 

@@ -88,6 +88,15 @@ export default function ClientProject() {
           <p>PROJECT DELIVERY</p>
           <h1>{project.title}</h1>
           <span>프로젝트 결과 전용 공간 · {formatDate(project.created_at)} 생성</span>
+          <div style={{ marginTop: "20px" }}>
+            <a
+              className="research-button research-button--primary"
+              href={`/dashboard/?project=${encodeURIComponent(project.id)}`}
+              style={{ display: "inline-flex", alignItems: "center", gap: "8px", textDecoration: "none" }}
+            >
+              🔴 참관자 대시보드 백룸 입장
+            </a>
+          </div>
         </div>
       </section>
       <section className="client-project-container client-project-content">
@@ -99,7 +108,29 @@ export default function ClientProject() {
         </section>
         <section className="client-project-sessions" aria-labelledby="client-sessions-title">
           <div><p>INTERVIEW STATUS</p><h2 id="client-sessions-title">인터뷰 진행 현황</h2></div>
-          {sessions.length === 0 ? <p className="client-project-empty">아직 연결된 인터뷰 세션이 없습니다.</p> : <div className="client-session-list">{sessions.map((session) => <article key={session.id}><span className={`client-session-status client-session-status--${session.status}`}>{statusLabel[session.status]}</span><div><strong>인터뷰 세션</strong><p>{formatDate(session.created_at)} · {session.duration_minutes}분</p></div></article>)}</div>}
+          {sessions.length === 0 ? (
+            <p className="client-project-empty">아직 연결된 인터뷰 세션이 없습니다.</p>
+          ) : (
+            <div className="client-session-list">
+              {sessions.map((session) => (
+                <a
+                  key={session.id}
+                  href={`/dashboard/?session=${encodeURIComponent(session.id)}`}
+                  style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                >
+                  <article>
+                    <span className={`client-session-status client-session-status--${session.status}`}>
+                      {statusLabel[session.status]}
+                    </span>
+                    <div>
+                      <strong>인터뷰 세션 ({session.id})</strong>
+                      <p>{formatDate(session.created_at)} · {session.duration_minutes}분 · 백룸 열기 →</p>
+                    </div>
+                  </article>
+                </a>
+              ))}
+            </div>
+          )}
         </section>
         <p className="client-project-security"><ShieldCheck size={16} weight="fill" /> 이 페이지는 전달받은 Project Access ID와 연결된 데이터만 표시합니다.</p>
       </section>

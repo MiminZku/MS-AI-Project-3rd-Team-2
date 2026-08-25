@@ -119,8 +119,7 @@ class StubReportAnalyzer:
 class AzureOpenAIReportAnalyzer:
 
     def __init__(self) -> None:
-
-        from openai import AsyncOpenAI
+        from openai import AsyncAzureOpenAI
 
         settings = get_settings()
 
@@ -128,12 +127,10 @@ class AzureOpenAIReportAnalyzer:
             settings.azure_openai_chat_deployment
         )
 
-        self._client = AsyncOpenAI(
+        self._client = AsyncAzureOpenAI(
+            azure_endpoint=settings.azure_openai_endpoint,
             api_key=settings.azure_openai_api_key,
-            base_url=(
-                settings.azure_openai_endpoint.rstrip("/")
-                + "/openai/v1/"
-            ),
+            api_version=settings.azure_openai_api_version,
             timeout=120.0,
         )
 
