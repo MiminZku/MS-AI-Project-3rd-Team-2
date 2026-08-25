@@ -1,8 +1,9 @@
 interface WaitingScreenProps {
   title: string;
+  onOpenHelp: () => void;
 }
 
-export default function WaitingScreen({ title }: WaitingScreenProps) {
+export default function WaitingScreen({ title, onOpenHelp }: WaitingScreenProps) {
   return (
     <section className="waiting-screen glass-panel">
       <div className="avatar-pulse-container">
@@ -11,11 +12,17 @@ export default function WaitingScreen({ title }: WaitingScreenProps) {
         <div className="pulse-ring ring-2" />
       </div>
       <h2>대기 중...</h2>
-      <p className="session-title">『 {title || "AI 인터뷰"} 』</p>
+      <p className="session-title">{title || "AI 인터뷰"}</p>
       <p className="muted">
         면접관(PM)이 인터뷰를 시작할 때까지 잠시만 기다려 주세요.<br />
-        시작 시 화면이 자동으로 전환됩니다.
+        시작되면 화면이 자동으로 전환됩니다.
       </p>
+      <div className="waiting-help">
+        <p className="waiting-help-note">인터뷰 중 화면·아바타·음성에 문제가 생기면 이용 안내를 확인해 주세요.</p>
+        <button className="waiting-help-button" type="button" onClick={onOpenHelp}>
+          ? 이용 안내
+        </button>
+      </div>
     </section>
   );
 }

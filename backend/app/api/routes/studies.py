@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from app.api.deps import require_admin
@@ -15,6 +17,9 @@ from app.services.report.slot_generator import get_slot_generator
 from app.services.project_access import issue_project_access_id
 from app.services.store import get_store
 from app.services.storage import get_storage_service
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -51,14 +56,17 @@ async def create_study(
         )
 
     # 2. GPT-5.1로 Information Slot 자동 생성
-    slot_generator = get_slot_generator()
-
-    information_slots = await slot_generator.generate(
-        title=payload.title,
-        research_purpose=payload.research_purpose,
-        question_script=payload.question_script,
-        questions=questions,
-    )
+    try:
+        slot_generator = get_slot_generator()
+        information_slots = await slot_generator.generate(
+            title=payload.title,
+            research_purpose=payload.research_purpose,
+            question_script=payload.question_script,
+            questions=questions,
+        )
+    except Exception as error:
+        logger.warning("Information Slot generation skipped: %s", error)
+        information_slots = []
 
     # 3. ResearchStudy 생성
     store = get_store()
@@ -116,8 +124,8 @@ async def upload_guide_file(
     ]
     
     # 2. Information Slot 생성
-    slot_generator = get_slot_generator()
     try:
+        slot_generator = get_slot_generator()
         information_slots = await slot_generator.generate(
             title=parsed.title,
             research_purpose=parsed.research_purpose,

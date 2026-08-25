@@ -22,6 +22,7 @@ export interface QuestionNode {
 export interface SessionBrief {
   id: string;
   title: string;
+  project_title?: string | null;
   status: "created" | "running" | "ended";
   duration_minutes?: number;
   questions?: QuestionNode[];
