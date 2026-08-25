@@ -54,6 +54,7 @@ def render_for_prompt(
     covered_facts: dict[str, str] | None = None,
     taken_branches: list[str] | None = None,
     remaining_minutes: float | None = None,
+    main_question_asked: bool = True,
 ) -> str:
     """프롬프트에 넣을 질문 트리 컨텍스트. 완료된 질문과 현재 질문, 예정 질문을 명확히 분리한다."""
     if not nodes:
@@ -81,12 +82,33 @@ def render_for_prompt(
     # 3. 현재 진행 대상 질문 (단 1개)
     if current_index < len(nodes):
         curr_node = nodes[current_index]
+
+        # 3-a. 이번 메인 질문을 아직 한 번도 묻지 않은 상태.
+        # 이 구간에서 파생질문 목록의 "1개를 골라 질문하라"는 지침을 노출하면
+        # 모델이 핵심(메인) 질문을 건너뛰고 파생질문부터 물어버린다.
+        if not main_question_asked:
+            lines.append("【★ 이번 턴에 반드시 할 일: 아래 메인 질문을 묻기 (아직 한 번도 묻지 않음)】")
+            lines.append(f"▶ [index: {current_index}] {curr_node.order}. {curr_node.text}")
+            lines.append(
+                "   👉 행동 지침: 이 메인 질문은 아직 응답자에게 전달되지 않았다. 직전 발화를 10자 내외로 짧게 인지한 뒤, "
+                "반드시 위 메인 질문을 이번 발화에서 물어라. 파생질문·심화질문·다음 질문을 먼저 묻는 것은 절대 금지다. "
+                f"(`next_question_index: {current_index}`, `is_sufficient: false`, `selected_branch: null`)"
+            )
+            if curr_node.branches:
+                lines.append("   [참고용 - 지금 묻지 말 것]: 아래 파생질문들은 위 메인 질문의 답변을 들은 '다음 턴'에 고를 후보다.")
+                for condition, question in curr_node.branches.items():
+                    lines.append(f"   · [갈래: {condition}] -> {question}")
+            lines.append("")
+            return _finish(lines, nodes, current_index)
+
+        # 3-b. 메인 질문을 이미 물었고 답변을 받은 상태 -> 파생질문 탐색 또는 다음 메인 질문 전이
         probe_info = f" (파생 꼬리질문 {probe_count}회 진행 상태)" if probe_count > 0 else " (메인 질문 답변 수신 상태)"
         lines.append("【★ 이번 턴에 진행할 질문 (이 질문만 다룰 것)】")
         lines.append(f"▶ [index: {current_index}] {curr_node.order}. {curr_node.text}{probe_info}")
+
+        has_untaken_branch = False
         if curr_node.branches:
             lines.append("   [등록된 파생질문(Branch) 상태 목록]:")
-            has_untaken_branch = False
             for condition, question in curr_node.branches.items():
                 is_taken = condition in taken_branch_set or question in taken_branch_set
                 if is_taken:
@@ -94,11 +116,25 @@ def render_for_prompt(
                 else:
                     lines.append(f"   ▶ [미진행 파생질문]: [갈래: {condition}] -> {question}")
                     has_untaken_branch = True
-            
-            if has_untaken_branch and probe_count == 0:
-                lines.append("   👉 행동 지침: 응답자 답변에 해당하는 [미진행 파생질문] 1개를 선택하여 질문하고, selected_branch에 해당 갈래명을 기입하세요 (is_sufficient: false).")
+
+        if has_untaken_branch and probe_count == 0:
+            lines.append("   👉 행동 지침: 응답자 답변에 해당하는 [미진행 파생질문] 1개를 선택하여 질문하고, selected_branch에 해당 갈래명을 기입하세요 (is_sufficient: false).")
+        else:
+            # 파생질문이 없는 메인 질문도 여기로 들어온다. 예전에는 이 경우 아무 지침도
+            # 렌더링되지 않아 모델이 같은 질문을 맴돌았다.
+            next_index = current_index + 1
+            if next_index < len(nodes):
+                next_node = nodes[next_index]
+                lines.append(
+                    "   👉 행동 지침: 이 질문은 답변을 받았습니다. 같은 질문/예시를 다시 묻지 말고, 이번 발화에서 곧바로 "
+                    f"다음 메인 질문 [index: {next_index}] \"{next_node.text}\" 를 물으세요 "
+                    f"(`next_question_index: {next_index}`, `is_sufficient: true`, `selected_branch: null`)."
+                )
             else:
-                lines.append("   👉 행동 지침: 이미 파생질문 답변을 받았거나 추가 갈래가 없습니다. 절대 같은 질문/예시를 다시 묻지 말고, 바로 다음 메인 질문으로 넘어가세요 (is_sufficient: true).")
+                lines.append(
+                    "   👉 행동 지침: 이 질문이 대본의 마지막 질문이며 답변까지 받았습니다. 마무리 및 감사 멘트를 하세요 "
+                    f"(`next_question_index: {len(nodes)}`, `is_sufficient: true`, `selected_branch: null`)."
+                )
         lines.append("")
     else:
         lines.append("【★ 모든 질문 완료】")
@@ -120,12 +156,15 @@ def render_for_prompt(
             lines.append(f"▶ [index: {len(nodes)}] 대본의 모든 질문을 마쳤습니다. 인터뷰 종료 및 감사 멘트를 하세요.")
         lines.append("")
 
-    # 4. 이후 예정된 질문들
-    upcoming_nodes = [node for i, node in enumerate(nodes) if i > current_index]
-    if upcoming_nodes:
+    return _finish(lines, nodes, current_index)
+
+
+def _finish(lines: list[str], nodes: list[QuestionNode], current_index: int) -> str:
+    """공통 꼬리말: 이후 예정된 질문 목록을 붙이고 문자열로 만든다."""
+    upcoming = [(i, node) for i, node in enumerate(nodes) if i > current_index]
+    if upcoming:
         lines.append("【이후 예정된 질문】")
-        for i, node in enumerate(nodes):
-            if i > current_index:
-                lines.append(f"- [index: {i}] {node.order}. {node.text}")
+        for i, node in upcoming:
+            lines.append(f"- [index: {i}] {node.order}. {node.text}")
 
     return "\n".join(lines)

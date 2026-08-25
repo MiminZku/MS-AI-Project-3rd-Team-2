@@ -249,14 +249,21 @@ async def handle_utterance(
     curr_idx = session.current_question_index
     total_q = len(session.questions)
 
+    # 이번 턴에 모델이 해야 했던 일이 "아직 묻지 않은 메인 질문 전달"이었는지.
+    # 이 경우 방금 들어온 응답자 발화는 현재 질문이 아니라 그 직전 질문(또는 인사말)에 대한 답변이다.
+    pending_main = curr_idx < total_q and not session.main_question_asked
+
     # 음성인식 오류가 의심되는 턴(needs_clarification)에서는 애초에 신뢰할 수 없는 텍스트에서
     # 나온 결과이므로, 사실/분기 정보를 기록하지 않는다 — 잘못 들은 내용이 covered_facts에
     # 박제되어 이후 프롬프트에 "이미 확보된 사실"인 양 계속 노출되는 것을 막기 위함.
     if not generated.needs_clarification:
-        # 획득한 사실(Fact) 업데이트
+        # 획득한 사실(Fact) 업데이트.
+        # pending_main 턴의 발화는 직전 질문에 대한 답변이므로 한 칸 앞 인덱스에 귀속시킨다.
+        # (curr_idx == 0 이면 인터뷰 첫 인사말이라 귀속시킬 질문이 없다.)
         if generated.extracted_fact:
-            fact_key = f"질문_{curr_idx + 1}"
-            session.covered_facts[fact_key] = generated.extracted_fact
+            fact_index = curr_idx - 1 if pending_main else curr_idx
+            if fact_index >= 0:
+                session.covered_facts[f"질문_{fact_index + 1}"] = generated.extracted_fact
 
         # 파생질문(Branch) 추적
         if generated.selected_branch:
@@ -266,28 +273,48 @@ async def handle_utterance(
         else:
             session.active_branch = None
 
-    # 답변 충족도 및 모델 판단에 따른 전이
-    # 1) 답변이 충분하여 모델이 다음 질문으로 넘어가자고 판단했거나(is_sufficient=True 또는 next_question_index > curr_idx)
-    #    혹은 비정상적 무한 루프 방지 안전 한도(probe_count >= 5)에 도달한 경우 -> 다음 메인 질문으로 전이
-    #    단, needs_clarification(음성인식 오류 의심)인 턴은 안전 한도에 도달하기 전까지는 절대 전이하지 않는다 —
-    #    잘못 들은 답변을 "충분하다"고 착각해 다음 질문으로 넘어가버리는 것을 막기 위한 조건.
-    if generated.needs_clarification and session.probe_count < 5:
-        should_advance = False
-    else:
-        should_advance = (
-            generated.is_sufficient or generated.next_question_index > curr_idx or session.probe_count >= 5
-        )
+    if instruction is not None:
+        # 참관자 지시 턴은 대본 밖의 개입이다. 모델이 발화한 것은 지시 꼬리질문이지
+        # 대본의 메인 질문이 아니므로, 진행 위치를 넘기지 않는다.
+        # (넘겨버리면 다음 메인 질문을 아무도 묻지 않은 채 건너뛰게 된다.)
+        session.probe_count += 1
 
-    if should_advance:
-        if curr_idx not in session.completed_question_indices and curr_idx < total_q:
-            session.completed_question_indices.append(curr_idx)
-        session.current_question_index = min(curr_idx + 1, total_q)
+    elif pending_main:
+        # 이번 턴의 발화가 곧 메인 질문 전달이다. 아직 답변을 받기 전이므로 절대 전이하지 않는다.
+        # 모델이 is_sufficient=True 나 next_question_index 증가를 보내와도 무시한다.
+        # 단, 되묻기(needs_clarification)를 한 턴이면 메인 질문은 여전히 전달되지 않은 상태다.
+        if not generated.needs_clarification:
+            session.main_question_asked = True
         session.probe_count = 0
         session.active_branch = None
+
     else:
-        # 2) 아직 탐색할 파생질문이 남아있거나 추가 확인이 필요한 경우(is_sufficient=False) -> 현재 질문 인덱스 유지 및 probe_count 증가
-        session.probe_count += 1
-        session.current_question_index = curr_idx
+        # 답변 충족도 및 모델 판단에 따른 전이
+        # 1) 답변이 충분하여 모델이 다음 질문으로 넘어가자고 판단했거나(is_sufficient=True 또는 next_question_index > curr_idx)
+        #    혹은 비정상적 무한 루프 방지 안전 한도(probe_count >= 5)에 도달한 경우 -> 다음 메인 질문으로 전이
+        #    단, needs_clarification(음성인식 오류 의심)인 턴은 안전 한도에 도달하기 전까지는 절대 전이하지 않는다 —
+        #    잘못 들은 답변을 "충분하다"고 착각해 다음 질문으로 넘어가버리는 것을 막기 위한 조건.
+        model_decided_advance = generated.is_sufficient or generated.next_question_index > curr_idx
+        probe_limit_reached = session.probe_count >= 5
+
+        if generated.needs_clarification and not probe_limit_reached:
+            should_advance = False
+        else:
+            should_advance = model_decided_advance or probe_limit_reached
+
+        if should_advance:
+            if curr_idx not in session.completed_question_indices and curr_idx < total_q:
+                session.completed_question_indices.append(curr_idx)
+            session.current_question_index = min(curr_idx + 1, total_q)
+            session.probe_count = 0
+            session.active_branch = None
+            # 모델이 스스로 전이를 택한 턴에서는 프롬프트 지침대로 이번 발화에 다음 메인 질문을
+            # 그대로 물었다고 본다. 반면 probe 한도 초과로 강제 전이시킨 경우 모델의 발화는
+            # 여전히 이전 질문의 꼬리질문이므로, 다음 메인 질문은 아직 전달되지 않았다.
+            session.main_question_asked = model_decided_advance and not generated.needs_clarification
+        else:
+            # 2) 아직 탐색할 파생질문이 남아있거나 추가 확인이 필요한 경우(is_sufficient=False) -> 현재 질문 인덱스 유지 및 probe_count 증가
+            session.probe_count += 1
 
     await store.save_session(
         session
@@ -303,6 +330,7 @@ async def handle_utterance(
             "duration_minutes": session.duration_minutes,
             "questions": [q.model_dump(mode="json") for q in session.questions],
             "current_question_index": session.current_question_index,
+            "main_question_asked": session.main_question_asked,
             "completed_question_indices": session.completed_question_indices,
             "probe_count": session.probe_count,
             "active_branch": session.active_branch,

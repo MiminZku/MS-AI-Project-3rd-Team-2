@@ -59,12 +59,23 @@ class StubQuestionGenerator:
                 text=f"방금 말씀 중에 궁금한 점이 있는데요, {instruction.text} 관련해서 조금 더 들려주시겠어요?",
                 rationale=f"[STUB] 참관자 지시 '{instruction.text}'를 이번 턴에 주입했습니다.",
                 next_question_index=index,
-                is_sufficient=True,
+                is_sufficient=False,
                 extracted_fact="참관자 지시 질문 수행",
                 selected_branch=None,
             )
 
-        # 직전 답변에 분기(Branch) 키워드가 매칭되는지 확인
+        # 아직 전달되지 않은 메인 질문이 있으면 파생질문보다 항상 먼저 묻는다.
+        if index < len(questions) and not session.main_question_asked:
+            return GeneratedQuestion(
+                text=questions[index].text,
+                rationale="[STUB] 아직 묻지 않은 메인 질문을 순서대로 진행했습니다.",
+                next_question_index=index,
+                is_sufficient=False,
+                extracted_fact="",
+                selected_branch=None,
+            )
+
+        # 메인 질문 답변을 받은 뒤에만 분기(Branch) 키워드를 확인한다
         last_turn = transcript[-1] if transcript else None
         if last_turn and last_turn.speaker == "interviewee" and index < len(questions):
             curr_q = questions[index]
@@ -79,21 +90,38 @@ class StubQuestionGenerator:
                         selected_branch=branch_k,
                     )
 
-        if index < len(questions):
+        # 현재 질문을 마무리하고 같은 발화에서 다음 메인 질문을 그대로 묻는다
+        if index + 1 < len(questions):
             return GeneratedQuestion(
-                text=questions[index].text,
-                rationale="[STUB] 대기 중인 참관자 지시가 없어 질문 리스트 순서대로 진행했습니다.",
+                text=questions[index + 1].text,
+                rationale="[STUB] 현재 질문의 답변을 받아 다음 메인 질문으로 전이했습니다.",
                 next_question_index=index + 1,
                 is_sufficient=True,
                 extracted_fact="",
                 selected_branch=None,
             )
 
-        if index == len(questions):
+        if index < len(questions):
+            return GeneratedQuestion(
+                text="준비된 기본 질문은 모두 마쳤습니다! 혹시 참관 중인 리서치팀에서 추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요.",
+                rationale="[WRAPUP] 마지막 질문의 답변까지 받아 리서치팀 추가 질문 확인 단계로 진입했습니다.",
+                next_question_index=len(questions),
+                is_sufficient=True,
+                extracted_fact="",
+                selected_branch=None,
+            )
+
+        # 대본 종료 구간(index == len(questions))에서는 인덱스가 더 올라가지 않으므로,
+        # 마무리 멘트를 이미 했는지는 대화 기록으로 판별한다. (같은 멘트 무한 반복 방지)
+        already_wrapped_up = any(
+            turn.speaker == "assistant" and (turn.rationale or "").startswith("[WRAPUP]")
+            for turn in transcript
+        )
+        if not already_wrapped_up:
             return GeneratedQuestion(
                 text="준비된 기본 질문은 모두 마쳤습니다! 혹시 참관 중인 리서치팀에서 추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요.",
                 rationale="[WRAPUP] 기본 질문 리스트를 모두 완료하여 리서치팀 추가 질문 확인 단계로 진입했습니다.",
-                next_question_index=index + 1,
+                next_question_index=index,
                 is_sufficient=True,
                 extracted_fact="",
                 selected_branch=None,
@@ -102,7 +130,7 @@ class StubQuestionGenerator:
         return GeneratedQuestion(
             text="확인 결과 추가 질문은 없으므로 오늘 인터뷰를 모두 마치겠습니다. 성실하고 소중한 답변 진심으로 감사드립니다! 상단의 나가기 버튼을 눌러 퇴장해 주시면 됩니다.",
             rationale="[END] 모든 인터뷰 절차가 성공적으로 종료되었습니다.",
-            next_question_index=index + 1,
+            next_question_index=index,
             is_sufficient=True,
             extracted_fact="",
             selected_branch=None,

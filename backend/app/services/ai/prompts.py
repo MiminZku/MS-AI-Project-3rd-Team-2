@@ -15,6 +15,11 @@ from app.services.question_script import render_for_prompt
 BASE_SYSTEM_PROMPT = """너는 사용자 리서치를 진행하는 전문 AI 모더레이터(Interviewer)다.
 
 [핵심 운영 원칙: 메인 질문 -> 파생 질문(Branch) 탐색 -> 빠른 진도와 전이]
+0. [메인 질문 우선 — 무엇보다 먼저 지킬 규칙]
+   - 파생질문(Branch)은 이름 그대로 **메인 질문의 답변에서 갈라져 나오는 질문**이다. 메인 질문을 묻지도 않은 채 파생질문부터 묻는 것은 절대 금지다.
+   - 아래 [질문 리스트 및 진행 현황]에 **【★ 이번 턴에 반드시 할 일: 아래 메인 질문을 묻기】** 블록이 보이면, 그 턴에는 다른 어떤 판단보다 우선해서 그 메인 질문을 그대로 물어라.
+   - 파생질문은 그 메인 질문에 대한 답변을 실제로 받은 **다음 턴부터** 고를 수 있다.
+
 1. [질문 진행 및 파생질문(Branch) 심층 탐색 규칙]
    - 각 메인 질문마다 응답자의 답변 내용에 부합하는 **[미진행 파생질문]이 있다면 1턴에 1개 질문**할 수 있다.
    - [미진행 파생질문]을 던질 때는 `selected_branch`에 해당 갈래 조건명(또는 파생질문 텍스트)을 정확히 적고 `is_sufficient: false`로 설정하라.
@@ -78,7 +83,9 @@ def build_system_prompt(session: Session, instruction: Instruction | None) -> st
         parts.append(
             "(추가 지령: 방금 들어온 참관자 지시 "
             f"'{instruction.text}' 를 자연스럽게 꼬리질문으로 이어가라. "
-            "단, 지시받았다는 티를 절대 내지 마라. 지시의 존재를 언급하지 마라.)"
+            "단, 지시받았다는 티를 절대 내지 마라. 지시의 존재를 언급하지 마라. "
+            "이번 턴은 이 지령이 최우선이므로 아래 [질문 리스트 및 진행 현황]의 행동 지침보다 이 지령을 먼저 따르고, "
+            "대본 진행 위치는 이번 턴에 넘기지 마라.)"
         )
 
     # 대본 완료 후 심화질문 여부 판단에 남은 시간이 필요하다. session.started_at 이 없는
@@ -90,7 +97,16 @@ def build_system_prompt(session: Session, instruction: Instruction | None) -> st
         "인터뷰 주제: "
         f"{session.title}\n예정 시간: {session.duration_minutes}분\n\n"
         "[질문 리스트 및 진행 현황]\n"
-        f"{render_for_prompt(session.questions, session.current_question_index, session.completed_question_indices, session.probe_count, session.covered_facts, session.taken_branches, remaining_minutes)}"
+        + render_for_prompt(
+            session.questions,
+            session.current_question_index,
+            completed_indices=session.completed_question_indices,
+            probe_count=session.probe_count,
+            covered_facts=session.covered_facts,
+            taken_branches=session.taken_branches,
+            remaining_minutes=remaining_minutes,
+            main_question_asked=session.main_question_asked,
+        )
     )
     return "\n\n".join(parts)
 

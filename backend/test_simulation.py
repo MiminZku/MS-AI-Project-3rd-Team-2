@@ -29,7 +29,9 @@ async def test_simulation():
         title=parsed.title,
         duration_minutes=10,
         questions=questions,
-        current_question_index=0
+        current_question_index=0,
+        # 아래에서 1번 질문을 직접 출력해 전달하므로, 이미 물어본 상태로 시작한다.
+        main_question_asked=True,
     )
     
     print('==================================================')

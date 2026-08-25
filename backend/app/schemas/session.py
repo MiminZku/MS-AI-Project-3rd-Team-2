@@ -39,6 +39,9 @@ class Session(BaseModel):
     duration_minutes: int = 20
     questions: list[QuestionNode] = Field(default_factory=list)
     current_question_index: int = 0
+    # current_question_index의 메인 질문을 응답자에게 실제로 물었는지 여부.
+    # False면 파생질문/전이보다 메인 질문 발화가 우선한다 (파생질문 선행 방지).
+    main_question_asked: bool = False
     probe_count: int = 0
     completed_question_indices: list[int] = Field(default_factory=list)
     covered_facts: dict[str, str] = Field(default_factory=dict)
