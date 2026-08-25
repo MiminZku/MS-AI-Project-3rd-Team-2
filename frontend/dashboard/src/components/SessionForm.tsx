@@ -375,8 +375,8 @@ export function NewSessionView({
 }) {
   const [projectId, setProjectId] = useState(presetProjectId);
   const [participantId, setParticipantId] = useState("");
-  const [duration, setDuration] = useState(60);
-  const [language, setLanguage] = useState("ko");
+  const [duration, setDuration] = useState(10);
+  const [language, setLanguage] = useState("en");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [created, setCreated] = useState<{ session: Session; intervieweeUrl: string } | null>(null);

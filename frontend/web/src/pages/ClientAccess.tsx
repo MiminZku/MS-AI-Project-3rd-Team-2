@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ArrowRight, Key, LockKey, ShieldCheck } from "@phosphor-icons/react";
+import { useNavigate } from "react-router-dom";
 import { ClientProjectApiError, exchangeClientProjectAccess } from "../lib/clientProjectApi";
 import { saveClientProjectGrant } from "../lib/clientProjectGrant";
 
@@ -7,6 +8,7 @@ export default function ClientAccess() {
   const [accessId, setAccessId] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const navigate = useNavigate();
 
   const submit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -21,7 +23,7 @@ export default function ClientAccess() {
     try {
       const grant = await exchangeClientProjectAccess(normalizedId);
       saveClientProjectGrant({ projectId: grant.project.id, accessToken: grant.access_token });
-      window.location.href = `/dashboard/?project=${encodeURIComponent(grant.project.id)}`;
+      navigate(`/client/project/${encodeURIComponent(grant.project.id)}`);
     } catch (cause) {
       setError(
         cause instanceof ClientProjectApiError && cause.status === 404

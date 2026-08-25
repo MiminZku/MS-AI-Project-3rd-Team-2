@@ -431,7 +431,7 @@ async def _should_auto_end(
     session: Session,
     generated: GeneratedQuestion,
     store: Store,
-    instruction: Instruction | None,
+    instruction: Instruction | None = None,
 ) -> bool:
     """AI가 작별 인사를 마쳤고, 더 진행할 것이 남아있지 않은지 판단한다.
 

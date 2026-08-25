@@ -83,6 +83,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [showTranslation, setShowTranslation] = useState(false);
   const [translations, setTranslations] = useState<Record<number, string>>({});
   const [report, setReport] = useState<Report | null>(null);
+  const [reportJsonOpen, setReportJsonOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
   const [recordingRequested, setRecordingRequested] = useState(false);
@@ -720,20 +721,56 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
             {phase === "end" && (
               <div className="report-note">
                 {!report ? (
-                  <>세션이 종료되었습니다. <b>AI 리포트</b>를 생성하고 있습니다 — 완료되면 아래에 표시됩니다.</>
+                  <>
+                    <span className="report-loading-dot" />
+                    <span>세션이 종료되었습니다. <b>AI 리포트</b>를 생성하고 있습니다 — 완료되면 아래에 표시됩니다.</span>
+                  </>
                 ) : (
                   <>
-                    <b>AI 리포트</b>가 생성되었습니다.
+                    <span className="report-done-icon">✓</span>
+                    <span><b>AI 리포트</b> 생성이 완료되었습니다.</span>
                   </>
                 )}
               </div>
             )}
             {report && (
-              <div className="report-highlight" ref={reportRef}>
-                {typeof report.data.summary === "string" && <p>{report.data.summary}</p>}
-                <pre style={{ whiteSpace: "pre-wrap", margin: 0, fontSize: 11 }}>
-                  {JSON.stringify(report.data, null, 2)}
-                </pre>
+              <div className="report-container" ref={reportRef}>
+                <div className="report-header">
+                  <span className="report-title">📊 AI 인터뷰 분석 리포트</span>
+                  <span className="report-time">
+                    {new Date(report.generated_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                {typeof report.data.summary === "string" && report.data.summary && (
+                  <div className="report-summary-card">
+                    <strong className="summary-title">💡 종합 요약</strong>
+                    <p className="summary-text">{report.data.summary}</p>
+                  </div>
+                )}
+                {typeof report.data.key_findings === "object" && Array.isArray(report.data.key_findings) && report.data.key_findings.length > 0 && (
+                  <div className="report-findings-card">
+                    <strong className="findings-title">📌 주요 발견점</strong>
+                    <ul>
+                      {report.data.key_findings.map((item: any, i: number) => (
+                        <li key={i}>{typeof item === "string" ? item : JSON.stringify(item)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                <div className="report-json-section">
+                  <button
+                    type="button"
+                    className="report-json-toggle"
+                    onClick={() => setReportJsonOpen((v) => !v)}
+                  >
+                    <span>세부 JSON 데이터 {reportJsonOpen ? "접기 ▲" : "펼치기 ▼"}</span>
+                  </button>
+                  {reportJsonOpen && (
+                    <pre className="report-json-pre">
+                      {JSON.stringify(report.data, null, 2)}
+                    </pre>
+                  )}
+                </div>
               </div>
             )}
         </section>
