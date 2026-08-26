@@ -3350,3 +3350,25 @@ button:focus-visible,a:focus-visible { outline: 3px solid rgba(0,113,227,.48); o
 .download-center__badge.running { background: rgba(0,113,227,.18); color: #6eb7ff; }
 .download-center__badge.ended { background: rgba(52,199,89,.16); color: #6ee7a0; }
 @media (max-width: 640px) { .download-center__session { flex-direction: column; align-items: flex-start; } }
+
+/* ===== 인터뷰 기록 채팅 뷰어 ===== */
+.transcript-viewer { width: min(920px, calc(100% - 40px)); margin: 0 auto; padding: 32px 0 56px; }
+.transcript-viewer__head { display: grid; gap: 14px; padding-bottom: 20px; border-bottom: 1px solid var(--line, #d2d2d7); }
+.transcript-viewer__head h1 { margin: 6px 0 2px; font-size: clamp(24px, 4vw, 34px); letter-spacing: -.04em; }
+.transcript-viewer__head small { font-size: 13px; opacity: .6; }
+.transcript-viewer__back { display: inline-flex; align-items: center; gap: 6px; width: fit-content; font-size: 13px; font-weight: 600; opacity: .75; }
+.transcript-viewer__actions { display: flex; flex-wrap: wrap; gap: 9px; }
+.transcript-viewer__actions a { text-decoration: none; }
+.transcript-chat { display: grid; gap: 14px; padding: 26px 0; }
+.transcript-bubble-row { display: flex; }
+.transcript-bubble-row.left { justify-content: flex-start; }
+.transcript-bubble-row.right { justify-content: flex-end; }
+.transcript-bubble { max-width: min(78%, 620px); padding: 13px 16px; border: 1px solid var(--line, #d2d2d7); border-radius: 16px; background: rgba(255,255,255,.04); }
+.transcript-bubble-row.right .transcript-bubble { border-color: rgba(41,151,255,.4); background: rgba(0,113,227,.12); }
+.transcript-bubble__meta { display: flex; align-items: baseline; gap: 9px; margin-bottom: 6px; }
+.transcript-bubble__meta strong { font-size: 12.5px; font-weight: 700; }
+.transcript-bubble__meta time { font-size: 11px; opacity: .55; font-variant-numeric: tabular-nums; }
+.transcript-bubble__text { margin: 0; font-size: 14.5px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; }
+.transcript-bubble__translation { margin: 8px 0 0; padding-top: 8px; border-top: 1px dashed rgba(148,163,184,.3); font-size: 13px; line-height: 1.55; font-style: italic; opacity: .72; }
+.transcript-viewer__footer { display: flex; align-items: center; gap: 7px; padding-top: 18px; border-top: 1px solid var(--line, #d2d2d7); font-size: 12.5px; opacity: .6; }
+@media (max-width: 640px) { .transcript-bubble { max-width: 92%; } }

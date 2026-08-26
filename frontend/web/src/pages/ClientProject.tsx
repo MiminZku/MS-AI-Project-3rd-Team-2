@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   ArrowsClockwise,
+  ChatText,
   Clock,
   DownloadSimple,
   FileDoc,
@@ -12,7 +13,7 @@ import {
   VideoCamera,
   Warning,
 } from "@phosphor-icons/react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ClientProjectApiError,
   type ClientProject,
@@ -286,6 +287,13 @@ export default function ClientProject() {
                         {/* 완료된 인터뷰만 기록·영상이 확정된다 */}
                         {isEnded && (
                           <div className="session-download-row">
+                            <Link
+                              to={`/transcripts/${projectId}/${session.id}?title=${encodeURIComponent(session.title ?? "")}`}
+                              className="session-download-btn primary"
+                            >
+                              <ChatText size={14} />
+                              기록 보기
+                            </Link>
                             <button
                               type="button"
                               className="session-download-btn"
@@ -298,7 +306,7 @@ export default function ClientProject() {
                               }
                             >
                               <FileText size={14} />
-                              {busyDownload === `t-${session.id}` ? "받는 중…" : "질문·답변 기록"}
+                              {busyDownload === `t-${session.id}` ? "받는 중…" : "문서"}
                             </button>
                             <button
                               type="button"

@@ -100,40 +100,66 @@ def _lines_to_text(lines: list[tuple[str, str]]) -> bytes:
     return "\n".join(out).encode("utf-8")
 
 
+# Word는 라틴 글꼴(기본 Calibri)만 지정된 문서에서 한글을 렌더링할 때
+# East Asian 글꼴을 따로 보지 않으면 글자가 깨져 보인다.
+# 문서 전체 스타일과 각 run에 eastAsia 글꼴을 함께 박아준다.
+_KOREAN_FONT = "맑은 고딕"
+
+
+def _apply_korean_font(run_or_style) -> None:
+    from docx.oxml.ns import qn
+
+    font = run_or_style.font
+    font.name = _KOREAN_FONT
+    element = run_or_style._element
+    rpr = element.get_or_add_rPr()
+    rfonts = rpr.get_or_add_rFonts()
+    rfonts.set(qn("w:eastAsia"), _KOREAN_FONT)
+    rfonts.set(qn("w:ascii"), _KOREAN_FONT)
+    rfonts.set(qn("w:hAnsi"), _KOREAN_FONT)
+
+
 def _lines_to_docx(lines: list[tuple[str, str]]) -> bytes:
     from docx import Document
     from docx.shared import Pt, RGBColor
 
     document = Document()
 
+    # 기본 스타일과 제목 스타일 모두에 한글 글꼴을 지정한다.
+    for style_name in ("Normal", "Title", "Heading 1", "Heading 2", "List Bullet"):
+        try:
+            _apply_korean_font(document.styles[style_name])
+        except KeyError:
+            continue
+
     for style, text in lines:
         if style == "spacer":
             document.add_paragraph("")
-        elif style == "title":
-            document.add_heading(text, level=0)
-        elif style == "heading":
-            document.add_heading(text, level=1)
-        elif style == "subheading":
-            document.add_heading(text, level=2)
-        elif style == "meta":
-            paragraph = document.add_paragraph()
-            run = paragraph.add_run(text)
-            run.font.size = Pt(9)
-            run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
-        elif style == "speaker":
-            paragraph = document.add_paragraph()
-            run = paragraph.add_run(text)
-            run.bold = True
-        elif style == "translation":
-            paragraph = document.add_paragraph()
-            run = paragraph.add_run(text)
-            run.italic = True
-            run.font.size = Pt(9)
-            run.font.color.rgb = RGBColor(0x44, 0x44, 0x88)
+            continue
+
+        if style in ("title", "heading", "subheading"):
+            level = {"title": 0, "heading": 1, "subheading": 2}[style]
+            heading = document.add_heading("", level=level)
+            run = heading.add_run(text)
         elif style == "bullet":
-            document.add_paragraph(text, style="List Bullet")
+            paragraph = document.add_paragraph(style="List Bullet")
+            run = paragraph.add_run(text)
         else:
-            document.add_paragraph(text)
+            paragraph = document.add_paragraph()
+            run = paragraph.add_run(text)
+
+            if style == "meta":
+                run.font.size = Pt(9)
+                run.font.color.rgb = RGBColor(0x66, 0x66, 0x66)
+            elif style == "speaker":
+                run.bold = True
+            elif style == "translation":
+                run.italic = True
+                run.font.size = Pt(9)
+                run.font.color.rgb = RGBColor(0x44, 0x44, 0x88)
+
+        # 모든 run에 한글 글꼴을 직접 지정해야 Word에서 글자가 깨지지 않는다.
+        _apply_korean_font(run)
 
     buffer = io.BytesIO()
     document.save(buffer)

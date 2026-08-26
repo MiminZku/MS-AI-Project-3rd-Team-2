@@ -12,7 +12,7 @@ from app.api.download_responses import (
     transcript_download_response,
 )
 from app.schemas.project_report import ProjectAggregateReport
-from app.schemas.session import SessionStatus
+from app.schemas.session import SessionStatus, Turn
 from app.services.client_project_access import (
     issue_client_project_token,
     verify_client_project_token,
@@ -136,6 +136,18 @@ async def _load_project_session(study_id: str, session_id: str):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "인터뷰를 찾을 수 없습니다.")
 
     return session
+
+
+@router.get("/{study_id}/sessions/{session_id}/transcript", response_model=list[Turn])
+async def get_client_transcript(
+    study_id: str,
+    session_id: str,
+    x_project_access_token: str | None = Header(default=None),
+) -> list[Turn]:
+    """채팅 형식 기록 열람용. 파일을 받지 않고 화면에서 바로 읽을 수 있게 한다."""
+    _require_project_token(study_id, x_project_access_token)
+    session = await _load_project_session(study_id, session_id)
+    return await get_store().get_transcript(session.id)
 
 
 @router.get("/{study_id}/sessions/{session_id}/transcript/download", response_class=Response)

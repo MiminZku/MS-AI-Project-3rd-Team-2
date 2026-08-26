@@ -223,3 +223,54 @@ def test_클라이언트_세션_목록에_참가자_ID가_나온다(client):
     ).json()
 
     assert [session["title"] for session in sessions] == ["P07-김민수"]
+
+
+def test_클라이언트가_기록을_채팅용으로_조회한다(client):
+    """파일을 받지 않고 화면에서 바로 읽는 경로."""
+    project = _create_project(client)
+    session_id = _create_session(client, project["id"])
+    _run_interview(client, session_id)
+
+    token = _client_token(client, project["access_id"])
+    turns = client.get(
+        f"/api/client/projects/{project['id']}/sessions/{session_id}/transcript",
+        headers={"X-Project-Access-Token": token},
+    ).json()
+
+    speakers = [turn["speaker"] for turn in turns]
+    assert "assistant" in speakers and "interviewee" in speakers
+    assert any("클로드 씁니다." == turn["text"] for turn in turns)
+
+
+def test_다른_프로젝트의_기록은_조회할_수_없다(client):
+    mine = _create_project(client)
+    other = client.post(
+        "/api/projects",
+        json={"title": "다른 프로젝트", "research_purpose": "무관", "question_script": SCRIPT},
+    ).json()["study"]
+    other_session = _create_session(client, other["id"], title="P99")
+
+    token = _client_token(client, mine["access_id"])
+    response = client.get(
+        f"/api/client/projects/{mine['id']}/sessions/{other_session}/transcript",
+        headers={"X-Project-Access-Token": token},
+    )
+
+    assert response.status_code == 404
+
+
+def test_문서에_한글_글꼴이_지정된다(client):
+    """Word에서 한글이 깨지지 않으려면 run마다 eastAsia 글꼴이 있어야 한다."""
+    import io
+    import zipfile
+
+    project = _create_project(client)
+    session_id = _create_session(client, project["id"])
+    _run_interview(client, session_id)
+
+    response = client.get(f"/api/sessions/{session_id}/transcript/download")
+    document_xml = zipfile.ZipFile(io.BytesIO(response.content)).read("word/document.xml").decode("utf-8")
+
+    assert "w:eastAsia" in document_xml
+    assert "맑은 고딕" in document_xml
+    assert "P01-강민기" in document_xml

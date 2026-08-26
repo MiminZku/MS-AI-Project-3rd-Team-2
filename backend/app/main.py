@@ -144,6 +144,9 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    # 다운로드 파일명은 Content-Disposition 에 담겨 오는데, 교차 출처에서는
+    # 이 헤더를 명시적으로 노출하지 않으면 JS가 읽지 못해 파일명이 "download"가 된다.
+    expose_headers=["Content-Disposition"],
 )
 
 app.include_router(health.router)

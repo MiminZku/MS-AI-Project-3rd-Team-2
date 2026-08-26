@@ -17,6 +17,7 @@ const ResearchSession = lazy(() => import("./pages/ResearchSession"));
 const Downloads = lazy(() => import("./pages/Downloads"));
 const ClientAccess = lazy(() => import("./pages/ClientAccess"));
 const ClientProject = lazy(() => import("./pages/ClientProject"));
+const TranscriptViewer = lazy(() => import("./pages/TranscriptViewer"));
 
 function ProductRoute({ children }: { children: ReactNode }) {
   return <Suspense fallback={<div className="route-loading" role="status">Loading workspace…</div>}>{children}</Suspense>;
@@ -27,6 +28,11 @@ const router = createBrowserRouter([
   { path: "/client", element: <Navigate to="/client/access" replace /> },
   { path: "/client/access", element: <ProductRoute><ClientAccess /></ProductRoute> },
   { path: "/client/project/:projectId", element: <ProductRoute><ClientProject /></ProductRoute> },
+  // 인터뷰 기록 채팅 뷰어 — PM/클라이언트 양쪽에서 열 수 있어 레이아웃 밖에 둔다.
+  {
+    path: "/transcripts/:projectId/:sessionId",
+    element: <ProductRoute><TranscriptViewer /></ProductRoute>,
+  },
   {
     element: <Layout />,
     children: [

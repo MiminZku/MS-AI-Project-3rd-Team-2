@@ -119,7 +119,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingGuide, setUploadingGuide] = useState(false);
   const [drawerPinned, setDrawerPinned] = useState(false);
-  const { startRecording, stopAndUploadRecording } = useRemoteRecording();
+  const { isRecording, recordingError, startRecording, stopAndUploadRecording } = useRemoteRecording();
+  /** 종료 시 녹화 업로드를 한 번만 수행하기 위한 가드 */
+  const endedUploadRef = useRef(false);
   const socketRef = useRef<WebSocket | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
@@ -274,6 +276,19 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
     startRecording(remoteStream);
   }, [recordingRequested, remoteStream, session?.status, startRecording]);
 
+  // AI가 마무리해 서버가 세션을 자동 종료한 경우에도 녹화를 저장해야 한다.
+  // 참관자가 종료 버튼을 누른 경로는 handleEndSession이 이미 처리하며,
+  // stopAndUploadRecording은 두 번 불려도 두 번째는 아무 일도 하지 않는다.
+  useEffect(() => {
+    if (session?.status !== "ended" || endedUploadRef.current) return;
+    endedUploadRef.current = true;
+    setRecordingRequested(false);
+    stopAndUploadRecording(sessionId).catch((error) => {
+      console.error("Failed to upload interview recording", error);
+      setActionError("녹화 파일 업로드에 실패했습니다.");
+    });
+  }, [session?.status, sessionId, stopAndUploadRecording]);
+
   useEffect(() => {
     if (!drawerPinned) return;
     const closeOnOutsidePointer = (event: PointerEvent) => {
@@ -308,6 +323,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
 
   const handleStartSession = useCallback(async () => {
     setStarting(true);
+    // 인터뷰 시작과 동시에 응답자 화면 녹화를 요청한다.
+    // 실제 recorder는 ACS 원격 스트림이 붙는 시점에 아래 effect에서 시작된다.
+    setRecordingRequested(true);
     if (sessionId === DEMO_SESSION_ID) {
       const startedAt = new Date().toISOString();
       setSession((prev) => (prev ? { ...prev, status: "running", started_at: startedAt } : prev));
@@ -614,6 +632,16 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
               <span className="muted small">
                 통역 {LANGUAGE_LABELS[session?.interpretation_language ?? ""] ?? session?.interpretation_language ?? "-"}
               </span>
+              {isRecording && (
+                <span className="rec-chip" title="응답자 화면을 녹화 중입니다">
+                  <span className="rec-dot" />REC
+                </span>
+              )}
+              {recordingError && (
+                <span className="error-text" style={{ color: "#f59e0b", fontSize: "12px" }}>
+                  {recordingError}
+                </span>
+              )}
               {role === "client" && <span className="role-chip">참관 전용</span>}
                             {projectSaveState === "saving" && <span className="muted small">프로젝트 개인 인터뷰 DB 저장 중…</span>}
               {projectSaveState === "saved" && <span className="connected small">프로젝트 개인 인터뷰 DB 저장 완료</span>}

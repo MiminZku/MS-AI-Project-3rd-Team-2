@@ -62,6 +62,26 @@ export async function fetchClientProjectSessions(projectId: string, accessToken:
   return parseResponse(response);
 }
 
+export interface ClientTranscriptTurn {
+  index: number;
+  speaker: "assistant" | "interviewee";
+  text: string;
+  text_en: string | null;
+  created_at: string;
+}
+
+export async function fetchClientTranscript(
+  projectId: string,
+  sessionId: string,
+  accessToken: string,
+): Promise<ClientTranscriptTurn[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/client/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}/transcript`,
+    { headers: clientHeaders(accessToken) },
+  );
+  return parseResponse(response);
+}
+
 /** 클라이언트 토큰으로 접근하는 다운로드 URL들 */
 export function clientProjectReportDownloadUrl(projectId: string): string {
   return `${API_BASE_URL}/api/client/projects/${encodeURIComponent(projectId)}/aggregate-report/download`;

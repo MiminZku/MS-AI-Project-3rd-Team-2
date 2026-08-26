@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowClockwise,
+  ChatText,
   CheckCircle,
   DownloadSimple,
   FileDoc,
@@ -8,6 +9,7 @@ import {
   VideoCamera,
   Warning,
 } from "@phosphor-icons/react";
+import { Link } from "react-router-dom";
 import {
   adminHeaders,
   downloadFile,
@@ -289,6 +291,14 @@ export default function ProjectDownloadCenter() {
                       </small>
                     </div>
                     <div className="download-center__session-actions">
+                      {/* 파일로 받기 전에 화면에서 바로 읽을 수 있는 채팅 뷰 */}
+                      <Link
+                        to={`/transcripts/${selectedId}/${session.id}?title=${encodeURIComponent(session.title)}`}
+                        className="download-center__btn download-center__btn--primary"
+                      >
+                        <ChatText size={15} weight="bold" />
+                        기록 보기
+                      </Link>
                       <button
                         type="button"
                         className="download-center__btn"
@@ -303,7 +313,7 @@ export default function ProjectDownloadCenter() {
                         title="질문·답변 기록 문서"
                       >
                         <FileText size={15} weight="bold" />
-                        {busyDownload === transcriptKey ? "받는 중…" : "질문·답변"}
+                        {busyDownload === transcriptKey ? "받는 중…" : "문서"}
                       </button>
                       <button
                         type="button"

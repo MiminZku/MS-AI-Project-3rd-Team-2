@@ -76,6 +76,22 @@ export async function fetchProjectSessions(projectId: string): Promise<ResearchS
   return parse(response);
 }
 
+export interface TranscriptTurn {
+  index: number;
+  speaker: "assistant" | "interviewee";
+  text: string;
+  text_en: string | null;
+  created_at: string;
+}
+
+export async function fetchSessionTranscript(sessionId: string): Promise<TranscriptTurn[]> {
+  const response = await fetch(
+    `${API_BASE_URL}/api/sessions/${encodeURIComponent(sessionId)}/transcript`,
+    { headers: headers() },
+  );
+  return parse(response);
+}
+
 export async function fetchProjectReport(projectId: string): Promise<ProjectAggregateReport> {
   const response = await fetch(
     `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/aggregate-report`,
