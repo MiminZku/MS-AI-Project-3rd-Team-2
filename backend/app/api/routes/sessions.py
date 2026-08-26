@@ -20,7 +20,11 @@ from app.schemas.session import (
 from app.services import orchestrator
 from app.services.connections import manager
 from app.services.question_script import parse_question_script
-from app.services.recordings import RecordingUploadResponse, save_recording
+from app.services.recordings import (
+    RecordingSaveFailed,
+    RecordingUploadResponse,
+    save_recording,
+)
 from app.services.store import get_store
 from app.schemas.messages import server_message
 
@@ -308,7 +312,15 @@ async def upload_recording(
     if not content:
         raise HTTPException(status_code=422, detail="Recording file is empty.")
 
-    result = await save_recording(session.id, content)
+    try:
+        result = await save_recording(session.id, content)
+    except RecordingSaveFailed as error:
+        # 저장소 문제를 맨몸 500으로 흘리면 대시보드에는 "업로드 실패"만 뜨고
+        # 원인을 알 수 없다. 이유를 그대로 전달한다.
+        raise HTTPException(
+            status_code=502,
+            detail=f"녹화본을 저장소에 저장하지 못했습니다: {error}",
+        ) from error
 
     # 저장된 녹화본 URL을 세션에도 반영해야 종료 후 리포트/대시보드에서 다시 찾을 수 있다.
     session.video_recording_url = result.video_recording_url

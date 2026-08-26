@@ -63,6 +63,11 @@ class Settings(BaseSettings):
     azure_storage_connection_string: str = ""
     azure_storage_container_name: str = "recordings"
 
+    # 녹화본 전용 컨테이너 이름.
+    # recordings.py가 이 이름으로 참조하는데 정의가 없어 Blob 업로드 경로에서
+    # AttributeError -> 500 이 났고, 녹화가 한 건도 저장되지 않았다.
+    azure_storage_recordings_container: str = "recordings"
+
     # Azure Cosmos DB (NoSQL 데이터베이스)
     azure_cosmos_endpoint: str = ""
     azure_cosmos_key: str = ""

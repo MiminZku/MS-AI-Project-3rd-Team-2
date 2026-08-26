@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 LOCAL_RECORDINGS_DIR = Path(__file__).resolve().parents[2] / "data" / "recordings"
@@ -60,12 +63,24 @@ def _download_from_azure(session_id: str) -> bytes:
         raise RecordingNotFound("녹화 파일을 내려받지 못했습니다.") from exc
 
 
+class RecordingSaveFailed(Exception):
+    """녹화본을 저장하지 못했다."""
+
+
 async def save_recording(session_id: str, content: bytes) -> RecordingUploadResponse:
     """Save an interview recording to Azure Blob Storage or the local fallback."""
     settings = get_settings()
-    if settings.azure_storage_connection_string:
+
+    if not settings.azure_storage_connection_string:
+        return await asyncio.to_thread(_save_locally, session_id, content)
+
+    try:
         return await asyncio.to_thread(_save_to_azure, session_id, content)
-    return await asyncio.to_thread(_save_locally, session_id, content)
+    except Exception as error:
+        # 녹화는 인터뷰당 한 번뿐이라 여기서 실패하면 영상이 사라진다.
+        # 무슨 이유로 실패했는지 로그와 응답 양쪽에 남긴다.
+        logger.exception("Blob Storage 녹화 업로드 실패 session=%s", session_id)
+        raise RecordingSaveFailed(str(error)) from error
 
 
 def _save_locally(session_id: str, content: bytes) -> RecordingUploadResponse:
