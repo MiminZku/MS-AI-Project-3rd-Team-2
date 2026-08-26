@@ -21,6 +21,34 @@ class RecordingUploadResponse(BaseModel):
     video_recording_url: str
     size_bytes: int
     status: str = "uploaded"
+    # "blob" | "local". Blob 설정이 잘못돼 로컬로 저장된 경우를 구분한다.
+    storage: str = "local"
+    # 저장은 됐지만 짚고 넘어가야 할 문제가 있을 때 (예: Blob 설정 오류로 임시 저장)
+    warning: str | None = None
+
+
+# Azure Storage 연결 문자열에 반드시 들어가야 하는 항목.
+# 계정 키만 붙여넣거나, Container Apps 환경변수를 따옴표 없이 넣어 ';' 앞에서
+# 잘린 값이 들어오면 SDK가 "Connection string missing required connection details"로
+# 거절한다. 인터뷰가 끝난 뒤에야 알게 되지 않도록 미리 확인한다.
+_REQUIRED_CONNECTION_PARTS = ("AccountName=", "AccountKey=")
+
+
+def connection_string_problem(connection_string: str) -> str | None:
+    """연결 문자열이 쓸 수 없는 형태면 사람이 읽을 수 있는 사유를 돌려준다."""
+    if not connection_string:
+        return None  # 미설정은 로컬 저장을 의도한 것으로 본다
+
+    missing = [part for part in _REQUIRED_CONNECTION_PARTS if part not in connection_string]
+    if missing:
+        return (
+            "AZURE_STORAGE_CONNECTION_STRING 값에 "
+            + ", ".join(part.rstrip("=") for part in missing)
+            + " 가 없습니다. Azure Portal > 스토리지 계정 > 액세스 키의 '연결 문자열'을 "
+            "통째로(DefaultEndpointsProtocol=...;AccountName=...;AccountKey=...;EndpointSuffix=...) "
+            "따옴표로 감싸서 넣어야 합니다. ';' 때문에 값이 잘리지 않았는지 확인하세요."
+        )
+    return None
 
 
 class RecordingNotFound(Exception):
@@ -68,19 +96,47 @@ class RecordingSaveFailed(Exception):
 
 
 async def save_recording(session_id: str, content: bytes) -> RecordingUploadResponse:
-    """Save an interview recording to Azure Blob Storage or the local fallback."""
-    settings = get_settings()
+    """Save an interview recording to Azure Blob Storage or the local fallback.
 
-    if not settings.azure_storage_connection_string:
+    Blob 저장이 실패해도 녹화본을 버리지 않는다. 인터뷰는 다시 찍을 수 없으므로
+    일단 로컬에 남겨 내려받을 수 있게 하고, 설정을 고쳐야 한다는 경고를 함께 돌려준다.
+    (컨테이너가 재시작되면 로컬 파일은 사라지므로 어디까지나 임시 안전망이다.)
+    """
+    settings = get_settings()
+    connection_string = settings.azure_storage_connection_string
+
+    if not connection_string:
         return await asyncio.to_thread(_save_locally, session_id, content)
+
+    problem = connection_string_problem(connection_string)
+    if problem:
+        logger.error("Blob Storage 설정 오류 session=%s: %s", session_id, problem)
+        return await _save_locally_with_warning(session_id, content, problem)
 
     try:
         return await asyncio.to_thread(_save_to_azure, session_id, content)
     except Exception as error:
-        # 녹화는 인터뷰당 한 번뿐이라 여기서 실패하면 영상이 사라진다.
-        # 무슨 이유로 실패했는지 로그와 응답 양쪽에 남긴다.
         logger.exception("Blob Storage 녹화 업로드 실패 session=%s", session_id)
-        raise RecordingSaveFailed(str(error)) from error
+        return await _save_locally_with_warning(
+            session_id,
+            content,
+            f"Blob Storage 업로드에 실패해 서버에 임시 저장했습니다: {error}",
+        )
+
+
+async def _save_locally_with_warning(
+    session_id: str,
+    content: bytes,
+    warning: str,
+) -> RecordingUploadResponse:
+    try:
+        result = await asyncio.to_thread(_save_locally, session_id, content)
+    except Exception as error:
+        logger.exception("녹화본 로컬 임시 저장까지 실패 session=%s", session_id)
+        raise RecordingSaveFailed(f"{warning} (임시 저장도 실패: {error})") from error
+
+    result.warning = f"{warning} 지금 받아두지 않으면 서버 재시작 시 사라질 수 있습니다."
+    return result
 
 
 def _save_locally(session_id: str, content: bytes) -> RecordingUploadResponse:
@@ -116,4 +172,5 @@ def _save_to_azure(session_id: str, content: bytes) -> RecordingUploadResponse:
         session_id=session_id,
         video_recording_url=blob_client.url,
         size_bytes=len(content),
+        storage="blob",
     )

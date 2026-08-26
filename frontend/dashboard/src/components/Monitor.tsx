@@ -285,7 +285,11 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
     setRecordingRequested(false);
     stopAndUploadRecording(sessionId).catch((error) => {
       console.error("Failed to upload interview recording", error);
-      setActionError("녹화 파일 업로드에 실패했습니다.");
+      setActionError(
+        error instanceof Error
+          ? `녹화 저장 실패: ${error.message}`
+          : "녹화 파일 업로드에 실패했습니다.",
+      );
     });
   }, [session?.status, sessionId, stopAndUploadRecording]);
 
@@ -353,7 +357,11 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
         await stopAndUploadRecording(sessionId);
       } catch (error) {
         console.error("Failed to upload interview recording", error);
-        setActionError("녹화 파일 업로드에 실패했습니다. 인터뷰는 종료합니다.");
+        setActionError(
+          error instanceof Error
+            ? `녹화 저장 실패: ${error.message}`
+            : "녹화 파일 업로드에 실패했습니다. 인터뷰는 종료합니다.",
+        );
       }
             try {
         setSession(await endSession(sessionId));

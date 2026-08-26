@@ -16,6 +16,12 @@ from app.services.recordings import RecordingSaveFailed, save_recording
 
 SCRIPT = "1. 요즘 어떤 AI 도구를 쓰시나요?"
 
+# 형식이 올바른 연결 문자열 (실제 계정 아님)
+VALID_CONNECTION = (
+    "DefaultEndpointsProtocol=https;AccountName=fakeacct;"
+    "AccountKey=Zm9vYmFy;EndpointSuffix=core.windows.net"
+)
+
 
 def test_recordings가_참조하는_설정이_모두_정의되어_있다():
     """저장 코드가 읽는 설정 이름이 Settings에 실제로 있어야 한다."""
@@ -78,7 +84,7 @@ async def test_Blob_저장_경로가_실제로_동작한다(monkeypatch):
     """설정 이름이 어긋나면 여기서 AttributeError로 잡힌다."""
     blobs: dict = {}
     _patch_azure(monkeypatch, blobs)
-    monkeypatch.setattr(get_settings(), "azure_storage_connection_string", "fake-connection")
+    monkeypatch.setattr(get_settings(), "azure_storage_connection_string", VALID_CONNECTION)
 
     result = await save_recording("ses_test", b"WEBM-BYTES")
 
@@ -88,13 +94,40 @@ async def test_Blob_저장_경로가_실제로_동작한다(monkeypatch):
     assert result.video_recording_url.startswith("https://")
 
 
-async def test_Blob_저장_실패는_전용_예외로_올라온다(monkeypatch):
+async def test_Blob_저장에_실패해도_녹화본을_버리지_않는다(monkeypatch):
+    """인터뷰는 다시 찍을 수 없다. 로컬에 남기고 경고를 함께 돌려준다."""
     blobs: dict = {}
     _patch_azure(monkeypatch, blobs, fail=True)
-    monkeypatch.setattr(get_settings(), "azure_storage_connection_string", "fake-connection")
+    monkeypatch.setattr(get_settings(), "azure_storage_connection_string", VALID_CONNECTION)
 
-    with pytest.raises(RecordingSaveFailed, match="컨테이너에 접근할 수 없습니다"):
-        await save_recording("ses_test", b"WEBM-BYTES")
+    result = await save_recording("ses_fallback", b"WEBM-BYTES")
+
+    assert result.storage == "local"
+    assert result.warning and "임시 저장" in result.warning
+    assert blobs == {}
+
+
+async def test_연결_문자열이_잘못되면_형식_문제를_알려준다(monkeypatch):
+    """실측 회귀: 값이 ';' 앞에서 잘려 SDK가 거절했고 원인을 알 수 없었다."""
+    monkeypatch.setattr(
+        get_settings(), "azure_storage_connection_string", "DefaultEndpointsProtocol=https"
+    )
+
+    result = await save_recording("ses_badconf", b"WEBM-BYTES")
+
+    assert result.storage == "local"
+    assert "AccountName" in (result.warning or "")
+
+
+def test_연결_문자열_검증기():
+    from app.services.recordings import connection_string_problem
+
+    assert connection_string_problem("") is None
+    assert connection_string_problem(VALID_CONNECTION) is None
+    # 계정 키만 붙여넣은 경우
+    assert connection_string_problem("Zm9vYmFy") is not None
+    # ';' 에서 잘린 경우
+    assert connection_string_problem("DefaultEndpointsProtocol=https") is not None
 
 
 def test_저장_실패시_502와_사유가_내려간다(client, monkeypatch):

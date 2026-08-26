@@ -188,6 +188,10 @@ export interface RecordingUploadResponse {
   video_recording_url: string;
   size_bytes: number;
   status: "uploaded";
+  /** "blob" | "local" — Blob 설정 문제로 서버에 임시 저장된 경우 "local" */
+  storage?: string;
+  /** 저장은 됐지만 조치가 필요한 경우의 사유 */
+  warning?: string | null;
 }
 
 export async function uploadRecording(sessionId: string, recording: Blob): Promise<RecordingUploadResponse> {
@@ -198,7 +202,16 @@ export async function uploadRecording(sessionId: string, recording: Blob): Promi
     headers: multipartHeaders(),
     body: formData,
   });
-  if (!response.ok) throw new Error(`녹화 업로드 실패 (${response.status})`);
+  if (!response.ok) {
+    // 서버가 502와 함께 실제 사유(스토리지 설정 오류 등)를 내려준다.
+    let detail = "";
+    try {
+      detail = (await response.json())?.detail ?? "";
+    } catch {
+      detail = "";
+    }
+    throw new Error(detail || `녹화 업로드 실패 (${response.status})`);
+  }
   return response.json();
 }
 

@@ -169,12 +169,13 @@ def test_recording_upload_accepts_a_webm_file(client, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "session_id": session_id,
-        "video_recording_url": f"/recordings/{session_id}/recording.webm",
-        "size_bytes": len(b"webm-recording"),
-        "status": "uploaded",
-    }
+    body = response.json()
+    assert body["session_id"] == session_id
+    assert body["video_recording_url"] == f"/recordings/{session_id}/recording.webm"
+    assert body["size_bytes"] == len(b"webm-recording")
+    assert body["status"] == "uploaded"
+    assert body["storage"] == "local"
+    assert body["warning"] is None
 
 
 def test_ended_session_cannot_be_started_again(client):

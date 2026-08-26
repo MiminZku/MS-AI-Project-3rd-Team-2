@@ -61,7 +61,10 @@ export function useRemoteRecording() {
     setIsRecording(false);
     if (videoBlob.size === 0) throw new Error("업로드할 녹화 영상이 없습니다.");
 
-    await uploadRecording(sessionId, videoBlob);
+    const result = await uploadRecording(sessionId, videoBlob);
+    // Blob 저장이 안 돼 서버에 임시 저장된 경우 참관자에게 알려야 한다.
+    if (result.warning) setRecordingError(result.warning);
+    return result;
   }, []);
 
   return { isRecording, recordingError, startRecording, stopAndUploadRecording };
