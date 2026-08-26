@@ -16,6 +16,8 @@ from app.schemas.session import (
 from app.schemas.study import ResearchStudy
 
 
+from app.services.report.structured_call import create_structured_json
+
 logger = logging.getLogger(__name__)
 
 
@@ -1125,13 +1127,14 @@ Schema에서 허용된 null
 
         try:
 
-            response = (
-                await self._client.responses.create(
-                    model=self._deployment,
+            content = (
+                await create_structured_json(
+                    self._client,
+                    deployment=self._deployment,
 
-                    instructions=system_prompt,
+                    system_prompt=system_prompt,
 
-                    input=(
+                    user_input=(
                         "아래 조사 및 인터뷰 데이터를 "
                         "분석하세요.\n\n"
                         "이번 조사의 목적과 질문에만 "
@@ -1156,30 +1159,14 @@ Schema에서 허용된 null
                         )
                     ),
 
-                    reasoning={
-                        "effort": "none"
-                    },
+                    schema_name=(
+                        "individual_"
+                        "interview_analysis"
+                    ),
+
+                    schema=output_schema,
 
                     max_output_tokens=12000,
-
-                    text={
-                        "verbosity": "low",
-
-                        "format": {
-                            "type": "json_schema",
-
-                            "name": (
-                                "individual_"
-                                "interview_analysis"
-                            ),
-
-                            "schema": (
-                                output_schema
-                            ),
-
-                            "strict": True,
-                        },
-                    },
                 )
             )
 
@@ -1194,8 +1181,6 @@ Schema에서 허용된 null
         # =================================================
         # 7. 응답 확인
         # =================================================
-
-        content = response.output_text
 
         if not content:
             raise ValueError(

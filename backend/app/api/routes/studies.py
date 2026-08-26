@@ -225,7 +225,12 @@ async def create_aggregate_report(study_id: str) -> ProjectAggregateReport:
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     if report.status == "FAILED":
-        raise HTTPException(status_code=500, detail=report.error_message or "프로젝트 리포트 생성에 실패했습니다.")
+        # 분석 모델 호출 실패 메시지에 404 같은 상태코드가 섞여 나오면 "페이지 없음"으로
+        # 오해하기 쉽다. 어느 단계에서 실패했는지 앞에 붙여 준다.
+        detail = "프로젝트 리포트 생성에 실패했습니다."
+        if report.error_message:
+            detail = f"{detail} (분석 단계 오류: {report.error_message})"
+        raise HTTPException(status_code=500, detail=detail)
     return report
 
 

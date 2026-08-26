@@ -8,6 +8,8 @@ from typing import Any
 from dotenv import load_dotenv
 from openai import AsyncAzureOpenAI
 
+from app.services.report.structured_call import create_structured_json
+
 from app.core.config import get_settings
 from app.schemas.study import ResearchStudy
 from app.schemas.study_report import (
@@ -120,51 +122,41 @@ class StudyReportAnalyzer:
             ),
         }
 
-        response = (
-            await self.client.responses.create(
-                model=self.deployment,
+        content = (
+            await create_structured_json(
+                self.client,
+                deployment=self.deployment,
 
-                reasoning={
-                    "effort": "none",
-                },
-
-                max_output_tokens=20000,
-
-                text={
-                    "verbosity": "low",
-
-                    "format": {
-                        "type": "json_schema",
-                        "name": (
-                            "study_report_analysis"
-                        ),
-                        "strict": True,
-                        "schema": (
-                            StudyReportAnalysis
-                            .model_json_schema()
-                        ),
-                    },
-                },
-
-                instructions=(
+                system_prompt=(
                     self._build_system_prompt()
                 ),
 
-                input=json.dumps(
+                user_input=json.dumps(
                     input_payload,
                     ensure_ascii=False,
                 ),
+
+                schema_name=(
+                    "study_report_analysis"
+                ),
+
+                schema=(
+                    StudyReportAnalysis
+                    .model_json_schema()
+                ),
+
+                max_output_tokens=20000,
             )
         )
 
-        if not response.output_text:
+        if not content:
             raise RuntimeError(
                 "Study 종합 분석 결과가 비어 있습니다."
             )
 
         try:
             raw_result = json.loads(
-                response.output_text
+                content
             )
 
         except json.JSONDecodeError as exc:
