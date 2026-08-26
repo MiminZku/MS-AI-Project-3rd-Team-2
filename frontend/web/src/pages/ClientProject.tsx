@@ -196,7 +196,9 @@ export default function ClientProject() {
 
                       <div className="session-row-action">
                         <a
-                          href={`/dashboard/?session=${encodeURIComponent(session.id)}`}
+                          // 클라이언트 토큰을 함께 넘겨야 백룸이 '참관 전용'으로 열린다.
+                          // 이 토큰이 없으면 백엔드가 PM 연결로 취급해 지시 권한이 열린다.
+                          href={`/dashboard/?session=${encodeURIComponent(session.id)}&client_token=${encodeURIComponent(grant.accessToken)}`}
                           className={`client-enter-btn ${isRunning ? "running" : isEnded ? "ended" : "created"}`}
                         >
                           {isRunning ? (

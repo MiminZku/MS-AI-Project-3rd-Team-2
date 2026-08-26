@@ -105,17 +105,22 @@ async def test_작별_인사가_아니면_자동_종료하지_않는다():
 # 실제 인터뷰 흐름 (통합)
 # =========================================================
 
-def test_작별인사_이후_세션이_자동_종료된다(client):
+def test_마무리는_대기_안내_후_작별인사로_끝난다(client):
     session_id = _create_session(client)
 
     with client.websocket_connect(f"/ws/interview/{session_id}") as interviewee:
         _start(client, session_id, interviewee)
         said = _run_to_farewell(interviewee)
 
-        # 작별 인사 직후 인터뷰이에게 ended 상태가 전파되어야 메인룸이 종료 화면으로 넘어간다
+        # 곧바로 작별하지 않고 "리서치팀 확인" 안내가 먼저 나가야 한다
+        assert "잠시 확인해 보겠습니다" in said[-1]
+
+        # 대기 시간이 지나면 작별 인사가 나가고 ended 상태가 전파된다
+        farewell = interviewee.receive_json()
         ended_state = interviewee.receive_json()
 
-    assert "인터뷰를 모두 마치겠습니다" in said[-1]
+    assert farewell["type"] == "assistant.question"
+    assert "인터뷰를 마치겠습니다" in farewell["turn"]["text"]
     assert ended_state["type"] == "session.state"
     assert ended_state["session"]["status"] == "ended"
     assert _session(client, session_id)["status"] == "ended"
@@ -127,6 +132,7 @@ def test_종료된_뒤에는_추가_발화에도_질문이_생성되지_않는�
     with client.websocket_connect(f"/ws/interview/{session_id}") as interviewee:
         _start(client, session_id, interviewee)
         _run_to_farewell(interviewee)
+        interviewee.receive_json()  # 작별 인사
         assert interviewee.receive_json()["session"]["status"] == "ended"
 
         transcript_before = client.get(f"/api/sessions/{session_id}/transcript").json()
@@ -160,3 +166,38 @@ def test_대본_도중에는_종료_신호가_와도_인터뷰가_계속된다(c
         interviewee.receive_json()
 
     assert _session(client, session_id)["status"] == "running"
+
+
+def test_대기창_중_들어온_지시는_질문으로_나가고_종료되지_않는다(client, monkeypatch):
+    """마무리 대기창 동안 참관자가 지시를 넣으면 그 질문을 하고 인터뷰가 이어져야 한다."""
+    from app.core.config import get_settings
+
+    # 지시를 넣을 시간을 확보하기 위해 대기창을 넉넉히 연다
+    monkeypatch.setattr(get_settings(), "final_instruction_window_seconds", 10)
+
+    session_id = _create_session(client)
+
+    with client.websocket_connect(f"/ws/observer/{session_id}") as observer:
+        assert observer.receive_json()["type"] == "session.snapshot"
+
+        with client.websocket_connect(f"/ws/interview/{session_id}") as interviewee:
+            interviewee.receive_json()
+            assert observer.receive_json()["type"] == "interviewee.connected"
+            client.post(f"/api/sessions/{session_id}/start")
+            interviewee.receive_json()
+
+            said = _run_to_farewell(interviewee)
+            assert "잠시 확인해 보겠습니다" in said[-1]
+
+            # 대기창이 열린 동안 참관자가 추가 지시를 넣는다
+            observer.send_json({"type": "instruction.create", "text": "가격 얘기도 물어봐"})
+
+            extra_question = interviewee.receive_json()
+
+    assert extra_question["type"] == "assistant.question"
+    assert "가격 얘기도 물어봐" in extra_question["turn"]["text"]
+
+    session = _session(client, session_id)
+    assert session["status"] == "running"
+    # 지시를 하나 처리했으니 다음 마무리 때 대기창을 한 번 더 열 수 있어야 한다
+    assert session["final_check_done"] is False

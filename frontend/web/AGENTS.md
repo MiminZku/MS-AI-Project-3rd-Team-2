@@ -4,7 +4,7 @@
 - `backend/` 폴더의 **어떤 파일도 수정·삭제하지 않는다.**
 - `frontend/dashboard/`, `frontend/interviewee/` 의 **어떤 파일도 수정·삭제하지 않는다.**
 - 기존 GitHub Actions 워크플로 파일(`azure-static-web-apps-orange-sand-*.yml`, `azure-static-web-apps-victorious-pond-*.yml`)을 **수정하지 않는다.** 새 워크플로가 필요하면 기존 파일을 복제해 경로만 바꾼 **새 파일**을 추가한다.
-- 루트 `README.md`, `Architecture.md` 는 이번 작업에서 **건드리지 않는다.** (문서 갱신은 김은향이 팀 합의 후 별도 진행)
+- 루트 `README.md`, `Architecture.md` 는 이번 작업에서 **건드리지 않는다.** (문서 갱신은 강민기가 팀 합의 후 별도 진행)
 - **백엔드 API를 실제로 호출하지 않는다.** 이번 MVP는 100% 목업. 세션/트랜스크립트/리포트가 필요한 화면은 전부 `src/mock/` 더미 데이터로 채운다.
 - 외부 CDN 폰트를 쓰지 않는다. (팀에서 이미 CDN 서브셋 로딩 문제를 겪어 npm 자체 호스팅으로 전환한 이력 있음 — 박성은 8/14 로그)
 

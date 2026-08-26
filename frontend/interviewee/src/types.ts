@@ -25,6 +25,8 @@ export interface SessionBrief {
   project_title?: string | null;
   status: "created" | "running" | "ended";
   duration_minutes?: number;
+  /** 세션 생성 시 PM이 고른 동시통역 언어 코드 (ko | en | ja ...) */
+  interpretation_language?: string;
   questions?: QuestionNode[];
 }
 

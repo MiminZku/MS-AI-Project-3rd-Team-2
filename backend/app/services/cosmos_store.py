@@ -239,13 +239,31 @@ class CosmosStore:
         item = await self._get_session_doc(session_id)
         if not item or not item.get("instruction_queue"):
             return None
-        
+
         ins_id = item["instruction_queue"].pop(0)
         ins_data = item.get("instructions", {}).get(ins_id)
         await self.interviews_container.upsert_item(item)
         if ins_data:
             return Instruction.model_validate(ins_data)
         return None
+
+    async def delete_instruction(self, session_id: str, instruction_id: str) -> bool:
+        await self._ensure_init()
+        item = await self._get_session_doc(session_id)
+        if not item:
+            return False
+
+        ins_data = item.get("instructions", {}).get(instruction_id)
+        if not ins_data or ins_data.get("status") != "queued":
+            # 이미 응답자에게 전달된 지시는 인터뷰 기록이므로 지우지 않는다.
+            return False
+
+        item["instructions"].pop(instruction_id, None)
+        queue = item.get("instruction_queue") or []
+        item["instruction_queue"] = [i for i in queue if i != instruction_id]
+
+        await self.interviews_container.upsert_item(item)
+        return True
 
     async def list_instructions(self, session_id: str) -> list[Instruction]:
         await self._ensure_init()

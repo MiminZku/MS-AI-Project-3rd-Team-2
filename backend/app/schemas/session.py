@@ -44,6 +44,14 @@ class Session(BaseModel):
     # current_question_index의 메인 질문을 응답자에게 실제로 물었는지 여부.
     # False면 파생질문/전이보다 메인 질문 발화가 우선한다 (파생질문 선행 방지).
     main_question_asked: bool = False
+    # 물어본 메인 질문에 대해 실제로 '답변'을 받았는지 여부.
+    # 이름 정정·되묻기·잡담처럼 질문과 무관한 발화가 돌아온 경우 False로 남는다.
+    # 물었다는 사실(main_question_asked)만으로 답변을 받았다고 단정하면
+    # 모델이 답도 안 들은 채 파생질문으로 넘어간다.
+    main_question_answered: bool = False
+    # 마무리 직전 "참관자 추가 지시 확인" 대기창을 이미 한 번 열었는지.
+    # 대기창 중 지시가 들어와 질문을 하나 더 하면 다시 False로 돌아가 기회를 한 번 더 준다.
+    final_check_done: bool = False
     probe_count: int = 0
     completed_question_indices: list[int] = Field(default_factory=list)
     covered_facts: dict[str, str] = Field(default_factory=dict)

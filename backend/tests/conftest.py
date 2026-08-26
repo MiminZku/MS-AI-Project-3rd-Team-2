@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core.config import get_settings
-from app.services.ai import llm
+from app.services.ai import instruction_safety, llm
 from app.services.report import analyzer
 from app.services import store as store_module
 from app.api.routes import studies
@@ -21,7 +21,12 @@ def client(monkeypatch: pytest.MonkeyPatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "azure_openai_endpoint", "")
     monkeypatch.setattr(settings, "azure_openai_api_key", "")
+    # 마무리 대기창을 기본 30초 그대로 두면 테스트마다 실제로 30초를 기다린다.
+    # 대기창 길이 자체를 검증하는 테스트는 각자 이 값을 다시 올려 쓴다.
+    monkeypatch.setattr(settings, "final_instruction_window_seconds", 0)
+    monkeypatch.setattr(settings, "final_instruction_poll_seconds", 0.05)
     monkeypatch.setattr(llm, "_generator", None)
+    instruction_safety.reset_reviewer_cache()
     monkeypatch.setattr(analyzer, "_analyzer", None)
     monkeypatch.setattr(studies, "get_slot_generator", lambda: _NoopSlotGenerator())
     with TestClient(app) as test_client:

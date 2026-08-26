@@ -75,7 +75,7 @@
 
 ## 4. PERSISTENCE & GIT SAFETY
 - Recovery: 매 세션 `session_recovery.md`로 상태 로컬 저장.
-- Git Protocol: 커밋 준비는 Antigravity에서, 최종 `git push`는 김은향만 수행.
+- Git Protocol: 커밋 준비는 Antigravity에서, 최종 `git push`는 강민기만 수행.
 - Safety: 타 팀원 페이지 수정 엄금. 개발/기획 역할 분담(강민기/비개발팀) 철저 준수.
 
 ## 5. STYLE & REPORTING

@@ -23,5 +23,6 @@ async def build_respondent_session_state(session: Session) -> dict[str, Any]:
         "project_title": project_title,
         "status": session.status,
         "duration_minutes": session.duration_minutes,
+        "interpretation_language": session.interpretation_language,
         "questions": [question.model_dump(mode="json") for question in session.questions],
     }

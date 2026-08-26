@@ -151,6 +151,18 @@ class Store(Protocol):
     ) -> None:
         ...
 
+    async def delete_instruction(
+        self,
+        session_id: str,
+        instruction_id: str,
+    ) -> bool:
+        """대기 중(queued)인 지시를 큐와 이력에서 제거한다.
+
+        이미 응답자에게 전달된(applied) 지시는 인터뷰 기록의 일부이므로 지우지 않는다.
+        실제로 삭제했으면 True.
+        """
+        ...
+
     # -----------------------------------------------------
     # Report
     # -----------------------------------------------------
@@ -452,6 +464,36 @@ class InMemoryStore:
             instruction.session_id,
             {},
         )[instruction.id] = instruction
+
+
+    async def delete_instruction(
+        self,
+        session_id: str,
+        instruction_id: str,
+    ) -> bool:
+
+        instructions = self._instructions.get(
+            session_id,
+            {},
+        )
+
+        instruction = instructions.get(
+            instruction_id
+        )
+
+        if instruction is None or instruction.status != "queued":
+            return False
+
+        instructions.pop(
+            instruction_id,
+            None,
+        )
+
+        queue = self._queue.get(session_id)
+        if queue and instruction_id in queue:
+            queue.remove(instruction_id)
+
+        return True
 
 
     # -----------------------------------------------------
@@ -1011,6 +1053,64 @@ class RedisStore:
             instruction.id,
             instruction.model_dump_json(),
         )
+
+
+    async def delete_instruction(
+        self,
+        session_id: str,
+        instruction_id: str,
+    ) -> bool:
+
+        raw = await self._redis.hget(
+            self._key(
+                session_id,
+                ":instructions",
+            ),
+            instruction_id,
+        )
+
+        if not raw:
+            return False
+
+        instruction = Instruction.model_validate_json(
+            raw
+        )
+
+        if instruction.status != "queued":
+            return False
+
+        pipe = self._redis.pipeline()
+
+        # 대기 큐에서 제거 (LREM: 값이 일치하는 원소 1개)
+        pipe.lrem(
+            self._key(
+                session_id,
+                ":queue",
+            ),
+            1,
+            instruction_id,
+        )
+
+        pipe.lrem(
+            self._key(
+                session_id,
+                ":instr_order",
+            ),
+            1,
+            instruction_id,
+        )
+
+        pipe.hdel(
+            self._key(
+                session_id,
+                ":instructions",
+            ),
+            instruction_id,
+        )
+
+        await pipe.execute()
+
+        return True
 
 
     # -----------------------------------------------------

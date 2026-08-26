@@ -10,6 +10,8 @@ interface Props {
   sessionId: string;
   intervieweeUrl: string;
   role: Role;
+  /** 클라이언트 참관 토큰. 있으면 참관 전용 소켓으로 연결된다. */
+  clientToken?: string;
   onStatusChange?: (status: TopbarStatus | null) => void;
 }
 
@@ -18,7 +20,17 @@ interface Timekeeper {
   remaining_minutes: number;
   remaining_questions: number;
   hint: string;
+  pace?: "ahead" | "on_track" | "behind" | "overtime";
+  elapsed_minutes?: number;
+  allow_probes?: boolean;
 }
+
+const PACE_LABELS: Record<string, string> = {
+  ahead: "여유",
+  on_track: "정상",
+  behind: "지연",
+  overtime: "시간 초과",
+};
 
 export type Phase = "wait" | "joined" | "live" | "end";
 
@@ -68,7 +80,7 @@ function formatMMSS(totalSeconds: number): string {
   return `${mm}:${ss}`;
 }
 
-export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChange }: Props) {
+export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, onStatusChange }: Props) {
   const [session, setSession] = useState<Session | null>(null);
   const [transcript, setTranscript] = useState<Turn[]>([]);
   const [instructions, setInstructions] = useState<Instruction[]>([]);
@@ -76,6 +88,10 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
   const [intervieweeOnline, setIntervieweeOnline] = useState(false);
   const [status, setStatus] = useState("connecting");
   const [draft, setDraft] = useState("");
+  /** 지시 전송/삭제 결과 알림 (공정성 심사 차단, 권한 오류 등) */
+  const [instructionNotice, setInstructionNotice] = useState<
+    { kind: "rejected" | "error"; message: string } | null
+  >(null);
   const [liveTextKo, setLiveTextKo] = useState("");
   const [liveTextEn, setLiveTextEn] = useState("");
   const liveTextEnRef = useRef("");
@@ -146,7 +162,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
       return;
     }
 
-    const socket = new WebSocket(observerSocketUrl(sessionId));
+    const socket = new WebSocket(observerSocketUrl(sessionId, clientToken));
     socketRef.current = socket;
 
     socket.onopen = () => setStatus("connected");
@@ -201,6 +217,16 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
         case "instruction.queued":
           setInstructions((prev) => [...prev, message.instruction]);
           break;
+        case "instruction.deleted":
+          setInstructions((prev) => prev.filter((item) => item.id !== message.instruction_id));
+          break;
+        case "instruction.rejected":
+          // 책임있는 AI(공정성) 심사에서 걸러진 지시 — 큐에 들어가지 않는다.
+          setInstructionNotice({ kind: "rejected", message: message.reason });
+          break;
+        case "error":
+          setInstructionNotice({ kind: "error", message: message.message });
+          break;
         case "instruction.applied":
           // queued -> applied 전환 (§4.1-7)
           setInstructions((prev) =>
@@ -231,7 +257,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     };
 
     return () => socket.close();
-  }, [sessionId]);
+  }, [sessionId, clientToken]);
 
   useEffect(() => {
 
@@ -268,8 +294,16 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
     const text = draft.trim();
     const socket = socketRef.current;
     if (!text || socket?.readyState !== WebSocket.OPEN) return;
+    setInstructionNotice(null);
     socket.send(JSON.stringify({ type: "instruction.create", text }));
     setDraft("");
+  };
+
+  const deleteInstruction = (instructionId: string) => {
+    const socket = socketRef.current;
+    if (socket?.readyState !== WebSocket.OPEN) return;
+    setInstructionNotice(null);
+    socket.send(JSON.stringify({ type: "instruction.delete", instruction_id: instructionId }));
   };
 
   const handleStartSession = useCallback(async () => {
@@ -483,7 +517,11 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
 
               {timekeeper && (
                 <div className={`timekeeper ${timekeeper.should_move_on ? "warn" : ""}`} style={{ margin: "0 16px 16px" }}>
-                  <strong>타임키퍼</strong>
+                  <strong>
+                    타임키퍼
+                    {timekeeper.pace && ` · ${PACE_LABELS[timekeeper.pace] ?? timekeeper.pace}`}
+                    {timekeeper.allow_probes === false && " · 파생질문 생략 중"}
+                  </strong>
                   <p>{timekeeper.hint}</p>
                 </div>
               )}
@@ -573,6 +611,10 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                 ＋10분
               </button>
               <span className={`badge ${status}`}>{status}</span>
+              <span className="muted small">
+                통역 {LANGUAGE_LABELS[session?.interpretation_language ?? ""] ?? session?.interpretation_language ?? "-"}
+              </span>
+              {role === "client" && <span className="role-chip">참관 전용</span>}
                             {projectSaveState === "saving" && <span className="muted small">프로젝트 개인 인터뷰 DB 저장 중…</span>}
               {projectSaveState === "saved" && <span className="connected small">프로젝트 개인 인터뷰 DB 저장 완료</span>}
               {projectSaveState === "error" && <span className="error-text" style={{ color: "red", fontSize: "12px", marginLeft: "8px" }}>DB 저장 실패</span>}
@@ -811,8 +853,36 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                         </button>
                       ))}
                     </div>
+                    {instructionNotice && (
+                      <div
+                        role="status"
+                        style={{
+                          margin: "0 16px 8px",
+                          padding: "8px 10px",
+                          borderRadius: 8,
+                          fontSize: "12px",
+                          lineHeight: 1.5,
+                          background:
+                            instructionNotice.kind === "rejected"
+                              ? "rgba(234, 88, 12, 0.12)"
+                              : "rgba(239, 68, 68, 0.12)",
+                          border:
+                            instructionNotice.kind === "rejected"
+                              ? "1px solid rgba(234, 88, 12, 0.35)"
+                              : "1px solid rgba(239, 68, 68, 0.35)",
+                        }}
+                      >
+                        <strong>
+                          {instructionNotice.kind === "rejected"
+                            ? "공정성 심사에서 차단됨"
+                            : "전송 실패"}
+                        </strong>
+                        <div style={{ marginTop: 2 }}>{instructionNotice.message}</div>
+                      </div>
+                    )}
                     <p className="muted small" style={{ padding: "6px 16px 10px" }}>
                       응답자의 다음 발화가 끝나면 1건씩 순서대로 주입됩니다.
+                      대기 중인 지시는 아래 이력에서 삭제할 수 있습니다.
                     </p>
                   </>
                 )}
@@ -843,6 +913,19 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                             </div>
                             <div className="h-text">{instruction.text}</div>
                           </div>
+                          {/* 아직 AI에게 전달되지 않은 지시만 취소할 수 있다.
+                              반영된 지시는 인터뷰 기록의 일부라 지우지 않는다. */}
+                          {role === "pm" && instruction.status === "queued" && (
+                            <button
+                              type="button"
+                              className="ghost h-del"
+                              title="이 지시 취소"
+                              aria-label={`대기 중인 지시 취소: ${instruction.text}`}
+                              onClick={() => deleteInstruction(instruction.id)}
+                            >
+                              삭제
+                            </button>
+                          )}
                         </li>
                       ))}
                       {instructions.length === 0 && <p className="empty">아직 보낸 지시가 없습니다.</p>}
