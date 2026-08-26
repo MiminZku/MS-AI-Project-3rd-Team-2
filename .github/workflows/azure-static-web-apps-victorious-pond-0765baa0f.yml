@@ -5,9 +5,13 @@ on:
   push:
     branches:
       - main
+    paths:
       - "frontend/dashboard/**"
       - "frontend/web/**"
       - ".github/workflows/azure-static-web-apps-victorious-pond-0765baa0f.yml"
+
+
+
   pull_request:
     types: [opened, synchronize, reopened, closed]
     branches:
