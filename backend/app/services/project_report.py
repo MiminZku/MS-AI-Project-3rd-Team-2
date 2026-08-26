@@ -9,7 +9,6 @@ from app.core.config import get_settings
 from app.schemas.project_report import ProjectAggregateReport
 from app.schemas.session import Session, utcnow
 from app.schemas.study import ResearchStudy
-from app.services.report import generator as individual_report_generator
 from app.services.report.study_analyzer import get_study_report_analyzer
 from app.services.store import get_store
 
@@ -132,6 +131,67 @@ async def _run_project_report_safely(project_id: str) -> None:
         logger.exception("프로젝트 리포트 백그라운드 생성 실패 project=%s", project_id)
 
 
+def _participant_reports_from_transcripts(
+    sessions: list[Session],
+    transcripts: dict[str, list[Any]],
+) -> list[dict[str, Any]]:
+    """전사에서 바로 종합 분석 입력을 만든다.
+
+    예전에는 세션마다 개별 리포트를 LLM으로 먼저 만들고 그걸 종합 분석에
+    넣었다. 개별 리포트는 더 이상 산출물이 아니고, 그 단계 때문에
+      - 응답자 수만큼 LLM 호출이 늘어 생성이 수 분씩 걸렸고
+      - 개별 분석기의 엄격한 Slot 검증이 실패하면 종합 리포트까지 통째로 막혔다.
+
+    종합 분석기가 실제로 요구하는 것은 참여자별 발화 인용(evidence)뿐이며
+    (나머지 필드는 전부 선택값), 프롬프트도 "실제 참여자 발화 quote가 최종
+    근거"라고 규정한다. 그래서 응답자 발화를 그대로 근거로 넘긴다.
+    """
+    reports: list[dict[str, Any]] = []
+    used_participant_ids: set[str] = set()
+
+    for index, session in enumerate(sessions, start=1):
+        evidence = [
+            {
+                "evidence_id": f"E{order:03d}",
+                "quote": turn.text.strip(),
+                "question_id": None,
+            }
+            for order, turn in enumerate(
+                (
+                    turn
+                    for turn in transcripts.get(session.id, [])
+                    if turn.speaker == "interviewee" and turn.text.strip()
+                ),
+                start=1,
+            )
+        ]
+
+        # 발화가 없는 세션을 넣으면 종합 분석기가 "직접 Evidence가 없는 참여자"로
+        # 판단해 검증에서 실패한다.
+        if not evidence:
+            logger.info(
+                "응답자 발화가 없어 종합 분석에서 제외 session=%s",
+                session.id,
+            )
+            continue
+
+        # PM이 입력한 익명 참가자 ID를 그대로 쓰되, 중복되면 뒤에 번호를 붙인다.
+        participant_id = (session.title or "").strip() or f"P{index:02d}"
+        if participant_id in used_participant_ids:
+            participant_id = f"{participant_id}_{index:02d}"
+        used_participant_ids.add(participant_id)
+
+        reports.append(
+            {
+                "participant_id": participant_id,
+                "session_id": session.id,
+                "data": {"evidence": evidence},
+            }
+        )
+
+    return reports
+
+
 async def generate_project_report(project_id: str) -> ProjectAggregateReport:
     """Create one explicit PM-requested aggregate snapshot for a project."""
     store = get_store()
@@ -161,19 +221,13 @@ async def generate_project_report(project_id: str) -> ProjectAggregateReport:
         if not settings.use_azure_openai:
             content = _local_aggregate_content(study, sessions, transcripts)
         else:
-            participant_reports = []
-            for session in sessions:
-                # 이미 만들어 둔 개별 리포트가 있으면 재사용한다. 중간에 실패해 다시
-                # 돌릴 때 18명 분석을 처음부터 다시 하지 않게 해 준다.
-                report = await store.get_report(session.id)
-                if report is None:
-                    report = await individual_report_generator.generate(
-                        session,
-                        transcripts[session.id],
-                        await store.list_instructions(session.id),
-                    )
-                    await store.save_report(report)
-                participant_reports.append(report.model_dump(mode="json"))
+            participant_reports = _participant_reports_from_transcripts(
+                sessions,
+                transcripts,
+            )
+            if not participant_reports:
+                raise ValueError("응답자 발화가 없어 리포트를 생성할 수 없습니다.")
+
             content = (await get_study_report_analyzer().analyze(study, participant_reports)).model_dump(mode="json")
             if len(sessions) == 1:
                 content["data_sufficiency_notice"] = "현재 완료된 인터뷰가 1건이므로 결과를 일반화하기 어렵습니다."

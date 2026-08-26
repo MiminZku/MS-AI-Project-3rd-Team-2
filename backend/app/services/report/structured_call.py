@@ -50,6 +50,7 @@ async def create_structured_json(
     schema_name: str,
     schema: dict[str, Any],
     max_output_tokens: int,
+    temperature: float = 0,
 ) -> str:
     """스키마를 따르는 JSON 문자열을 돌려준다.
 
@@ -63,6 +64,7 @@ async def create_structured_json(
             instructions=system_prompt,
             input=user_input,
             reasoning={"effort": "none"},
+            temperature=temperature,
             max_output_tokens=max_output_tokens,
             text={
                 "verbosity": "low",
@@ -108,7 +110,7 @@ async def create_structured_json(
             {"role": "system", "content": schema_instruction},
             {"role": "user", "content": user_input},
         ],
-        temperature=0,
+        temperature=temperature,
         max_completion_tokens=max_output_tokens,
         response_format={"type": "json_object"},
     )

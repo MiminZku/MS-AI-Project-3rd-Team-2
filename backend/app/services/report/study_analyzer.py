@@ -58,6 +58,17 @@ class StudyReportAnalyzer:
             api_version=api_version,
         )
 
+    # 검증 실패시 재시도 횟수. 모델이 evidence_ids를 빈 배열로 남기는 등
+    # 스키마로는 못 잡는 비즈니스 규칙 위반은 가끔씩 일어난다. 재시도 없이
+    # 바로 실패시키면 참여자가 3명뿐인 작은 Study에서도 리포트 생성이
+    # 자주 실패해서 사용자가 매번 재클릭해야 했다.
+    MAX_VALIDATION_RETRIES = 2
+
+    # 시도별 temperature. 첫 시도는 결정적으로(0) 뽑되, 재시도는 온도를 올려
+    # 실제로 다른 출력이 나오게 한다. 온도를 0으로 고정한 채 재시도하면
+    # 거의 같은 답이 다시 나와서 재시도가 무의미해진다.
+    RETRY_TEMPERATURES = (0.0, 0.4, 0.7)
+
     async def analyze(
         self,
         study: ResearchStudy,
@@ -76,6 +87,42 @@ class StudyReportAnalyzer:
                 participant_reports
             )
         )
+
+        last_error: ValueError | None = None
+
+        for attempt in range(self.MAX_VALIDATION_RETRIES + 1):
+            try:
+                return await self._generate_once(
+                    study=study,
+                    normalized_reports=normalized_reports,
+                    retry_feedback=(
+                        str(last_error) if last_error else None
+                    ),
+                    temperature=self.RETRY_TEMPERATURES[
+                        min(attempt, len(self.RETRY_TEMPERATURES) - 1)
+                    ],
+                )
+            except ValueError as error:
+                # ValueError는 모델 출력이 비즈니스 규칙(예: evidence 누락)을
+                # 어긴 경우다. 재시도할수록 무슨 문제였는지 프롬프트에 알려주면
+                # 모델이 스스로 고칠 확률이 높다. JSON 파싱 실패나 네트워크
+                # 오류(RuntimeError 등)는 재시도해도 같은 결과일 가능성이 커서
+                # 여기서 잡지 않고 그대로 올린다.
+                last_error = error
+                if attempt >= self.MAX_VALIDATION_RETRIES:
+                    raise
+
+        # 위 for 루프는 항상 return 또는 raise로 끝난다.
+        raise AssertionError("unreachable")
+
+    async def _generate_once(
+        self,
+        *,
+        study: ResearchStudy,
+        normalized_reports: list[dict[str, Any]],
+        retry_feedback: str | None,
+        temperature: float = 0.0,
+    ) -> StudyReportAnalysis:
 
         input_payload = {
             "study": {
@@ -122,6 +169,16 @@ class StudyReportAnalyzer:
             ),
         }
 
+        if retry_feedback:
+            # 직전 시도가 어떤 규칙을 어겼는지 그대로 알려준다. 예:
+            # "executive_summary.key_takeaways[1]: Evidence가 없습니다."
+            # -> 모델이 그 항목만 빼거나 근거를 채워 다시 시도하게 유도한다.
+            input_payload["previous_attempt_validation_error"] = (
+                "직전 시도한 결과가 다음 이유로 거부되었습니다. "
+                "같은 문제가 다시 발생하지 않도록 주의해서 다시 생성하세요: "
+                f"{retry_feedback}"
+            )
+
         content = (
             await create_structured_json(
                 self.client,
@@ -146,6 +203,8 @@ class StudyReportAnalyzer:
                 ),
 
                 max_output_tokens=20000,
+
+                temperature=temperature,
             )
         )
 
@@ -705,6 +764,18 @@ Evidence ID 형식을 임의로 수정하지 마세요.
 8.
 각 Evidence가 해당 분석 내용을
 직접 지지하는지 확인하세요.
+
+9. [매우 중요]
+위 7번 목록에 속한 항목은
+evidence_ids를 절대 빈 배열로 남기면 안 됩니다.
+각 항목마다 반드시 1개 이상의
+실제 Evidence ID를 연결하세요.
+
+특정 항목에 직접 인용할 발화가
+마땅치 않다면, 그 항목을 아예 작성하지 말고
+목록에서 제외하세요.
+evidence_ids가 비어 있는 항목을 포함해서는
+안 됩니다.
 
 
 =========================================================
