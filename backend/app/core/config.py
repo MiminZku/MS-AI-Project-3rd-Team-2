@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     # D5: 타임키퍼 폴링 주기(초)
     timekeeper_interval_seconds: int = 60
 
+    # 인터뷰 마무리 직전, 참관자가 추가 지시를 넣을 수 있도록 기다리는 시간(초).
+    # 이 시간 안에 지시가 들어오면 그 질문을 하고 대기창을 한 번 더 연다.
+    final_instruction_window_seconds: int = 30
+    # 대기창 동안 지시 큐를 확인하는 주기(초). 지시가 들어오면 남은 시간을 기다리지 않는다.
+    final_instruction_poll_seconds: float = 2.0
+
     # Azure Communication Services (WebRTC)
     acs_connection_string: str = ""
 

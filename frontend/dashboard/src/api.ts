@@ -212,9 +212,13 @@ export async function fetchReport(sessionId: string): Promise<Report | null> {
   return response.json();
 }
 
-export function observerSocketUrl(sessionId: string): string {
-  const query = ADMIN_TOKEN ? `?token=${encodeURIComponent(ADMIN_TOKEN)}` : "";
-  return `${WS_BASE_URL}/ws/observer/${sessionId}${query}`;
+export function observerSocketUrl(sessionId: string, clientToken?: string): string {
+  // 클라이언트 참관 토큰이 있으면 그걸로 붙는다 — 서버가 참관 전용(지시 불가)으로 연결한다.
+  const params = new URLSearchParams();
+  if (clientToken) params.set("client_token", clientToken);
+  else if (ADMIN_TOKEN) params.set("token", ADMIN_TOKEN);
+  const query = params.toString();
+  return `${WS_BASE_URL}/ws/observer/${sessionId}${query ? `?${query}` : ""}`;
 }
 
 export async function fetchRtcToken(sessionId: string): Promise<{ user_id: string; token: string; group_id: string }> {

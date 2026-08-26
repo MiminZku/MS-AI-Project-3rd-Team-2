@@ -1389,9 +1389,18 @@ body:has(.dock-panel.open) .monitor {
 
 .h-item {
   display: grid;
-  grid-template-columns: 46px 10px 1fr;
+  /* 마지막 열은 대기 중인 지시의 삭제 버튼 자리 — 반영된 지시에는 버튼이 없어 비워둔다 */
+  grid-template-columns: 46px 10px 1fr auto;
   gap: 9px;
   align-items: start;
+}
+
+.h-del {
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.6;
+  align-self: center;
+  white-space: nowrap;
 }
 
 .h-item time {

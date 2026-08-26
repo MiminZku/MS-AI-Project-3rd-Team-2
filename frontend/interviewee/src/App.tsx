@@ -48,6 +48,12 @@ function buildOpeningSpeech({ projectTitle, durationMinutes = 15 }: OpeningParam
   return `안녕하세요! ${projectGreeting} 저는 오늘 대화를 진행할 AI 모더레이터입니다. 본 인터뷰는 ${durationText}AI와 나누는 편안한 대화로 진행되며, AI 진행 특성상 대화 호흡이 다소 매끄럽지 못할 수 있는 점 미리 양해 부탁드립니다. 오늘 질문에는 정해진 정답이나 오답이 전혀 없으니, 평소 느끼고 경험하신 생각을 편안하고 솔직하게 말씀해 주시면 됩니다. 본격적인 질문에 앞서, 하시는 일이나 관심 분야 등 간단한 자기소개를 부탁드려도 될까요?`;
 }
 
+const INTERPRETATION_LANGUAGE_LABELS: Record<string, string> = {
+  ko: "한국어",
+  en: "English",
+  ja: "日本語",
+};
+
 export default function App() {
   const [sessionId] = useState(sessionIdFromUrl);
   const [, setStatus] = useState<Status>("idle");
@@ -68,6 +74,7 @@ export default function App() {
 
   const [projectTitle, setProjectTitle] = useState(isDirectAvatarTest ? "AI 도구 사용 경험 인터뷰" : "");
   const [durationMinutes, setDurationMinutes] = useState<number>(15);
+  const [interpretationLanguage, setInterpretationLanguage] = useState<string>("");
   const [sessionQuestions, setSessionQuestions] = useState<QuestionNode[]>([]);
   const [dummyQuestionIndex, setDummyQuestionIndex] = useState(0);
   const [question, setQuestion] = useState(DUMMY_QUESTIONS[0]);
@@ -174,6 +181,9 @@ export default function App() {
         }
         if (message.session.duration_minutes) {
           setDurationMinutes(message.session.duration_minutes);
+        }
+        if (message.session.interpretation_language) {
+          setInterpretationLanguage(message.session.interpretation_language);
         }
         if (message.session.questions && message.session.questions.length > 0) {
           setSessionQuestions(message.session.questions);
@@ -647,6 +657,18 @@ export default function App() {
             onReplay={() => speakWithCurrentSpeed(question)}
             isSpeaking={avatar.status === "speaking"}
           />
+          {interpretationLanguage && (
+            <div
+              style={{
+                marginTop: 6,
+                textAlign: "right",
+                fontSize: "0.72rem",
+                color: "rgba(148, 163, 184, 0.9)",
+              }}
+            >
+              동시통역: {INTERPRETATION_LANGUAGE_LABELS[interpretationLanguage] ?? interpretationLanguage}
+            </div>
+          )}
         </div>
 
         {/* 백룸(리서치팀) 추가 질문 대기 상태 배너 & 개발 테스트 버튼 */}

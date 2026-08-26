@@ -32,6 +32,9 @@ class GeneratedQuestion:
     # 이번 발화가 작별 인사(종료 멘트)라는 신고. True면 orchestrator가 이 발화를 전달한 뒤
     # 세션을 자동 종료한다 (대본을 모두 마쳤고 대기 중인 참관자 지시가 없을 때에 한함).
     is_closing: bool = False
+    # 응답자의 직전 발화가 '현재 메인 질문에 대한 답변'이었는지에 대한 모델의 판단.
+    # False면 질문을 물었을 뿐 답은 못 받은 것이므로 파생질문·전이로 넘어가지 않는다.
+    is_answer_to_current_question: bool = True
 
 
 class QuestionGenerator(Protocol):
@@ -181,6 +184,7 @@ class AzureOpenAIQuestionGenerator:
         extracted_fact = str(data.get("extracted_fact", "")).strip()
         needs_clarification = bool(data.get("needs_clarification", False))
         is_closing = bool(data.get("is_closing", False))
+        is_answer = bool(data.get("is_answer_to_current_question", True))
         selected_branch = data.get("selected_branch")
         if selected_branch:
             selected_branch = str(selected_branch).strip()
@@ -206,6 +210,7 @@ class AzureOpenAIQuestionGenerator:
             selected_branch=selected_branch,
             needs_clarification=needs_clarification,
             is_closing=is_closing,
+            is_answer_to_current_question=is_answer,
         )
 
 

@@ -73,18 +73,28 @@ export type ServerMessage =
       transcript: Turn[];
       instructions: Instruction[];
       interviewee_connected: boolean;
+      /** pm이면 실시간 지시 가능, client면 참관 전용 */
+      viewer_role?: "pm" | "client";
     }
   | { type: "transcript.append"; turn: Turn }
   | { type: "transcript.partial"; lang: "ko" | "en"; text: string }
   | { type: "transcript.final"; lang: "ko" | "en"; text: string }
   | { type: "instruction.queued"; instruction: Instruction }
   | { type: "instruction.applied"; instruction: Instruction }
+  | { type: "instruction.deleted"; instruction_id: string }
+  /** 책임있는 AI(공정성) 심사에서 차단되어 큐에 들어가지 않은 지시 */
+  | { type: "instruction.rejected"; text: string; reason: string }
+  | { type: "final_check.open"; session_id: string; window_seconds: number }
+  | { type: "final_check.close"; session_id: string; reason: string }
   | {
       type: "timekeeper.signal";
       should_move_on: boolean;
       remaining_minutes: number;
       remaining_questions: number;
       hint: string;
+      pace?: "ahead" | "on_track" | "behind" | "overtime";
+      elapsed_minutes?: number;
+      allow_probes?: boolean;
     }
   | { type: "session.started"; session: Session }
   | { type: "session.ended"; session: Session }

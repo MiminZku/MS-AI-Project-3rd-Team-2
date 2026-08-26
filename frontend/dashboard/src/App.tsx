@@ -3,7 +3,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import Monitor, { type TopbarStatus } from "./components/Monitor";
 import SessionForm from "./components/SessionForm";
 
-export type Role = "pm";
+export type Role = "pm" | "client";
 
 /**
  * 참관자 대시보드.
@@ -16,9 +16,11 @@ export default function App() {
     () => new URLSearchParams(window.location.search).get("session") ?? "",
   );
   const [intervieweeUrl, setIntervieweeUrl] = useState("");
-  // Client는 web 앱의 Project Access ID 전용 화면으로만 접근한다.
-  // 대시보드는 PM 운영 화면이므로 URL query로 역할을 바꿀 수 없다.
-  const role: Role = "pm";
+  // 클라이언트는 web 앱의 Project Access ID 화면에서 발급받은 토큰을 달고 들어온다.
+  // 토큰이 있으면 참관 전용(client)이고, 실시간 지시를 보낼 수 없다.
+  // 토큰 유효성은 백엔드가 소켓 연결 시 다시 검증하므로, 여기서 역할을 위조해도 지시는 거부된다.
+  const clientToken = new URLSearchParams(window.location.search).get("client_token") ?? "";
+  const role: Role = clientToken ? "client" : "pm";
   const [topbarStatus, setTopbarStatus] = useState<TopbarStatus | null>(null);
 
   return (
@@ -66,7 +68,13 @@ export default function App() {
       </header>
 
       {sessionId ? (
-        <Monitor sessionId={sessionId} intervieweeUrl={intervieweeUrl} role={role} onStatusChange={setTopbarStatus} />
+        <Monitor
+          sessionId={sessionId}
+          intervieweeUrl={intervieweeUrl}
+          role={role}
+          clientToken={clientToken}
+          onStatusChange={setTopbarStatus}
+        />
       ) : (
         <SessionForm
           role={role}

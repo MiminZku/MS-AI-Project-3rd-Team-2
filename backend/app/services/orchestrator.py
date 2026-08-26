@@ -25,6 +25,7 @@ from app.export_study_report_bi import (
 from app.export_study_report_word import (
     main as export_word_report,
 )
+from app.core.config import get_settings
 from app.schemas.messages import server_message
 from app.schemas.session import (
     Instruction,
@@ -197,6 +198,15 @@ async def handle_utterance(
         ),
     )
 
+    # 마무리 대기창이 열려 있는 동안에는 응답자 발화를 기록만 하고 새 질문은 만들지 않는다.
+    # ("잠시만 기다려 주세요" 안내에 대한 대답까지 질문으로 되받아치지 않기 위함)
+    if session.id in _final_check_tasks:
+        logger.info(
+            "마무리 대기창 진행 중 — 발화는 기록만 하고 질문은 생성하지 않음 session=%s",
+            session.id,
+        )
+        return
+
     # -----------------------------------------------------
     # ③ 지시 큐에서 1건 pop
     #
@@ -237,11 +247,33 @@ async def handle_utterance(
         )
     )
 
+    # -----------------------------------------------------
+    # 마무리 직전 참관자 추가 지시 대기창
+    #
+    # 모델이 작별 인사를 내놓았고 대본도 다 끝났다면, 곧바로 끝내지 않고
+    # 참관자가 마지막 지시를 넣을 시간을 준다. 이때 응답자에게 나가는 발화는
+    # 작별 인사가 아니라 "잠시 확인해 보겠습니다" 안내여야 하므로,
+    # 턴을 만들기 전에 텍스트를 바꿔치기한다.
+    # -----------------------------------------------------
+
+    final_check_pending = (
+        generated.is_closing
+        and instruction is None
+        and not session.final_check_done
+        and session.current_question_index >= len(session.questions)
+        and await _no_queued_instructions(store, session.id)
+    )
+
     assistant_turn = Turn(
         index=index + 1,
         speaker="assistant",
-        text=generated.text,
-        rationale=generated.rationale,
+        text=FINAL_CHECK_MESSAGE if final_check_pending else generated.text,
+        rationale=(
+            f"[FINAL-CHECK] 마무리 전 참관자 추가 지시를 "
+            f"{get_settings().final_instruction_window_seconds}초간 기다립니다."
+            if final_check_pending
+            else generated.rationale
+        ),
         instruction_id=(
             instruction.id
             if instruction
@@ -264,6 +296,15 @@ async def handle_utterance(
     # 이 경우 방금 들어온 응답자 발화는 현재 질문이 아니라 그 직전 질문(또는 인사말)에 대한 답변이다.
     pending_main = curr_idx < total_q and not session.main_question_asked
 
+    # 메인 질문을 묻긴 했는데 아직 답변을 못 받은 상태에서, 이번 발화도 답변이 아닌 경우.
+    # (이름 정정, 되묻기, 잡담 등) 답변을 받을 때까지 파생질문·전이로 넘어가면 안 된다.
+    awaiting_answer = (
+        curr_idx < total_q
+        and session.main_question_asked
+        and not session.main_question_answered
+        and not generated.is_answer_to_current_question
+    )
+
     # 음성인식 오류가 의심되는 턴(needs_clarification)에서는 애초에 신뢰할 수 없는 텍스트에서
     # 나온 결과이므로, 사실/분기 정보를 기록하지 않는다 — 잘못 들은 내용이 covered_facts에
     # 박제되어 이후 프롬프트에 "이미 확보된 사실"인 양 계속 노출되는 것을 막기 위함.
@@ -271,7 +312,8 @@ async def handle_utterance(
         # 획득한 사실(Fact) 업데이트.
         # pending_main 턴의 발화는 직전 질문에 대한 답변이므로 한 칸 앞 인덱스에 귀속시킨다.
         # (curr_idx == 0 이면 인터뷰 첫 인사말이라 귀속시킬 질문이 없다.)
-        if generated.extracted_fact:
+        # 답변이 아닌 발화(정정·되묻기·잡담)에서 뽑아낸 "사실"은 질문에 대한 답이 아니므로 기록하지 않는다.
+        if generated.extracted_fact and not awaiting_answer:
             fact_index = curr_idx - 1 if pending_main else curr_idx
             if fact_index >= 0:
                 session.covered_facts[f"질문_{fact_index + 1}"] = generated.extracted_fact
@@ -296,7 +338,14 @@ async def handle_utterance(
         # 단, 되묻기(needs_clarification)를 한 턴이면 메인 질문은 여전히 전달되지 않은 상태다.
         if not generated.needs_clarification:
             session.main_question_asked = True
+        session.main_question_answered = False
         session.probe_count = 0
+        session.active_branch = None
+
+    elif awaiting_answer:
+        # 질문은 이미 던졌지만 돌아온 발화가 답변이 아니었다. 모델은 이번 턴에 같은 메인 질문을
+        # 다시 물었을 뿐이므로 진행 위치를 넘기지 않는다. 무한 재질문을 막기 위해 probe_count만 올린다.
+        session.probe_count += 1
         session.active_branch = None
 
     else:
@@ -305,6 +354,9 @@ async def handle_utterance(
         #    혹은 비정상적 무한 루프 방지 안전 한도(probe_count >= 5)에 도달한 경우 -> 다음 메인 질문으로 전이
         #    단, needs_clarification(음성인식 오류 의심)인 턴은 안전 한도에 도달하기 전까지는 절대 전이하지 않는다 —
         #    잘못 들은 답변을 "충분하다"고 착각해 다음 질문으로 넘어가버리는 것을 막기 위한 조건.
+        # 여기까지 왔다는 것은 이번 발화가 현재 메인 질문에 대한 답변이라는 뜻이다.
+        session.main_question_answered = True
+
         model_decided_advance = generated.is_sufficient or generated.next_question_index > curr_idx
         probe_limit_reached = session.probe_count >= 5
 
@@ -323,6 +375,8 @@ async def handle_utterance(
             # 그대로 물었다고 본다. 반면 probe 한도 초과로 강제 전이시킨 경우 모델의 발화는
             # 여전히 이전 질문의 꼬리질문이므로, 다음 메인 질문은 아직 전달되지 않았다.
             session.main_question_asked = model_decided_advance and not generated.needs_clarification
+            # 다음 메인 질문은 이제 막 물어본 것이므로 답변은 아직 받지 않았다.
+            session.main_question_answered = False
         else:
             # 2) 아직 탐색할 파생질문이 남아있거나 추가 확인이 필요한 경우(is_sufficient=False) -> 현재 질문 인덱스 유지 및 probe_count 증가
             session.probe_count += 1
@@ -339,9 +393,11 @@ async def handle_utterance(
             "title": session.title,
             "status": session.status,
             "duration_minutes": session.duration_minutes,
+            "interpretation_language": session.interpretation_language,
             "questions": [q.model_dump(mode="json") for q in session.questions],
             "current_question_index": session.current_question_index,
             "main_question_asked": session.main_question_asked,
+            "main_question_answered": session.main_question_answered,
             "completed_question_indices": session.completed_question_indices,
             "probe_count": session.probe_count,
             "active_branch": session.active_branch,
@@ -405,10 +461,16 @@ async def handle_utterance(
         )
 
     # -----------------------------------------------------
-    # ⑦ 작별 인사를 전달했다면 참관자가 종료 버튼을 누른 것과 동일하게 자동 종료
+    # ⑦ 마무리 처리
+    #    - 대기창을 아직 안 열었으면 참관자 추가 지시를 기다린다.
+    #    - 이미 열었었다면 참관자가 종료 버튼을 누른 것과 동일하게 자동 종료.
     # -----------------------------------------------------
 
-    if await _should_auto_end(session, generated, store, instruction):
+    if final_check_pending:
+
+        await _open_final_instruction_window(session)
+
+    elif await _should_auto_end(session, generated, store, instruction):
 
         logger.info(
             "AI 종료 멘트 후 세션 자동 종료 session=%s",
@@ -416,6 +478,204 @@ async def handle_utterance(
         )
 
         await end_session(session)
+
+
+# =========================================================
+# 마무리 직전 참관자 추가 지시 대기창
+#
+# 대본이 끝나고 응답자도 마무리에 동의한 뒤, 곧바로 세션을 끝내지 않고
+# 참관자가 마지막 지시를 넣을 시간을 준다. 이 구간의 발화는 응답자 발화가
+# 트리거가 아니므로 별도 태스크로 돌린다.
+# =========================================================
+
+FINAL_CHECK_MESSAGE = (
+    "준비된 질문은 모두 마쳤습니다. 혹시 참관 중인 리서치팀에서 "
+    "추가로 확인하고 싶은 내용이 있는지 잠시 확인해 보겠습니다. 잠시만 기다려 주세요."
+)
+
+FINAL_FAREWELL_MESSAGE = (
+    "확인 결과 추가로 여쭐 내용은 없습니다. 오늘 소중한 시간 내어 "
+    "성실히 답변해 주셔서 진심으로 감사합니다. 이것으로 인터뷰를 마치겠습니다."
+)
+
+_final_check_tasks: dict[str, asyncio.Task[None]] = {}
+
+
+async def _open_final_instruction_window(
+    session: Session,
+) -> None:
+    """대기창을 열고, 참관자 지시를 기다리는 백그라운드 태스크를 띄운다."""
+
+    session.final_check_done = True
+    await get_store().save_session(session)
+
+    window_seconds = get_settings().final_instruction_window_seconds
+
+    await manager.broadcast_to_observers(
+        session.id,
+        server_message(
+            "final_check.open",
+            session_id=session.id,
+            window_seconds=window_seconds,
+        ),
+    )
+
+    if session.id in _final_check_tasks:
+        return
+
+    _final_check_tasks[session.id] = asyncio.create_task(
+        _final_instruction_window(
+            session.id,
+            window_seconds,
+        )
+    )
+
+
+async def _final_instruction_window(
+    session_id: str,
+    window_seconds: int,
+) -> None:
+    """window_seconds 동안 지시 큐를 지켜보다가, 들어오면 질문하고 없으면 종료한다."""
+
+    settings = get_settings()
+    store = get_store()
+    poll_seconds = max(settings.final_instruction_poll_seconds, 0.1)
+    deadline = asyncio.get_running_loop().time() + window_seconds
+
+    try:
+        while True:
+            session = await store.get_session(session_id)
+            if session is None or session.status == "ended":
+                return
+
+            instruction = await store.pop_instruction(session_id)
+
+            if instruction is not None:
+                await _ask_final_instruction(session, instruction)
+                return
+
+            if asyncio.get_running_loop().time() >= deadline:
+                break
+
+            await asyncio.sleep(poll_seconds)
+
+        # -------------------------------------------------
+        # 대기 시간 종료 — 추가 지시가 없었으므로 작별 인사 후 세션 종료
+        # -------------------------------------------------
+        session = await store.get_session(session_id)
+        if session is None or session.status == "ended":
+            return
+
+        await _dispatch_assistant_message(
+            session,
+            FINAL_FAREWELL_MESSAGE,
+            rationale="[END] 참관자 추가 지시 없이 대기 시간이 끝나 인터뷰를 종료했습니다.",
+        )
+
+        await manager.broadcast_to_observers(
+            session_id,
+            server_message("final_check.close", session_id=session_id, reason="timeout"),
+        )
+
+        await end_session(session)
+
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception(
+            "마무리 대기창 처리 오류 session=%s",
+            session_id,
+        )
+    finally:
+        _final_check_tasks.pop(session_id, None)
+
+
+async def _ask_final_instruction(
+    session: Session,
+    instruction: Instruction,
+) -> None:
+    """대기창 중 들어온 참관자 지시를 질문으로 만들어 응답자에게 전달한다."""
+
+    store = get_store()
+    transcript = await store.get_transcript(session.id)
+
+    generated = await get_question_generator().generate(
+        session=session,
+        transcript=transcript,
+        instruction=instruction,
+        timekeeper_hint=timekeeper.latest_hint(session.id),
+    )
+
+    assistant_turn = await _dispatch_assistant_message(
+        session,
+        generated.text,
+        rationale=generated.rationale,
+        instruction_id=instruction.id,
+    )
+
+    applied = await ack_instruction(store, instruction, assistant_turn.index)
+    await manager.broadcast_to_observers(
+        session.id,
+        server_message("instruction.applied", instruction=applied.model_dump(mode="json")),
+    )
+
+    # 이 질문에 대한 답변을 받고 다시 마무리 단계에 오면 대기창을 한 번 더 연다.
+    session.final_check_done = False
+    await store.save_session(session)
+
+    await manager.broadcast_to_observers(
+        session.id,
+        server_message("final_check.close", session_id=session.id, reason="instruction"),
+    )
+
+
+async def _dispatch_assistant_message(
+    session: Session,
+    text: str,
+    *,
+    rationale: str,
+    instruction_id: str | None = None,
+) -> Turn:
+    """응답자 발화 없이 AI 발화 1건을 기록하고 양쪽 채널로 전송한다."""
+
+    store = get_store()
+
+    turn = Turn(
+        index=await store.next_turn_index(session.id),
+        speaker="assistant",
+        text=text,
+        rationale=rationale,
+        instruction_id=instruction_id,
+    )
+    await store.append_turn(session.id, turn)
+
+    await manager.send_to_interviewee(
+        session.id,
+        server_message("assistant.question", turn=_turn_payload(turn, for_observer=False)),
+    )
+    await manager.broadcast_to_observers(
+        session.id,
+        server_message("transcript.append", turn=_turn_payload(turn, for_observer=True)),
+    )
+
+    return turn
+
+
+def cancel_final_instruction_window(session_id: str) -> None:
+    """세션이 다른 경로로 종료되면 대기창 태스크를 정리한다."""
+
+    task = _final_check_tasks.pop(session_id, None)
+    if task is None:
+        return
+
+    # 대기창 스스로 end_session()을 호출하는 경로에서는 자기 자신을 취소하면 안 된다.
+    try:
+        current = asyncio.current_task()
+    except RuntimeError:
+        current = None
+
+    if task is not current:
+        task.cancel()
 
 
 # =========================================================
@@ -451,13 +711,22 @@ async def _should_auto_end(
 
     # ④ 대기 중인 참관자 지시가 없는가
     #    이번 턴에 소비된 지시는 위에서 이미 applied 처리됐으므로 queued에 잡히지 않는다.
+    return await _no_queued_instructions(store, session.id)
+
+
+async def _no_queued_instructions(
+    store: Store,
+    session_id: str,
+) -> bool:
+    """대기 중(queued)인 참관자 지시가 하나도 없으면 True."""
+
     try:
-        instructions = await store.list_instructions(session.id)
+        instructions = await store.list_instructions(session_id)
     except Exception:
-        # 큐 조회에 실패했으면 남은 지시가 있는지 확신할 수 없으므로 자동 종료하지 않는다.
+        # 큐 조회에 실패했으면 남은 지시가 있는지 확신할 수 없으므로 보수적으로 False.
         logger.exception(
-            "자동 종료 판단용 지시 큐 조회 실패 session=%s",
-            session.id,
+            "지시 큐 조회 실패 session=%s",
+            session_id,
         )
         return False
 
@@ -542,6 +811,10 @@ async def end_session(
     )
 
     timekeeper.stop(
+        session.id
+    )
+
+    cancel_final_instruction_window(
         session.id
     )
 
