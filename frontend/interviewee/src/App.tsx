@@ -568,7 +568,6 @@ export default function App() {
             <h2>🎉 인터뷰가 종료되었습니다</h2>
             <p className="muted" style={{ lineHeight: 1.6, marginTop: 12 }}>
               성실하게 답변에 임해 주셔서 대단히 감사합니다.<br />
-              모든 인터뷰 데이터가 안전하게 저장되었습니다.<br />
               이제 브라우저 창을 닫으셔도 좋습니다.
             </p>
           </section>
