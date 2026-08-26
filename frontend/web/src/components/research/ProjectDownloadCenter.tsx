@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowClockwise,
   ChatText,
@@ -104,6 +104,12 @@ export default function ProjectDownloadCenter() {
     void loadProjectDetail(selectedId);
   }, [selectedId, loadProjectDetail]);
 
+  // 폴링 중에 사용자가 다른 프로젝트로 옮겼는지 확인하기 위한 최신 선택값
+  const selectedIdRef = useRef(selectedId);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
   const selectedProject = useMemo(
     () => projects.find((project) => project.id === selectedId) ?? null,
     [projects, selectedId],
@@ -133,20 +139,46 @@ export default function ProjectDownloadCenter() {
     }
   };
 
+  /**
+   * 리포트 생성은 백그라운드에서 돈다. 응답자가 많으면 분석에 수 분이 걸려
+   * 한 번의 HTTP 요청으로는 끝낼 수 없기 때문이다(예전에는 응답을 기다리다
+   * 연결이 끊겨 "Failed to fetch"가 떴다). 시작시킨 뒤 완료될 때까지 폴링한다.
+   */
   const handleGenerateReport = async () => {
     if (!selectedId) return;
     setGenerating(true);
     setError("");
     setNotice("");
+
+    const projectId = selectedId;
     try {
-      const generated = await generateProjectReport(selectedId);
-      setReport(generated);
-      if (generated.status === "COMPLETED") {
-        setNotice(`리포트를 생성했습니다. (응답자 ${generated.respondent_count}명 기준)`);
-      } else if (generated.status === "FAILED") {
-        setError(generated.error_message ?? "리포트 생성에 실패했습니다.");
+      let snapshot = await generateProjectReport(projectId);
+      setReport(snapshot);
+
+      if (snapshot.status === "GENERATING") {
+        setNotice("분석을 시작했습니다. 인터뷰 수에 따라 몇 분 걸릴 수 있습니다…");
+      }
+
+      const deadline = Date.now() + 15 * 60 * 1000;
+      while (snapshot.status === "GENERATING" && Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        // 다른 프로젝트로 옮겼으면 이 폴링은 의미가 없다
+        if (projectId !== selectedIdRef.current) return;
+        snapshot = await fetchProjectReport(projectId);
+        setReport(snapshot);
+      }
+
+      if (snapshot.status === "COMPLETED") {
+        setNotice(`리포트를 생성했습니다. (응답자 ${snapshot.respondent_count}명 기준)`);
+      } else if (snapshot.status === "FAILED") {
+        setNotice("");
+        setError(snapshot.error_message ?? "리포트 생성에 실패했습니다.");
+      } else {
+        setNotice("");
+        setError("분석이 예상보다 오래 걸립니다. 잠시 후 새로고침으로 상태를 확인해 주세요.");
       }
     } catch (generateError) {
+      setNotice("");
       setError(
         generateError instanceof Error
           ? generateError.message

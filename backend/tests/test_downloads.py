@@ -43,6 +43,20 @@ def _client_token(client, access_id: str) -> str:
     return response.json()["access_token"]
 
 
+def _generate_report_and_wait(client, project_id: str, *, timeout: float = 10.0) -> dict:
+    """리포트는 백그라운드에서 생성되므로 완료될 때까지 폴링한다."""
+    import time
+
+    assert client.post(f"/api/projects/{project_id}/aggregate-report").status_code == 200
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        report = client.get(f"/api/projects/{project_id}/aggregate-report").json()
+        if report["status"] in ("COMPLETED", "FAILED"):
+            return report
+        time.sleep(0.05)
+    raise AssertionError("리포트 생성이 제한 시간 안에 끝나지 않았습니다.")
+
+
 # =========================================================
 # 인터뷰 기록
 # =========================================================
@@ -128,9 +142,7 @@ def test_리포트를_생성하면_문서로_받을_수_있다(client):
     session_id = _create_session(client, project["id"])
     _run_interview(client, session_id)
 
-    generated = client.post(f"/api/projects/{project['id']}/aggregate-report")
-    assert generated.status_code == 200
-    assert generated.json()["status"] == "COMPLETED"
+    assert _generate_report_and_wait(client, project["id"])["status"] == "COMPLETED"
 
     response = client.get(f"/api/projects/{project['id']}/aggregate-report/download")
 
@@ -155,7 +167,7 @@ def test_클라이언트도_같은_자료를_받는다(client):
     project = _create_project(client)
     session_id = _create_session(client, project["id"])
     _run_interview(client, session_id)
-    client.post(f"/api/projects/{project['id']}/aggregate-report")
+    _generate_report_and_wait(client, project["id"])
 
     token = _client_token(client, project["access_id"])
     headers = {"X-Project-Access-Token": token}

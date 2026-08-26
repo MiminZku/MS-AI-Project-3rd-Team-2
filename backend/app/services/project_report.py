@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import asyncio
 import logging
+from datetime import timedelta
 from typing import Any
 
 from app.core.config import get_settings
@@ -79,16 +81,63 @@ def _local_aggregate_content(
     }
 
 
-async def generate_project_report(project_id: str) -> ProjectAggregateReport:
-    """Create one explicit PM-requested aggregate snapshot for a project."""
+# GENERATING 상태로 이 시간 넘게 멈춰 있으면, 앞선 실행이 중간에 죽은 것으로 보고
+# 다시 시작할 수 있게 한다. 이 장치가 없으면 요청이 한 번 끊기는 순간
+# 그 프로젝트는 영원히 "생성 중"에 갇혀 리포트를 만들 수 없다.
+STALE_GENERATING_AFTER = timedelta(minutes=20)
+
+
+def _is_stale(report: ProjectAggregateReport) -> bool:
+    return utcnow() - report.updated_at > STALE_GENERATING_AFTER
+
+
+async def start_project_report(project_id: str) -> ProjectAggregateReport:
+    """리포트 생성을 시작하고 GENERATING 스냅샷을 즉시 돌려준다.
+
+    18명 분량이면 개별 분석만으로도 수 분이 걸려 HTTP 요청 안에서 끝낼 수 없다.
+    (실제로 응답 대기 중 연결이 끊겨 브라우저에 "Failed to fetch"가 떴다.)
+    실제 생성은 백그라운드에서 돌리고, 호출자는 GET으로 상태를 폴링한다.
+    """
     store = get_store()
     study = await store.get_study(project_id)
     if study is None:
         raise LookupError("프로젝트를 찾을 수 없습니다.")
 
     existing = await store.get_project_report(project_id)
-    if existing and existing.status == "GENERATING":
+    if existing and existing.status == "GENERATING" and not _is_stale(existing):
         return existing
+
+    sessions = completed_real_sessions(await store.list_sessions(project_id))
+    if not sessions:
+        raise ValueError("완료된 인터뷰가 없어 리포트를 생성할 수 없습니다.")
+
+    generating = ProjectAggregateReport(
+        project_id=project_id,
+        status="GENERATING",
+        included_session_ids=[session.id for session in sessions],
+        respondent_count=len(sessions),
+        updated_at=utcnow(),
+    )
+    await store.save_project_report(generating)
+
+    asyncio.create_task(_run_project_report_safely(project_id))
+    return generating
+
+
+async def _run_project_report_safely(project_id: str) -> None:
+    """백그라운드 실행 래퍼. 예외가 새어 나가 태스크가 조용히 죽지 않게 한다."""
+    try:
+        await generate_project_report(project_id)
+    except Exception:
+        logger.exception("프로젝트 리포트 백그라운드 생성 실패 project=%s", project_id)
+
+
+async def generate_project_report(project_id: str) -> ProjectAggregateReport:
+    """Create one explicit PM-requested aggregate snapshot for a project."""
+    store = get_store()
+    study = await store.get_study(project_id)
+    if study is None:
+        raise LookupError("프로젝트를 찾을 수 없습니다.")
 
     sessions = completed_real_sessions(await store.list_sessions(project_id))
     if not sessions:
@@ -114,11 +163,16 @@ async def generate_project_report(project_id: str) -> ProjectAggregateReport:
         else:
             participant_reports = []
             for session in sessions:
-                report = await individual_report_generator.generate(
-                    session,
-                    transcripts[session.id],
-                    await store.list_instructions(session.id),
-                )
+                # 이미 만들어 둔 개별 리포트가 있으면 재사용한다. 중간에 실패해 다시
+                # 돌릴 때 18명 분석을 처음부터 다시 하지 않게 해 준다.
+                report = await store.get_report(session.id)
+                if report is None:
+                    report = await individual_report_generator.generate(
+                        session,
+                        transcripts[session.id],
+                        await store.list_instructions(session.id),
+                    )
+                    await store.save_report(report)
                 participant_reports.append(report.model_dump(mode="json"))
             content = (await get_study_report_analyzer().analyze(study, participant_reports)).model_dump(mode="json")
             if len(sessions) == 1:

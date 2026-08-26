@@ -19,7 +19,7 @@ from app.services.ai.document_parser import get_document_parser
 from app.services.question_script import parse_question_script
 from app.services.report.slot_generator import get_slot_generator
 from app.services.project_access import issue_project_access_id
-from app.services.project_report import completed_real_sessions, generate_project_report
+from app.services.project_report import completed_real_sessions, start_project_report
 
 from app.services.store import get_store
 from app.services.storage import get_storage_service
@@ -218,12 +218,18 @@ async def download_aggregate_report(study_id: str) -> Response:
 
 @router.post("/{study_id}/aggregate-report", response_model=ProjectAggregateReport)
 async def create_aggregate_report(study_id: str) -> ProjectAggregateReport:
+    """리포트 생성을 시작한다.
+
+    응답자가 많으면 분석에 수 분이 걸려 HTTP 요청 안에서 끝낼 수 없다.
+    시작만 하고 GENERATING 스냅샷을 바로 돌려주며, 호출자는 GET으로 완료를 확인한다.
+    """
     try:
-        report = await generate_project_report(study_id)
+        report = await start_project_report(study_id)
     except LookupError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
+
     if report.status == "FAILED":
         # 분석 모델 호출 실패 메시지에 404 같은 상태코드가 섞여 나오면 "페이지 없음"으로
         # 오해하기 쉽다. 어느 단계에서 실패했는지 앞에 붙여 준다.
@@ -231,6 +237,7 @@ async def create_aggregate_report(study_id: str) -> ProjectAggregateReport:
         if report.error_message:
             detail = f"{detail} (분석 단계 오류: {report.error_message})"
         raise HTTPException(status_code=500, detail=detail)
+
     return report
 
 

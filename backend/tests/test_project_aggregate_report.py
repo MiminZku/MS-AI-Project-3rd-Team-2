@@ -42,6 +42,28 @@ def _create_completed_session(client, project_id: str, participant_id: str, answ
     return session_id
 
 
+def _generate_and_wait(client, project_id: str, *, timeout: float = 10.0) -> dict:
+    """리포트 생성을 시작하고 완료될 때까지 폴링한다.
+
+    생성은 백그라운드에서 돌기 때문에 POST는 GENERATING만 돌려준다.
+    (응답자가 많으면 분석에 수 분이 걸려 HTTP 요청 안에서 끝낼 수 없다.)
+    """
+    import time
+
+    started = client.post(f"/api/projects/{project_id}/aggregate-report")
+    assert started.status_code == 200, started.text
+    assert started.json()["status"] in ("GENERATING", "COMPLETED")
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        report = client.get(f"/api/projects/{project_id}/aggregate-report").json()
+        if report["status"] in ("COMPLETED", "FAILED"):
+            return report
+        time.sleep(0.05)
+
+    raise AssertionError("리포트 생성이 제한 시간 안에 끝나지 않았습니다.")
+
+
 def test_end_only_completes_session_and_never_auto_generates_report(client):
     project = _create_project(client)
     session_id = _create_completed_session(client, project["id"], "INT-001", "아이폰이요.")
@@ -58,12 +80,11 @@ def test_one_short_answer_can_generate_project_report_and_snapshot_can_refresh(c
     project = _create_project(client)
     first = _create_completed_session(client, project["id"], "INT-001", "아이폰이요.")
 
-    first_report = client.post(f"/api/projects/{project['id']}/aggregate-report")
-    assert first_report.status_code == 200
-    assert first_report.json()["status"] == "COMPLETED"
-    assert first_report.json()["respondent_count"] == 1
-    assert first_report.json()["included_session_ids"] == [first]
-    assert "일반화하기 어렵습니다" in first_report.json()["content"]["data_sufficiency_notice"]
+    first_report = _generate_and_wait(client, project["id"])
+    assert first_report["status"] == "COMPLETED"
+    assert first_report["respondent_count"] == 1
+    assert first_report["included_session_ids"] == [first]
+    assert "일반화하기 어렵습니다" in first_report["content"]["data_sufficiency_notice"]
 
     second = _create_completed_session(client, project["id"], "INT-002", "카메라와 애플워치 연동 때문에 계속 아이폰을 사용합니다.")
     third = _create_completed_session(client, project["id"], "INT-003", "업무용 앱과 사진 품질이 좋아서 아이폰을 선택합니다.")
@@ -71,10 +92,10 @@ def test_one_short_answer_can_generate_project_report_and_snapshot_can_refresh(c
     assert unchanged["respondent_count"] == 1
     assert {second, third}.isdisjoint(unchanged["included_session_ids"])
 
-    refreshed = client.post(f"/api/projects/{project['id']}/aggregate-report")
-    assert refreshed.status_code == 200
-    assert refreshed.json()["respondent_count"] == 3
-    assert set(refreshed.json()["included_session_ids"]) == {first, second, third}
+    refreshed = _generate_and_wait(client, project["id"])
+    assert refreshed["status"] == "COMPLETED"
+    assert refreshed["respondent_count"] == 3
+    assert set(refreshed["included_session_ids"]) == {first, second, third}
 
 
 def test_zero_completed_is_rejected_and_simulations_are_excluded(client):
@@ -96,7 +117,65 @@ def test_client_can_read_only_completed_project_report(client):
     assert client.get(endpoint, headers=headers).json() is None
 
     _create_completed_session(client, project["id"], "INT-001", "아이폰이요.")
-    assert client.post(f"/api/projects/{project['id']}/aggregate-report").status_code == 200
+    assert _generate_and_wait(client, project["id"])["status"] == "COMPLETED"
     report = client.get(endpoint, headers=headers)
     assert report.status_code == 200
     assert report.json()["status"] == "COMPLETED"
+
+
+# =========================================================
+# 생성이 중간에 끊긴 경우 (실측 회귀)
+# =========================================================
+
+def test_생성_중_상태로_멈춰있으면_오래된_경우_다시_시작한다(client):
+    """요청이 끊겨 GENERATING으로 박히면 그 프로젝트는 영영 리포트를 못 만들었다."""
+    import asyncio
+    from datetime import timedelta
+
+    from app.schemas.project_report import ProjectAggregateReport
+    from app.schemas.session import utcnow
+    from app.services.store import get_store
+
+    project = _create_project(client)
+    _create_completed_session(client, project["id"], "INT-001", "아이폰이요.")
+
+    # 앞선 실행이 죽어 GENERATING 그대로 남은 상황을 재현한다
+    stuck = ProjectAggregateReport(
+        project_id=project["id"],
+        status="GENERATING",
+        updated_at=utcnow() - timedelta(hours=2),
+    )
+    asyncio.run(get_store().save_project_report(stuck))
+
+    report = _generate_and_wait(client, project["id"])
+
+    assert report["status"] == "COMPLETED"
+    assert report["respondent_count"] == 1
+
+
+def test_방금_시작한_생성은_중복_실행하지_않는다(client):
+    """짧은 간격의 재클릭이 같은 분석을 두 번 돌리면 안 된다."""
+    import asyncio
+
+    from app.schemas.project_report import ProjectAggregateReport
+    from app.schemas.session import utcnow
+    from app.services.store import get_store
+
+    project = _create_project(client)
+    _create_completed_session(client, project["id"], "INT-001", "아이폰이요.")
+
+    in_flight = ProjectAggregateReport(
+        project_id=project["id"],
+        status="GENERATING",
+        respondent_count=99,
+        updated_at=utcnow(),
+    )
+    asyncio.run(get_store().save_project_report(in_flight))
+
+    response = client.post(f"/api/projects/{project['id']}/aggregate-report")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "GENERATING"
+    # 진행 중인 스냅샷을 그대로 돌려줬는지 (새로 시작하지 않았는지) 확인
+    assert body["respondent_count"] == 99
