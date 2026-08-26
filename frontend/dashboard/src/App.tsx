@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Monitor, { type TopbarStatus } from "./components/Monitor";
 import SessionForm from "./components/SessionForm";
 
@@ -21,6 +22,7 @@ export default function App() {
   const [topbarStatus, setTopbarStatus] = useState<TopbarStatus | null>(null);
 
   return (
+    <ErrorBoundary>
     <div>
       <header className="topbar">
         <div className="crumb">
@@ -75,5 +77,6 @@ export default function App() {
         />
       )}
     </div>
+    </ErrorBoundary>
   );
 }

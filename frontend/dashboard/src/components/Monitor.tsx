@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
-import { startSession, endSession, fetchReport, observerSocketUrl, fetchRtcToken, getProject, uploadGuideFile } from "../api";
+import { startSession, endSession, observerSocketUrl, fetchRtcToken, getProject, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
 import { useRemoteRecording } from "../hooks/useRemoteRecording";
 import VideoSubscriber from "./VideoSubscriber";
@@ -732,13 +732,13 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                     {new Date(report.generated_at).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                   </span>
                 </div>
-                {typeof report.data.summary === "string" && report.data.summary && (
+                {report.data && typeof report.data.summary === "string" && report.data.summary && (
                   <div className="report-summary-card">
                     <strong className="summary-title">💡 종합 요약</strong>
                     <p className="summary-text">{report.data.summary}</p>
                   </div>
                 )}
-                {typeof report.data.key_findings === "object" && Array.isArray(report.data.key_findings) && report.data.key_findings.length > 0 && (
+                {report.data && typeof report.data.key_findings === "object" && Array.isArray(report.data.key_findings) && report.data.key_findings.length > 0 && (
                   <div className="report-findings-card">
                     <strong className="findings-title">📌 주요 발견점</strong>
                     <ul>
@@ -758,7 +758,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, onStatusChang
                   </button>
                   {reportJsonOpen && (
                     <pre className="report-json-pre">
-                      {JSON.stringify(report.data, null, 2)}
+                      {JSON.stringify(report.data ?? {}, null, 2)}
                     </pre>
                   )}
                 </div>
