@@ -441,18 +441,6 @@ export default function App() {
                 {isChecking ? "권한 확인 중..." : "시작하기"}
               </button>
 
-              <button
-                className="btn-secondary"
-                onClick={() => {
-                  setSessionStatus("running");
-                  setEntryStep("running");
-                  setStatus("connected");
-                }}
-                style={{ marginTop: 12, border: "1px solid #3b82f6", color: "#60a5fa" }}
-              >
-                ⚡ [개발자용] 백룸 없이 아바타 화면 바로 테스트
-              </button>
-
               {errorMessage && <p className="error-alert">{errorMessage}</p>}
             </div>
           </div>
@@ -590,7 +578,6 @@ export default function App() {
             <h2>🎉 인터뷰가 종료되었습니다</h2>
             <p className="muted" style={{ lineHeight: 1.6, marginTop: 12 }}>
               성실하게 답변에 임해 주셔서 대단히 감사합니다.<br />
-              모든 인터뷰 데이터가 안전하게 저장되었습니다.<br />
               이제 브라우저 창을 닫으셔도 좋습니다.
             </p>
           </section>
