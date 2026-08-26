@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core.config import get_settings
-from app.services.ai import instruction_safety, llm
+from app.services.ai import instruction_safety, llm, translation
 from app.services.report import analyzer
 from app.services import store as store_module
 from app.api.routes import studies
@@ -27,6 +27,7 @@ def client(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "final_instruction_poll_seconds", 0.05)
     monkeypatch.setattr(llm, "_generator", None)
     instruction_safety.reset_reviewer_cache()
+    translation.reset_translator_cache()
     monkeypatch.setattr(analyzer, "_analyzer", None)
     monkeypatch.setattr(studies, "get_slot_generator", lambda: _NoopSlotGenerator())
     with TestClient(app) as test_client:

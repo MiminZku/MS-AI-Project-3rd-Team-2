@@ -12,6 +12,7 @@ from app.services.connections import manager
 from app.services.respondent_session_state import build_respondent_session_state
 from app.services.store import get_store
 from app.services.ai.realtime_stt import RealtimeSTTClient
+from app.services.ai.translation import language_name, translate_text
 from app.core.config import get_settings
 
 from app.services.ai.stt import get_transcriber
@@ -133,27 +134,43 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                     translate_client.reset_buffer()
                 source_lang = message.get("source_lang", "Korean")
                 target_lang = message.get("target_lang", "English")
-                # Initialize Realtime clients if not created
-                if not stt_client and settings.use_azure_openai:
-                    stt_client = RealtimeSTTClient(
-                        session_id,
-                        settings.azure_openai_realtime_stt_deployment,
-                        on_stt_partial,
-                        on_stt_final,
-                        source_lang=source_lang,
-                        target_lang=target_lang
-                    )
-                    await stt_client.connect()
-                if not translate_client and settings.use_azure_openai:
-                    translate_client = RealtimeSTTClient(
-                        session_id,
-                        settings.azure_openai_realtime_translate_deployment,
-                        on_translate_partial,
-                        on_translate_final,
-                        source_lang=source_lang,
-                        target_lang=target_lang
-                    )
-                    await translate_client.connect()
+
+                # Realtime 세션은 턴이 끝나거나 유휴 상태가 되면 서버가 닫는다.
+                # 예전에는 클라이언트 객체가 남아 있다는 이유로 재연결을 안 해서,
+                # 한 번 끊기면 그 세션 내내 동시통역이 죽어 있었다 (첫 발화만 번역됨).
+                # 매 발화 시작마다 살아 있는지 확인하고 필요하면 다시 붙인다.
+                if settings.use_azure_openai:
+                    if stt_client is None:
+                        stt_client = RealtimeSTTClient(
+                            session_id,
+                            settings.azure_openai_realtime_stt_deployment,
+                            on_stt_partial,
+                            on_stt_final,
+                            source_lang=source_lang,
+                            target_lang=target_lang
+                        )
+                        await stt_client.connect()
+                    else:
+                        await stt_client.ensure_connected()
+
+                    if translate_client is None:
+                        translate_client = RealtimeSTTClient(
+                            session_id,
+                            settings.azure_openai_realtime_translate_deployment,
+                            on_translate_partial,
+                            on_translate_final,
+                            source_lang=source_lang,
+                            target_lang=target_lang
+                        )
+                        await translate_client.connect()
+                    else:
+                        await translate_client.ensure_connected()
+
+                    if not translate_client.is_alive():
+                        logger.warning(
+                            "동시통역 Realtime 연결 실패 — 이번 발화는 텍스트 번역으로 대체합니다 session=%s",
+                            session_id,
+                        )
                     
             elif msg_type == "audio.chunk":
                 b64_data = message.get("data")
@@ -214,6 +231,19 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                     final_text = "(음성이 감지되지 않았거나 무음 상태입니다. 마지막 답변이 잘 들리지 않았음을 정중히 알리고 다시 말씀해주시겠어요? 라고 재질문하세요.)"
                     logger.warning("STT 인식 텍스트 없음 - 무음 처리: %s", session_id)
                     await on_stt_final("🎙️ (음성이 감지되지 않았습니다.)")
+
+                # 실시간 통역이 이번 발화를 놓쳤으면(연결 끊김 등) 확정 텍스트를 번역해 채운다.
+                # 백룸 영어 자막이 통째로 비는 것보다 조금 늦게라도 붙는 편이 낫다.
+                if final_text and not realtime_translation:
+                    fallback = await translate_text(
+                        final_text,
+                        target_language=language_name(
+                            current.interpretation_language if current else None
+                        ),
+                    )
+                    if fallback:
+                        realtime_translation = fallback
+                        await on_translate_final(fallback)
 
                 raw_pcm_chunks.clear()
                 utterance_buffer.clear()
