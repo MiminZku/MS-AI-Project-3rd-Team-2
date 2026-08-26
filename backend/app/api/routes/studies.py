@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import Response
 
 from app.api.deps import require_admin
+from app.api.download_responses import project_report_download_response
 from app.schemas.project_report import ProjectAggregateReport
 from app.schemas.session import QuestionNode, Session
 
@@ -197,6 +199,20 @@ async def get_aggregate_report(study_id: str) -> ProjectAggregateReport:
         project_id=study_id,
         respondent_count=0,
         included_session_ids=[],
+    )
+
+
+@router.get("/{study_id}/aggregate-report/download", response_class=Response)
+async def download_aggregate_report(study_id: str) -> Response:
+    """생성된 프로젝트 리포트를 문서 파일로 내려받는다."""
+    store = get_store()
+    study = await store.get_study(study_id)
+    if study is None:
+        raise HTTPException(status_code=404, detail="ResearchStudy를 찾을 수 없습니다.")
+
+    return project_report_download_response(
+        study,
+        await store.get_project_report(study_id),
     )
 
 

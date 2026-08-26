@@ -1,13 +1,30 @@
 import { useEffect, useState } from "react";
-import { ArrowsClockwise, Clock, FileText, Lock, PlayCircle, ShieldCheck, SignOut } from "@phosphor-icons/react";
+import {
+  ArrowsClockwise,
+  Clock,
+  DownloadSimple,
+  FileDoc,
+  FileText,
+  Lock,
+  PlayCircle,
+  ShieldCheck,
+  SignOut,
+  VideoCamera,
+  Warning,
+} from "@phosphor-icons/react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import {
   ClientProjectApiError,
   type ClientProject,
   type ClientSession,
+  clientDownloadHeaders,
+  clientProjectReportDownloadUrl,
+  clientRecordingDownloadUrl,
+  clientTranscriptDownloadUrl,
   fetchClientProject,
   fetchClientProjectSessions,
 } from "../lib/clientProjectApi";
+import { downloadFile } from "../lib/researchApi";
 import {
   clearClientProjectGrant,
   loadClientProjectGrant,
@@ -36,6 +53,24 @@ export default function ClientProject() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  /** 진행 중인 다운로드 키 (버튼 중복 클릭 방지) */
+  const [busyDownload, setBusyDownload] = useState("");
+  const [downloadError, setDownloadError] = useState("");
+
+  const runDownload = async (key: string, url: string) => {
+    if (!grant) return;
+    setBusyDownload(key);
+    setDownloadError("");
+    try {
+      await downloadFile(url, clientDownloadHeaders(grant.accessToken));
+    } catch (cause: unknown) {
+      setDownloadError(
+        cause instanceof Error ? cause.message : "다운로드에 실패했습니다.",
+      );
+    } finally {
+      setBusyDownload("");
+    }
+  };
 
   const loadData = async (isManualRefresh = false) => {
     if (!projectId || !grant || grant.projectId !== projectId) return;
@@ -156,6 +191,34 @@ export default function ClientProject() {
               )}
             </div>
 
+            {/* 프로젝트 단위 리포트 다운로드 */}
+            <div className="client-report-card">
+              <div className="report-card-info">
+                <span className="report-card-icon"><FileDoc size={18} weight="duotone" /></span>
+                <div>
+                  <strong>프로젝트 종합 리포트</strong>
+                  <small>완료된 인터뷰 {completedCount}건 기준 · PM이 생성한 최신본</small>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="session-download-btn primary"
+                disabled={busyDownload === "report"}
+                onClick={() =>
+                  void runDownload("report", clientProjectReportDownloadUrl(projectId))
+                }
+              >
+                <DownloadSimple size={14} weight="bold" />
+                {busyDownload === "report" ? "받는 중…" : "리포트 다운로드"}
+              </button>
+            </div>
+
+            {downloadError && (
+              <p className="client-download-error" role="alert">
+                <Warning size={14} weight="fill" /> {downloadError}
+              </p>
+            )}
+
             {/* 세션 목록 영역 */}
             <div className="client-session-list-section">
               <div className="session-section-title">
@@ -185,7 +248,11 @@ export default function ClientProject() {
                             {isRunning && <span className="pulse-dot" />}
                             {STATUS_LABEL[session.status]}
                           </span>
-                          <code className="session-ref">{formatSessionReference(session.id)}</code>
+                          {/* PM이 입력한 참가자 ID를 그대로 보여준다. 비어 있는 예전 세션만
+                              내부 ID 축약값으로 폴백한다. */}
+                          <strong className="session-participant">
+                            {session.title?.trim() || formatSessionReference(session.id)}
+                          </strong>
                         </div>
                         <div className="session-meta">
                           <span>생성: {new Date(session.created_at).toLocaleString("ko-KR")}</span>
@@ -215,6 +282,40 @@ export default function ClientProject() {
                             </>
                           )}
                         </a>
+
+                        {/* 완료된 인터뷰만 기록·영상이 확정된다 */}
+                        {isEnded && (
+                          <div className="session-download-row">
+                            <button
+                              type="button"
+                              className="session-download-btn"
+                              disabled={busyDownload === `t-${session.id}`}
+                              onClick={() =>
+                                void runDownload(
+                                  `t-${session.id}`,
+                                  clientTranscriptDownloadUrl(projectId!, session.id),
+                                )
+                              }
+                            >
+                              <FileText size={14} />
+                              {busyDownload === `t-${session.id}` ? "받는 중…" : "질문·답변 기록"}
+                            </button>
+                            <button
+                              type="button"
+                              className="session-download-btn"
+                              disabled={busyDownload === `v-${session.id}`}
+                              onClick={() =>
+                                void runDownload(
+                                  `v-${session.id}`,
+                                  clientRecordingDownloadUrl(projectId!, session.id),
+                                )
+                              }
+                            >
+                              <VideoCamera size={14} />
+                              {busyDownload === `v-${session.id}` ? "받는 중…" : "녹화 영상"}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -573,6 +674,115 @@ export default function ClientProject() {
           font-size: 13px;
           font-weight: 600;
           color: #f1f5f9;
+        }
+
+        /* PM이 입력한 참가자 ID — 세션 목록에서 누구의 인터뷰인지 식별하는 값 */
+        .session-participant {
+          font-size: 14px;
+          font-weight: 650;
+          color: #f1f5f9;
+          letter-spacing: -0.01em;
+        }
+
+        /* 프로젝트 리포트 / 인터뷰 자료 다운로드 */
+        .client-report-card {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 14px;
+          align-items: center;
+          justify-content: space-between;
+          margin: 18px 0 6px;
+          padding: 18px 20px;
+          border: 1px solid rgba(148, 163, 184, 0.22);
+          border-radius: 14px;
+          background: rgba(30, 41, 59, 0.5);
+        }
+
+        .report-card-info {
+          display: grid;
+          grid-template-columns: 38px minmax(0, 1fr);
+          gap: 12px;
+          align-items: center;
+        }
+
+        .report-card-icon {
+          display: grid;
+          width: 36px;
+          height: 36px;
+          place-items: center;
+          border-radius: 11px;
+          background: rgba(59, 130, 246, 0.16);
+          color: #60a5fa;
+        }
+
+        .report-card-info strong {
+          display: block;
+          font-size: 14px;
+          color: #f1f5f9;
+        }
+
+        .report-card-info small {
+          display: block;
+          margin-top: 3px;
+          font-size: 12px;
+          color: #94a3b8;
+        }
+
+        .session-download-row {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 8px;
+        }
+
+        .session-download-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 7px 12px;
+          border: 1px solid rgba(148, 163, 184, 0.32);
+          border-radius: 999px;
+          background: transparent;
+          color: #cbd5e1;
+          font-family: inherit;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .session-download-btn:hover:not(:disabled) {
+          border-color: #60a5fa;
+          color: #93c5fd;
+        }
+
+        .session-download-btn:disabled {
+          opacity: 0.45;
+          cursor: not-allowed;
+        }
+
+        .session-download-btn.primary {
+          border-color: transparent;
+          background: #2563eb;
+          color: #fff;
+        }
+
+        .session-download-btn.primary:hover:not(:disabled) {
+          background: #1d4ed8;
+          color: #fff;
+        }
+
+        .client-download-error {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          margin: 10px 0 0;
+          padding: 9px 13px;
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          border-radius: 11px;
+          background: rgba(239, 68, 68, 0.1);
+          color: #fca5a5;
+          font-size: 12.5px;
         }
 
         .session-meta {

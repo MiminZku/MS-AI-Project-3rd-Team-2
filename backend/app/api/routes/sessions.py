@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from app.api.deps import load_session, require_admin
+from app.api.download_responses import (
+    recording_download_response,
+    transcript_download_response,
+)
 from app.core.config import get_settings
 from app.schemas.report import Report
 from app.schemas.session import (
@@ -210,6 +214,43 @@ async def get_transcript(
     return await get_store().get_transcript(
         session.id
     )
+
+
+# =========================================================
+# 인터뷰 기록 / 녹화 다운로드
+# =========================================================
+
+@router.get(
+    "/{session_id}/transcript/download",
+    response_class=Response,
+)
+async def download_transcript(
+    session: Session = Depends(load_session),
+) -> Response:
+    """질문·답변 기록을 문서 파일로 내려받는다."""
+
+    store = get_store()
+    turns = await store.get_transcript(session.id)
+
+    project_title = None
+    if session.study_id:
+        study = await store.get_study(session.study_id)
+        if study is not None:
+            project_title = study.title
+
+    return transcript_download_response(session, turns, project_title=project_title)
+
+
+@router.get(
+    "/{session_id}/recording/download",
+    response_class=Response,
+)
+async def download_recording(
+    session: Session = Depends(load_session),
+) -> Response:
+    """인터뷰 녹화 영상을 내려받는다 (로컬/Blob 저장 모두 지원)."""
+
+    return await recording_download_response(session)
 
 
 # =========================================================

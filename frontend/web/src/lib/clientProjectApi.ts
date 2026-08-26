@@ -10,6 +10,8 @@ export interface ClientProject {
 
 export interface ClientSession {
   id: string;
+  /** PM이 세션 생성 시 입력한 익명 참가자 ID (PM 대시보드에 보이는 세션 제목과 동일) */
+  title: string;
   status: "created" | "running" | "ended";
   duration_minutes: number;
   created_at: string;
@@ -58,4 +60,21 @@ export async function fetchClientProjectSessions(projectId: string, accessToken:
     headers: clientHeaders(accessToken),
   });
   return parseResponse(response);
+}
+
+/** 클라이언트 토큰으로 접근하는 다운로드 URL들 */
+export function clientProjectReportDownloadUrl(projectId: string): string {
+  return `${API_BASE_URL}/api/client/projects/${encodeURIComponent(projectId)}/aggregate-report/download`;
+}
+
+export function clientTranscriptDownloadUrl(projectId: string, sessionId: string): string {
+  return `${API_BASE_URL}/api/client/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}/transcript/download`;
+}
+
+export function clientRecordingDownloadUrl(projectId: string, sessionId: string): string {
+  return `${API_BASE_URL}/api/client/projects/${encodeURIComponent(projectId)}/sessions/${encodeURIComponent(sessionId)}/recording/download`;
+}
+
+export function clientDownloadHeaders(accessToken: string): HeadersInit {
+  return clientHeaders(accessToken);
 }

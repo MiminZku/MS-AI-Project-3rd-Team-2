@@ -3,8 +3,14 @@ from __future__ import annotations
 from datetime import datetime
 
 from fastapi import APIRouter, Header, HTTPException, status
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
+from app.api.download_responses import (
+    project_report_download_response,
+    recording_download_response,
+    transcript_download_response,
+)
 from app.schemas.project_report import ProjectAggregateReport
 from app.schemas.session import SessionStatus
 from app.services.client_project_access import (
@@ -30,6 +36,9 @@ class ClientProjectSummary(BaseModel):
 
 class ClientSessionSummary(BaseModel):
     id: str
+    # PM이 세션을 만들 때 입력한 익명 참가자 ID. 클라이언트가 "누구의 인터뷰인지"
+    # 식별하는 유일한 값이므로 PM 대시보드에 보이는 것과 같은 값을 그대로 내려준다.
+    title: str
     status: SessionStatus
     duration_minutes: int
     created_at: datetime
@@ -98,6 +107,66 @@ async def get_client_project_aggregate_report(
     return report if report and report.status == "COMPLETED" else None
 
 
+@router.get("/{study_id}/aggregate-report/download", response_class=Response)
+async def download_client_project_report(
+    study_id: str,
+    x_project_access_token: str | None = Header(default=None),
+) -> Response:
+    _require_project_token(study_id, x_project_access_token)
+    store = get_store()
+    study = await store.get_study(study_id)
+    if study is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "프로젝트를 찾을 수 없습니다.")
+
+    return project_report_download_response(
+        study,
+        await store.get_project_report(study_id),
+    )
+
+
+async def _load_project_session(study_id: str, session_id: str):
+    """토큰으로 접근한 프로젝트에 실제로 속한 세션인지 확인하고 돌려준다."""
+    store = get_store()
+    if await store.get_study(study_id) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "프로젝트를 찾을 수 없습니다.")
+
+    session = await store.get_session(session_id)
+    # 다른 프로젝트의 세션을 세션 ID만 갈아끼워 받아가지 못하게 소속을 검증한다.
+    if session is None or session.study_id != study_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "인터뷰를 찾을 수 없습니다.")
+
+    return session
+
+
+@router.get("/{study_id}/sessions/{session_id}/transcript/download", response_class=Response)
+async def download_client_transcript(
+    study_id: str,
+    session_id: str,
+    x_project_access_token: str | None = Header(default=None),
+) -> Response:
+    _require_project_token(study_id, x_project_access_token)
+    session = await _load_project_session(study_id, session_id)
+
+    store = get_store()
+    study = await store.get_study(study_id)
+    return transcript_download_response(
+        session,
+        await store.get_transcript(session.id),
+        project_title=study.title if study else None,
+    )
+
+
+@router.get("/{study_id}/sessions/{session_id}/recording/download", response_class=Response)
+async def download_client_recording(
+    study_id: str,
+    session_id: str,
+    x_project_access_token: str | None = Header(default=None),
+) -> Response:
+    _require_project_token(study_id, x_project_access_token)
+    session = await _load_project_session(study_id, session_id)
+    return await recording_download_response(session)
+
+
 @router.get("/{study_id}/sessions", response_model=list[ClientSessionSummary])
 async def get_client_project_sessions(
     study_id: str,
@@ -112,6 +181,7 @@ async def get_client_project_sessions(
     return [
         ClientSessionSummary(
             id=session.id,
+            title=session.title,
             status=session.status,
             duration_minutes=session.duration_minutes,
             created_at=session.created_at,
