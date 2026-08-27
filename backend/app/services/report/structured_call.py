@@ -11,9 +11,16 @@ JSON Schema 구조화 출력을 받는다. 그런데 이 엔드포인트는 다�
 `chat.completions` 로 잘 돌아가는데 리포트 생성만 실패한다. 실제로 배포 환경에서
 프로젝트 리포트 생성이 이 404로 막혀 있었다.
 
-그래서 Responses 호출이 실패하면 같은 프롬프트를 `chat.completions` 의 JSON 모드로
-다시 시도한다. JSON 모드는 오래된 api_version에서도 동작하므로, 인터뷰가 돌아가는
-환경이면 리포트도 반드시 돌아간다.
+그래서 아래 3단으로 내려간다:
+
+  1. Responses API                              (가장 좋음)
+  2. chat.completions + json_schema (strict)    <- 서버가 스키마를 강제
+  3. chat.completions + json_object             (최후 수단, 스키마 강제 없음)
+
+2단이 중요하다. 3단(json_object)은 "JSON을 뱉어라"까지만 강제하고 스키마는
+전혀 강제하지 않아서, 섹션이 12개인 종합 리포트에서 모델이 앞부분만 만들고 멈춘
+유효한 JSON을 내놓는 일이 실제로 있었다. 그 결과가
+"8 validation errors for StudyReportAnalysis ... Field required" 였다.
 """
 
 from __future__ import annotations
@@ -41,6 +48,23 @@ def _looks_like_missing_endpoint(error: Exception) -> bool:
     )
 
 
+def _looks_like_unsupported_response_format(error: Exception) -> bool:
+    """이 배포/api_version이 json_schema(Structured Outputs)를 못 쓰는지 판별한다."""
+    status = getattr(error, "status_code", None)
+    message = str(error).lower()
+
+    if status in (400, 404):
+        return True
+
+    return (
+        "response_format" in message
+        or "json_schema" in message
+        or "unsupported" in message
+        or "invalid_request_error" in message
+        or "unknown parameter" in message
+    )
+
+
 async def create_structured_json(
     client: Any,
     *,
@@ -54,8 +78,8 @@ async def create_structured_json(
 ) -> str:
     """스키마를 따르는 JSON 문자열을 돌려준다.
 
-    Responses API를 먼저 시도하고, 그 엔드포인트를 쓸 수 없으면
-    Chat Completions JSON 모드로 폴백한다.
+    Responses API -> chat.completions(json_schema) -> chat.completions(json_object)
+    순으로 내려가며, 쓸 수 있는 가장 강한 스키마 강제 수단을 고른다.
     """
 
     try:
@@ -90,15 +114,59 @@ async def create_structured_json(
         )
 
     # -----------------------------------------------------
-    # 폴백: Chat Completions JSON 모드
+    # 폴백 1: Chat Completions + Structured Outputs (json_schema)
     #
-    # json_schema 강제는 api_version을 타므로, 스키마를 프롬프트에 실어 보내고
-    # 어느 버전에서나 되는 json_object 모드를 쓴다.
+    # 이게 핵심이다. json_object 모드는 "JSON을 뱉어라"까지만 강제하고
+    # 스키마는 전혀 강제하지 않는다. 실제로 섹션이 12개인 종합 리포트 스키마에서
+    # 모델이 앞쪽 4개 섹션만 만들고 멈춘 "유효한" JSON을 내놓아
+    # "8 validation errors ... Field required" 로 리포트 생성이 실패했다.
+    # 온도를 올려 재시도해도 지시 이행 능력 문제라 해결되지 않는다.
+    #
+    # json_schema + strict 는 서버가 스키마를 강제하므로 필드가 빠질 수 없다.
+    # -----------------------------------------------------
+
+    try:
+        completion = await client.chat.completions.create(
+            model=deployment,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_input},
+            ],
+            temperature=temperature,
+            max_completion_tokens=max_output_tokens,
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": schema_name,
+                    "schema": schema,
+                    "strict": True,
+                },
+            },
+        )
+        return completion.choices[0].message.content or ""
+
+    except Exception as error:
+        if not _looks_like_unsupported_response_format(error):
+            raise
+
+        logger.warning(
+            "Structured Outputs(json_schema)를 사용할 수 없어 json_object 모드로 "
+            "폴백합니다 (deployment=%s): %s",
+            deployment,
+            error,
+        )
+
+    # -----------------------------------------------------
+    # 폴백 2: Chat Completions JSON 모드 (최후 수단)
+    #
+    # 스키마 강제가 안 되므로 프롬프트에 스키마를 실어 보내고 기대할 수밖에 없다.
+    # 필드 누락 가능성이 남아 있어, 호출자가 검증 후 재시도한다.
     # -----------------------------------------------------
 
     schema_instruction = (
         f"{system_prompt}\n\n"
         "반드시 아래 JSON Schema를 그대로 만족하는 JSON 객체 하나만 출력하라. "
+        "스키마의 최상위 키를 하나도 빠뜨리지 마라. "
         "설명, 주석, 코드펜스를 절대 붙이지 마라.\n\n"
         f"[JSON Schema: {schema_name}]\n"
         f"{json.dumps(schema, ensure_ascii=False)}"

@@ -218,6 +218,10 @@ async def generate_project_report(project_id: str) -> ProjectAggregateReport:
             for session in sessions
         }
         settings = get_settings()
+        # 실제로 분석에 들어간 세션만 집계에 반영한다.
+        # (발화가 없는 세션은 제외되므로 완료 세션 수와 다를 수 있다)
+        analyzed_session_ids = [session.id for session in sessions]
+
         if not settings.use_azure_openai:
             content = _local_aggregate_content(study, sessions, transcripts)
         else:
@@ -226,18 +230,46 @@ async def generate_project_report(project_id: str) -> ProjectAggregateReport:
                 transcripts,
             )
             if not participant_reports:
-                raise ValueError("응답자 발화가 없어 리포트를 생성할 수 없습니다.")
+                # 어느 인터뷰가 비어 있는지 알려줘야 "버그인가 데이터 문제인가"를
+                # 바로 판단할 수 있다.
+                empty_titles = [
+                    (session.title or session.id) for session in sessions
+                ]
+                raise ValueError(
+                    f"완료된 인터뷰 {len(sessions)}건 모두 응답자 발화가 "
+                    "기록되어 있지 않아 리포트를 생성할 수 없습니다 "
+                    f"(대상: {', '.join(empty_titles)}). "
+                    "인터뷰가 실제로 진행되었는지 확인해 주세요."
+                )
+
+            analyzed_session_ids = [
+                report["session_id"] for report in participant_reports
+            ]
+
+            skipped = len(sessions) - len(analyzed_session_ids)
+            if skipped:
+                logger.info(
+                    "응답자 발화가 없는 인터뷰 %d건을 종합 분석에서 제외 project=%s",
+                    skipped,
+                    project_id,
+                )
 
             content = (await get_study_report_analyzer().analyze(study, participant_reports)).model_dump(mode="json")
-            if len(sessions) == 1:
+
+            if len(analyzed_session_ids) == 1:
                 content["data_sufficiency_notice"] = "현재 완료된 인터뷰가 1건이므로 결과를 일반화하기 어렵습니다."
+            elif skipped:
+                content["data_sufficiency_notice"] = (
+                    f"완료된 인터뷰 {len(sessions)}건 중 응답자 발화가 없는 "
+                    f"{skipped}건을 제외하고 분석했습니다."
+                )
 
         completed = ProjectAggregateReport(
             project_id=project_id,
             status="COMPLETED",
             generated_at=utcnow(),
-            included_session_ids=[session.id for session in sessions],
-            respondent_count=len(sessions),
+            included_session_ids=analyzed_session_ids,
+            respondent_count=len(analyzed_session_ids),
             content=content,
             updated_at=utcnow(),
         )

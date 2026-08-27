@@ -41,11 +41,11 @@ class Settings(BaseSettings):
 
     # 실시간 웹소켓 모델 (GPT-4o Realtime 또는 GPT-Live-Transcribe)
     azure_openai_realtime_api_version: str = "2026-06-01-preview"
-    azure_openai_realtime_stt_deployment: str = "gpt-realtime-whisper"
+    azure_openai_realtime_stt_deployment: str = "gpt-live-transcribe"
     azure_openai_realtime_translate_deployment: str = "gpt-realtime-translate"
 
     # STT 모델 (D8): gpt-transcribe | gpt-live-transcribe
-    stt_model: str = "gpt-transcribe"
+    stt_model: str = "whisper"
 
     # D5: 타임키퍼 폴링 주기(초)
     timekeeper_interval_seconds: int = 60

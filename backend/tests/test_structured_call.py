@@ -36,12 +36,26 @@ class _Responses:
 
 
 class _ChatCompletions:
-    def __init__(self, output: str = '{"summary": "폴백 결과"}') -> None:
+    def __init__(
+        self,
+        output: str = '{"summary": "폴백 결과"}',
+        *,
+        json_schema_supported: bool = True,
+    ) -> None:
         self._output = output
+        self._json_schema_supported = json_schema_supported
         self.called = False
         self.kwargs: dict = {}
+        # 시도한 response_format 들을 순서대로 기록한다
+        self.response_formats: list[str] = []
 
     async def create(self, **kwargs):
+        response_format = kwargs.get("response_format") or {}
+        self.response_formats.append(response_format.get("type", ""))
+
+        if response_format.get("type") == "json_schema" and not self._json_schema_supported:
+            raise _UnsupportedResponseFormat()
+
         self.called = True
         self.kwargs = kwargs
         message = type("M", (), {"content": self._output})()
@@ -49,10 +63,25 @@ class _ChatCompletions:
         return type("Resp", (), {"choices": [choice]})()
 
 
+class _UnsupportedResponseFormat(Exception):
+    def __init__(self) -> None:
+        super().__init__(
+            "Error code: 400 - {'error': {'message': "
+            "\"Invalid parameter: 'response_format' of type 'json_schema' is not supported\"}}"
+        )
+        self.status_code = 400
+
+
 class _FakeClient:
-    def __init__(self, *, responses_error: Exception | None = None, responses_output: str = "") -> None:
+    def __init__(
+        self,
+        *,
+        responses_error: Exception | None = None,
+        responses_output: str = "",
+        json_schema_supported: bool = True,
+    ) -> None:
         self.responses = _Responses(error=responses_error, output=responses_output)
-        self._completions = _ChatCompletions()
+        self._completions = _ChatCompletions(json_schema_supported=json_schema_supported)
         self.chat = type("Chat", (), {"completions": self._completions})()
 
     @property
@@ -91,17 +120,35 @@ async def test_Responses가_404면_chat_completions로_폴백한다():
     assert client.completions.called is True
 
 
-async def test_폴백_호출에_스키마와_JSON모드가_들어간다():
+async def test_폴백은_스키마를_강제하는_모드를_먼저_쓴다():
+    """json_object 는 스키마를 강제하지 않아 큰 스키마에서 필드가 빠진다.
+    실측 회귀: "8 validation errors ... Field required" 로 리포트 생성이 실패했다."""
     client = _FakeClient(responses_error=_NotFound())
 
     await _call(client)
+
+    assert client.completions.response_formats == ["json_schema"]
+    response_format = client.completions.kwargs["response_format"]
+    assert response_format["type"] == "json_schema"
+    assert response_format["json_schema"]["strict"] is True
+    assert response_format["json_schema"]["schema"] == SCHEMA
+
+
+async def test_json_schema를_못_쓰면_json_object로_한_단계_더_내려간다():
+    client = _FakeClient(responses_error=_NotFound(), json_schema_supported=False)
+
+    result = await _call(client)
+
+    assert result == '{"summary": "폴백 결과"}'
+    # json_schema 를 먼저 시도하고 실패한 뒤 json_object 로 내려간다
+    assert client.completions.response_formats == ["json_schema", "json_object"]
 
     kwargs = client.completions.kwargs
     assert kwargs["response_format"] == {"type": "json_object"}
     # 스키마를 강제할 수 없는 모드이므로 프롬프트에 스키마를 실어 보낸다
     system_prompt = kwargs["messages"][0]["content"]
     assert "JSON Schema" in system_prompt
-    assert "summary" in system_prompt
+    assert "최상위 키를 하나도 빠뜨리지 마라" in system_prompt
 
 
 @pytest.mark.parametrize(
