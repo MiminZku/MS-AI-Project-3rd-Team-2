@@ -222,6 +222,22 @@ def build_project_report_document(
     study: ResearchStudy,
     report: ProjectAggregateReport,
 ) -> tuple[bytes, str, str]:
+    # 1. StudyReportAnalysis 전체 구조가 존재하면 서식/시각화가 반영된 Word 문서 생성 시도
+    if report.content and isinstance(report.content, dict):
+        try:
+            from app.schemas.study_report import StudyReportAnalysis
+            from app.export_study_report_word import build_document
+
+            analysis = StudyReportAnalysis.model_validate(report.content)
+            document = build_document(analysis)
+            buffer = io.BytesIO()
+            document.save(buffer)
+            base_name = f"project_report_{safe_filename_part(study.title, fallback=study.id)}"
+            return buffer.getvalue(), f"{base_name}.docx", DOCX_MEDIA_TYPE
+        except Exception:
+            logger.exception("Word 시각화 리포트 생성 실패, 기본 텍스트 템플릿으로 폴백")
+
+    # 2. 로컬 모드 또는 부분 데이터일 경우 기본 라인 기반 문서 생성
     lines: list[tuple[str, str]] = [
         ("title", f"프로젝트 리포트 — {study.title}"),
         ("meta", f"연구 목적: {study.research_purpose}"),
@@ -235,3 +251,89 @@ def build_project_report_document(
 
     base_name = f"project_report_{safe_filename_part(study.title, fallback=study.id)}"
     return _render(lines, base_name)
+
+
+XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+JSON_MEDIA_TYPE = "application/json; charset=utf-8"
+
+
+def _write_fallback_powerbi_sheets(workbook, study: ResearchStudy, report: ProjectAggregateReport) -> None:
+    ws = workbook.add_worksheet("Overview")
+    ws.write(0, 0, "study_id")
+    ws.write(0, 1, "title")
+    ws.write(0, 2, "respondent_count")
+    ws.write(1, 0, study.id)
+    ws.write(1, 1, study.title)
+    ws.write(1, 2, report.respondent_count)
+
+    content = report.content if isinstance(report.content, dict) else {}
+    sessions = content.get("sessions") or []
+    ws_sess = workbook.add_worksheet("Sessions")
+    ws_sess.write(0, 0, "session_id")
+    ws_sess.write(0, 1, "respondent_id")
+    for r_idx, sess in enumerate(sessions, start=1):
+        if isinstance(sess, dict):
+            ws_sess.write(r_idx, 0, str(sess.get("session_id", "")))
+            ws_sess.write(r_idx, 1, str(sess.get("respondent_id", "")))
+
+    evidence = content.get("evidence") or []
+    ws_ev = workbook.add_worksheet("Evidence")
+    ws_ev.write(0, 0, "session_id")
+    ws_ev.write(0, 1, "respondent_id")
+    ws_ev.write(0, 2, "quote")
+    for r_idx, ev in enumerate(evidence, start=1):
+        if isinstance(ev, dict):
+            ws_ev.write(r_idx, 0, str(ev.get("session_id", "")))
+            ws_ev.write(r_idx, 1, str(ev.get("respondent_id", "")))
+            ws_ev.write(r_idx, 2, str(ev.get("quote", "")))
+
+
+def build_powerbi_excel_document(
+    study: ResearchStudy,
+    report: ProjectAggregateReport,
+) -> tuple[bytes, str, str]:
+    """Power BI 분석을 위한 정규화된 다중 시트 Excel(.xlsx) 파일을 생성한다."""
+    import xlsxwriter
+
+    base_name = f"study_report_powerbi_{safe_filename_part(study.title, fallback=study.id)}"
+    buffer = io.BytesIO()
+
+    tables = None
+    if report.content and isinstance(report.content, dict):
+        try:
+            from app.schemas.study_report import StudyReportAnalysis
+            from app.services.report.bi_transformer import get_study_report_bi_transformer
+
+            analysis = StudyReportAnalysis.model_validate(report.content)
+            transformer = get_study_report_bi_transformer()
+            tables = transformer.transform(analysis)
+        except Exception:
+            logger.exception("Power BI 테이블 변환 실패, 기본 세션/근거 테이블로 폴백")
+
+    if tables:
+        from app.export_study_report_bi import export_powerbi_excel
+        export_powerbi_excel(tables, buffer)
+    else:
+        workbook = xlsxwriter.Workbook(buffer, {"in_memory": True})
+        try:
+            _write_fallback_powerbi_sheets(workbook, study, report)
+        finally:
+            workbook.close()
+
+    return buffer.getvalue(), f"{base_name}.xlsx", XLSX_MEDIA_TYPE
+
+
+def build_project_report_json(
+    study: ResearchStudy,
+    report: ProjectAggregateReport,
+) -> tuple[bytes, str, str]:
+    """분석 원본 전체 데이터를 JSON 파일로 내려준다."""
+    import json
+
+    base_name = f"project_report_{safe_filename_part(study.title, fallback=study.id)}"
+    content_bytes = json.dumps(
+        report.content or {},
+        ensure_ascii=False,
+        indent=2,
+    ).encode("utf-8")
+    return content_bytes, f"{base_name}.json", JSON_MEDIA_TYPE

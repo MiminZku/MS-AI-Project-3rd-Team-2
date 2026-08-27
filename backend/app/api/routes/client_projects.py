@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from fastapi import APIRouter, Header, HTTPException, status
+from fastapi import APIRouter, Header, HTTPException, Query, status
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
@@ -110,6 +110,7 @@ async def get_client_project_aggregate_report(
 @router.get("/{study_id}/aggregate-report/download", response_class=Response)
 async def download_client_project_report(
     study_id: str,
+    format: str = Query("word", description="다운로드 파일 형식: word, powerbi, json"),
     x_project_access_token: str | None = Header(default=None),
 ) -> Response:
     _require_project_token(study_id, x_project_access_token)
@@ -121,6 +122,7 @@ async def download_client_project_report(
     return project_report_download_response(
         study,
         await store.get_project_report(study_id),
+        format=format,
     )
 
 

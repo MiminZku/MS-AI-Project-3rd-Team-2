@@ -154,8 +154,14 @@ function filenameFromResponse(response: Response): string | null {
   return asciiMatch ? asciiMatch[1] : null;
 }
 
-export function projectReportDownloadUrl(projectId: string): string {
-  return `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/aggregate-report/download`;
+export type ReportDownloadFormat = "word" | "powerbi" | "json";
+
+export function projectReportDownloadUrl(
+  projectId: string,
+  format: ReportDownloadFormat = "word",
+): string {
+  const query = format === "word" ? "" : `?format=${encodeURIComponent(format)}`;
+  return `${API_BASE_URL}/api/projects/${encodeURIComponent(projectId)}/aggregate-report/download${query}`;
 }
 
 export function transcriptDownloadUrl(sessionId: string): string {

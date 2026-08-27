@@ -83,8 +83,12 @@ export async function fetchClientTranscript(
 }
 
 /** 클라이언트 토큰으로 접근하는 다운로드 URL들 */
-export function clientProjectReportDownloadUrl(projectId: string): string {
-  return `${API_BASE_URL}/api/client/projects/${encodeURIComponent(projectId)}/aggregate-report/download`;
+export function clientProjectReportDownloadUrl(
+  projectId: string,
+  format: "word" | "powerbi" | "json" = "word",
+): string {
+  const query = format === "word" ? "" : `?format=${encodeURIComponent(format)}`;
+  return `${API_BASE_URL}/api/client/projects/${encodeURIComponent(projectId)}/aggregate-report/download${query}`;
 }
 
 export function clientTranscriptDownloadUrl(projectId: string, sessionId: string): string {

@@ -150,6 +150,22 @@ def test_리포트를_생성하면_문서로_받을_수_있다(client):
     assert response.headers["content-type"] == DOCX_TYPE
     assert len(response.content) > 0
 
+    # Power BI Excel 다운로드
+    bi_response = client.get(
+        f"/api/projects/{project['id']}/aggregate-report/download?format=powerbi"
+    )
+    assert bi_response.status_code == 200
+    assert "spreadsheetml.sheet" in bi_response.headers["content-type"]
+    assert len(bi_response.content) > 0
+
+    # JSON 데이터 다운로드
+    json_response = client.get(
+        f"/api/projects/{project['id']}/aggregate-report/download?format=json"
+    )
+    assert json_response.status_code == 200
+    assert "application/json" in json_response.headers["content-type"]
+    assert len(json_response.content) > 0
+
 
 def test_완료된_인터뷰가_없으면_리포트_생성이_거부된다(client):
     project = _create_project(client)

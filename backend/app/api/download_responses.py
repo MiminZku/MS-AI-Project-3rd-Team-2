@@ -15,7 +15,9 @@ from app.schemas.project_report import ProjectAggregateReport
 from app.schemas.session import Session, Turn
 from app.schemas.study import ResearchStudy
 from app.services.downloads import (
+    build_powerbi_excel_document,
     build_project_report_document,
+    build_project_report_json,
     build_transcript_document,
     safe_filename_part,
 )
@@ -68,6 +70,8 @@ async def recording_download_response(session: Session) -> Response:
 def project_report_download_response(
     study: ResearchStudy,
     report: ProjectAggregateReport | None,
+    *,
+    format: str = "word",
 ) -> Response:
     if report is None or report.status != "COMPLETED":
         raise HTTPException(
@@ -75,5 +79,12 @@ def project_report_download_response(
             "아직 생성된 프로젝트 리포트가 없습니다. 먼저 리포트를 생성해 주세요.",
         )
 
-    content, filename, media_type = build_project_report_document(study, report)
+    fmt = (format or "word").lower().strip()
+    if fmt in ("powerbi", "excel", "xlsx", "bi"):
+        content, filename, media_type = build_powerbi_excel_document(study, report)
+    elif fmt == "json":
+        content, filename, media_type = build_project_report_json(study, report)
+    else:
+        content, filename, media_type = build_project_report_document(study, report)
+
     return file_response(content, filename, media_type)

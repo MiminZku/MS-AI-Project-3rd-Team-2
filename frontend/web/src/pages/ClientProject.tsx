@@ -3,7 +3,8 @@ import {
   ArrowsClockwise,
   ChatText,
   Clock,
-  DownloadSimple,
+  Database,
+  FileCode,
   FileDoc,
   FileText,
   Lock,
@@ -201,17 +202,44 @@ export default function ClientProject() {
                   <small>완료된 인터뷰 {completedCount}건 기준 · PM이 생성한 최신본</small>
                 </div>
               </div>
-              <button
-                type="button"
-                className="session-download-btn primary"
-                disabled={busyDownload === "report"}
-                onClick={() =>
-                  void runDownload("report", clientProjectReportDownloadUrl(projectId))
-                }
-              >
-                <DownloadSimple size={14} weight="bold" />
-                {busyDownload === "report" ? "받는 중…" : "리포트 다운로드"}
-              </button>
+              <div className="client-report-card-actions">
+                <button
+                  type="button"
+                  className="session-download-btn primary"
+                  disabled={busyDownload === "report-word"}
+                  onClick={() =>
+                    void runDownload("report-word", clientProjectReportDownloadUrl(projectId, "word"))
+                  }
+                  title="Word 문서 (.docx) 리포트 다운로드"
+                >
+                  <FileDoc size={14} weight="bold" />
+                  {busyDownload === "report-word" ? "받는 중…" : "리포트 다운로드 (Word)"}
+                </button>
+                <button
+                  type="button"
+                  className="session-download-btn primary"
+                  disabled={busyDownload === "report-powerbi"}
+                  onClick={() =>
+                    void runDownload("report-powerbi", clientProjectReportDownloadUrl(projectId, "powerbi"))
+                  }
+                  title="Power BI 분석 데이터셋 Excel (.xlsx) 다운로드"
+                >
+                  <Database size={14} weight="bold" />
+                  {busyDownload === "report-powerbi" ? "받는 중…" : "리포트 다운로드 (Power BI)"}
+                </button>
+                <button
+                  type="button"
+                  className="session-download-btn"
+                  disabled={busyDownload === "report-json"}
+                  onClick={() =>
+                    void runDownload("report-json", clientProjectReportDownloadUrl(projectId, "json"))
+                  }
+                  title="분석 원본 JSON 데이터 다운로드"
+                >
+                  <FileCode size={14} weight="bold" />
+                  {busyDownload === "report-json" ? "받는 중…" : "리포트 다운로드 (JSON)"}
+                </button>
+              </div>
             </div>
 
             {downloadError && (
@@ -734,6 +762,12 @@ export default function ClientProject() {
           margin-top: 3px;
           font-size: 12px;
           color: #94a3b8;
+        }
+
+        .client-report-card-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
         }
 
         .session-download-row {

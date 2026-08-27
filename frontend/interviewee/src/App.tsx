@@ -149,28 +149,27 @@ export default function App() {
       hasSpokenIntroRef.current = true;
       setOrbState("speaking");
 
-      // 0.8초 후 자연스럽게 오프닝 인사 및 자기소개 요청 발화 (음성과 자막 완벽 일치)
+      // 0.8초 후 오프닝 멘트를 백엔드에 전달 (백엔드에서 assistant.question으로 내려주어 발화)
       const timer = setTimeout(() => {
         const fullIntroSpeech = buildOpeningSpeech({
           projectTitle,
           durationMinutes,
         });
-        setQuestion(fullIntroSpeech);
-        speakWithCurrentSpeed(fullIntroSpeech);
 
-        // 오프닝 인사는 이 화면이 직접 만들어 발화하므로 백엔드가 알 수 없다.
-        // 알려주지 않으면 참관자 대시보드에 인터뷰가 아무 말 없이 시작한 것처럼
-        // 보이고, 기록에도 남지 않는다.
         if (socketRef.current?.readyState === WebSocket.OPEN) {
+          // 백엔드로 전송하면 백엔드에서 'assistant.question' 이벤트를 통해 똑같은 멘트를 내려줍니다.
+          // 프론트는 그걸 받아서 발화하므로, 여기서 직접 발화(speak)하면 이중 발화가 됩니다.
           socketRef.current.send(
             JSON.stringify({ type: "intro.spoken", text: fullIntroSpeech }),
           );
+        } else {
+          // 오프라인(더미) 모드일 때만 직접 발화
+          setQuestion(fullIntroSpeech);
+          speakWithCurrentSpeed(fullIntroSpeech);
+          setTimeout(() => {
+            setOrbState("listening");
+          }, 12000);
         }
-
-        // 발화 완료 후 응답자 답변 대기 (Listening 상태로 머뭄)
-        setTimeout(() => {
-          setOrbState("listening");
-        }, 12000);
       }, 800);
 
       return () => clearTimeout(timer);

@@ -3,7 +3,8 @@ import {
   ArrowClockwise,
   ChatText,
   CheckCircle,
-  DownloadSimple,
+  Database,
+  FileCode,
   FileDoc,
   FileText,
   VideoCamera,
@@ -279,15 +280,48 @@ export default function ProjectDownloadCenter() {
                 className="download-center__btn download-center__btn--primary"
                 onClick={() =>
                   void runDownload(
-                    "project-report",
-                    projectReportDownloadUrl(selectedId),
+                    "project-report-word",
+                    projectReportDownloadUrl(selectedId, "word"),
                     adminHeaders(),
                   )
                 }
-                disabled={!reportReady || busyDownload === "project-report"}
+                disabled={!reportReady || busyDownload === "project-report-word"}
+                title="Word 문서 (.docx) 리포트 다운로드"
               >
-                <DownloadSimple size={16} weight="bold" />
-                {busyDownload === "project-report" ? "받는 중…" : "리포트 다운로드"}
+                <FileDoc size={16} weight="bold" />
+                {busyDownload === "project-report-word" ? "받는 중…" : "리포트 다운로드 (Word)"}
+              </button>
+              <button
+                type="button"
+                className="download-center__btn download-center__btn--primary"
+                onClick={() =>
+                  void runDownload(
+                    "project-report-powerbi",
+                    projectReportDownloadUrl(selectedId, "powerbi"),
+                    adminHeaders(),
+                  )
+                }
+                disabled={!reportReady || busyDownload === "project-report-powerbi"}
+                title="Power BI 분석 데이터셋 Excel (.xlsx) 다운로드"
+              >
+                <Database size={16} weight="bold" />
+                {busyDownload === "project-report-powerbi" ? "받는 중…" : "리포트 다운로드 (Power BI)"}
+              </button>
+              <button
+                type="button"
+                className="download-center__btn"
+                onClick={() =>
+                  void runDownload(
+                    "project-report-json",
+                    projectReportDownloadUrl(selectedId, "json"),
+                    adminHeaders(),
+                  )
+                }
+                disabled={!reportReady || busyDownload === "project-report-json"}
+                title="분석 원본 JSON 데이터 다운로드"
+              >
+                <FileCode size={16} weight="bold" />
+                {busyDownload === "project-report-json" ? "받는 중…" : "리포트 다운로드 (JSON)"}
               </button>
             </div>
             {completedSessions.length === 0 && (

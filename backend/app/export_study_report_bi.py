@@ -1393,16 +1393,20 @@ def export_powerbi_excel(
         str,
         list[dict[str, Any]],
     ],
+    target: Any = None,
 ) -> None:
 
-    REPORT_DIR.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    out_target = target if target is not None else OUTPUT_PATH
+    if isinstance(out_target, (str, Path)):
+        Path(out_target).parent.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
     workbook = (
         xlsxwriter.Workbook(
-            OUTPUT_PATH
+            out_target,
+            {"in_memory": True} if hasattr(out_target, "write") else {},
         )
     )
 

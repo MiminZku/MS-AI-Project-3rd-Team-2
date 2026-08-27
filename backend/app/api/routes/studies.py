@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import Response
 
 from app.api.deps import require_admin
@@ -203,8 +203,11 @@ async def get_aggregate_report(study_id: str) -> ProjectAggregateReport:
 
 
 @router.get("/{study_id}/aggregate-report/download", response_class=Response)
-async def download_aggregate_report(study_id: str) -> Response:
-    """생성된 프로젝트 리포트를 문서 파일로 내려받는다."""
+async def download_aggregate_report(
+    study_id: str,
+    format: str = Query("word", description="다운로드 파일 형식: word, powerbi, json"),
+) -> Response:
+    """생성된 프로젝트 리포트를 문서/데이터 파일로 내려받는다."""
     store = get_store()
     study = await store.get_study(study_id)
     if study is None:
@@ -213,6 +216,7 @@ async def download_aggregate_report(study_id: str) -> Response:
     return project_report_download_response(
         study,
         await store.get_project_report(study_id),
+        format=format,
     )
 
 
