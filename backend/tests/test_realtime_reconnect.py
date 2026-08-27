@@ -139,9 +139,20 @@ def test_언어_코드가_이름으로_변환된다(code, expected):
     assert language_name(code) == expected
 
 
-async def test_번역기가_없으면_빈_문자열을_돌려준다():
-    """Azure 미설정 시에도 인터뷰가 멈추면 안 된다."""
+async def test_번역기가_없으면_빈_문자열을_돌려준다(monkeypatch):
+    """Azure 미설정 시에도 인터뷰가 멈추면 안 된다.
+
+    이 테스트는 "번역기 없음" 상태를 직접 강제해야 한다. 이전에는 ambient
+    환경(.env)에 Azure 키가 없다는 사실에 암묵적으로 기대고 있었는데,
+    실제로 유효한 키가 채워지자 진짜 Azure를 호출해버렸다(테스트에서
+    실제 API 호출이 발생하면 비용도 들고 결과도 환경에 따라 달라진다).
+    """
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "azure_openai_endpoint", "")
+    monkeypatch.setattr(get_settings(), "azure_openai_api_key", "")
     translation.reset_translator_cache()
+
     assert await translate_text("안녕하세요") == ""
 
 

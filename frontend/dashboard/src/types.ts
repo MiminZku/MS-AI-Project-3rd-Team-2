@@ -8,6 +8,9 @@ export interface QuestionNode {
   order: number;
   text: string;
   branches: Record<string, string>;
+  /** 세션 생성 시 통역 언어로 미리 번역해 둔 질문 */
+  text_translated?: string | null;
+  branches_translated?: Record<string, string>;
 }
 
 export interface Session {
@@ -19,6 +22,8 @@ export interface Session {
   interpretation_language?: string;
   questions: QuestionNode[];
   current_question_index: number;
+  main_question_asked?: boolean;
+  main_question_answered?: boolean;
   active_branch?: string | null;
   taken_branches?: string[];
   created_at: string;

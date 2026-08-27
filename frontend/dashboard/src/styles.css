@@ -2339,3 +2339,9 @@ body {
 .rec-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 999px; background: rgba(239, 68, 68, .16); color: #f87171; font-size: 11px; font-weight: 700; letter-spacing: .04em; }
 .rec-dot { width: 7px; height: 7px; border-radius: 50%; background: #ef4444; animation: rec-pulse 1.4s ease-in-out infinite; }
 @keyframes rec-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+/* 실시간 진행 상황 — 현재 질문 배너 */
+.current-question { margin: 0 16px 12px; padding: 12px 14px; border: 1px solid rgba(0,113,227,.28); border-left: 3px solid var(--primary); border-radius: 10px; background: rgba(0,113,227,.06); }
+.current-question__label { font-size: 10px; font-weight: 800; letter-spacing: .04em; color: var(--primary); text-transform: uppercase; }
+.current-question__text { margin: 6px 0 0; font-size: 13.5px; line-height: 1.55; font-weight: 600; color: var(--text); }
+.current-question__translation { margin: 6px 0 0; padding-top: 6px; border-top: 1px dashed rgba(0,113,227,.25); font-size: 12.5px; line-height: 1.5; color: var(--muted); }

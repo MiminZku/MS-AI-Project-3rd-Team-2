@@ -202,6 +202,15 @@ class CosmosStore:
             return []
         return [Turn.model_validate(t) for t in item["transcripts"]]
 
+    async def replace_transcript(self, session_id: str, turns: list[Turn]) -> None:
+        """전사 전체를 갈아끼운다 (번역 백필 등 유지보수 전용)."""
+        await self._ensure_init()
+        item = await self._get_session_doc(session_id)
+        if not item:
+            return
+        item["transcripts"] = [turn.model_dump(mode="json") for turn in turns]
+        await self.interviews_container.upsert_item(item)
+
     async def next_turn_index(self, session_id: str) -> int:
         transcripts = await self.get_transcript(session_id)
         return len(transcripts)

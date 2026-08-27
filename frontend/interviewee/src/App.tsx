@@ -129,6 +129,15 @@ export default function App() {
         setQuestion(fullIntroSpeech);
         speakWithCurrentSpeed(fullIntroSpeech);
 
+        // 오프닝 인사는 이 화면이 직접 만들어 발화하므로 백엔드가 알 수 없다.
+        // 알려주지 않으면 참관자 대시보드에 인터뷰가 아무 말 없이 시작한 것처럼
+        // 보이고, 기록에도 남지 않는다.
+        if (socketRef.current?.readyState === WebSocket.OPEN) {
+          socketRef.current.send(
+            JSON.stringify({ type: "intro.spoken", text: fullIntroSpeech }),
+          );
+        }
+
         // 발화 완료 후 응답자 답변 대기 (Listening 상태로 머뭄)
         setTimeout(() => {
           setOrbState("listening");

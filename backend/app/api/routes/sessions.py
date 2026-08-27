@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse, Response
 
@@ -19,6 +21,7 @@ from app.schemas.session import (
 )
 from app.services import orchestrator
 from app.services.connections import manager
+from app.services.ai.translation import translate_questions
 from app.services.question_script import parse_question_script
 from app.services.recordings import (
     RecordingSaveFailed,
@@ -27,6 +30,9 @@ from app.services.recordings import (
 )
 from app.services.store import get_store
 from app.schemas.messages import server_message
+
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter(
@@ -123,7 +129,27 @@ async def create_session(
         )
 
     # -----------------------------------------------------
-    # 3. Session 저장
+    # 3. 질문을 통역 언어로 미리 번역해 둔다
+    #
+    # 참관자(특히 해외 클라이언트)는 실시간으로 "지금 무슨 질문인지" 알아야 하고,
+    # 인터뷰가 끝난 뒤 기록 열람·다운로드에도 번역이 함께 나가야 한다.
+    # 매 조회마다 번역하면 느리고 비싸므로 여기서 한 번만 번역해 DB에 저장한다.
+    # -----------------------------------------------------
+
+    try:
+        await translate_questions(
+            session.questions,
+            target_language_code=session.interpretation_language,
+        )
+    except Exception:
+        # 번역 실패가 세션 생성을 막아서는 안 된다 (원문만으로도 인터뷰는 진행된다).
+        logger.exception(
+            "질문 번역 실패 — 원문만으로 세션을 생성합니다 session=%s",
+            session.id,
+        )
+
+    # -----------------------------------------------------
+    # 4. Session 저장
     # -----------------------------------------------------
 
     await store.save_session(
@@ -131,7 +157,7 @@ async def create_session(
     )
 
     # -----------------------------------------------------
-    # 4. Interview URL 반환
+    # 5. Interview URL 반환
     # -----------------------------------------------------
 
     return SessionCreateResponse(

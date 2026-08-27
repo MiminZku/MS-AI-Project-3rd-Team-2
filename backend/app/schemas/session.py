@@ -30,6 +30,13 @@ class QuestionNode(BaseModel):
     # {"부담됨": "그 때문에 주문을 포기한 경험이 있나요?"}
     branches: dict[str, str] = Field(default_factory=dict)
 
+    # 세션의 통역 언어로 미리 번역해 둔 질문.
+    # 참관자(특히 해외 클라이언트)가 지금 무슨 질문을 하는지 알아야 하고,
+    # 인터뷰 종료 후 기록 열람·다운로드에도 원문과 함께 나가야 한다.
+    # 세션 생성 시 한 번 번역해 DB에 저장한다 (매 조회마다 번역하지 않는다).
+    text_translated: str | None = None
+    branches_translated: dict[str, str] = Field(default_factory=dict)
+
 
 class Session(BaseModel):
     id: str = Field(default_factory=lambda: new_id("ses"))

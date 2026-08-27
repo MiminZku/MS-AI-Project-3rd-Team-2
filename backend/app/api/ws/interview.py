@@ -256,6 +256,19 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                 if current:
                     await orchestrator.handle_utterance(current, final_text, text_en=realtime_translation or None)
                 
+            elif msg_type == "intro.spoken":
+                # 오프닝 인사는 응답자 화면이 자체적으로 만들어 발화한다.
+                # 백엔드를 거치지 않다 보니 참관자 대시보드에는 인터뷰가
+                # 아무 말 없이 시작한 것처럼 보였고, 기록에도 남지 않았다.
+                # 실제로 발화한 텍스트를 받아 AI 진행자 턴으로 기록한다.
+                intro_text = (message.get("text") or "").strip()
+                if not intro_text:
+                    continue
+                current = await store.get_session(session_id)
+                if current is None:
+                    continue
+                await orchestrator.record_assistant_intro(current, intro_text)
+
             elif msg_type == "utterance":
                 # Fallback for text mode demo
                 text = (message.get("text") or "").strip()

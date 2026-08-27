@@ -117,6 +117,18 @@ class Store(Protocol):
     ) -> list[Turn]:
         ...
 
+    async def replace_transcript(
+        self,
+        session_id: str,
+        turns: list[Turn],
+    ) -> None:
+        """전사 전체를 갈아끼운다.
+
+        평소 인터뷰 흐름은 append만 쓴다. 이 메서드는 이미 저장된 턴에
+        나중에 값을 채워 넣어야 하는 유지보수 작업(예: 번역 백필) 전용이다.
+        """
+        ...
+
     async def next_turn_index(
         self,
         session_id: str,
@@ -382,6 +394,15 @@ class InMemoryStore:
                 [],
             )
         )
+
+
+    async def replace_transcript(
+        self,
+        session_id: str,
+        turns: list[Turn],
+    ) -> None:
+
+        self._transcripts[session_id] = list(turns)
 
 
     async def next_turn_index(
@@ -899,6 +920,30 @@ class RedisStore:
             Turn.model_validate_json(raw)
             for raw in raws
         ]
+
+
+    async def replace_transcript(
+        self,
+        session_id: str,
+        turns: list[Turn],
+    ) -> None:
+
+        key = self._key(
+            session_id,
+            ":transcript",
+        )
+
+        pipe = self._redis.pipeline()
+        pipe.delete(key)
+
+        if turns:
+            pipe.rpush(
+                key,
+                *[turn.model_dump_json() for turn in turns],
+            )
+            pipe.expire(key, self._ttl)
+
+        await pipe.execute()
 
 
     async def next_turn_index(

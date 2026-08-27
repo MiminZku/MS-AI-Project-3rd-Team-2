@@ -383,6 +383,10 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
 
   const phase = phaseOf(session, intervieweeOnline);
   const questions = session?.questions ?? [];
+  const currentQuestion =
+    session != null && session.current_question_index < questions.length
+      ? questions[session.current_question_index]
+      : null;
 
   const finalElapsedSec =
     session?.started_at && session?.ended_at
@@ -764,6 +768,21 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
               </div>
             </header>
 
+            {/* 지금 진행 중인 질문. 참관자(특히 해외 클라이언트)가 대화 스크롤을
+                따라가지 않아도 현재 질문을 바로 알 수 있어야 한다. */}
+            {currentQuestion && phase === "live" && (
+              <div className="current-question">
+                <div className="current-question__label">
+                  현재 질문 {currentQuestion.order}/{questions.length}
+                  {session?.main_question_answered ? " · 답변 받음" : " · 답변 대기"}
+                </div>
+                <p className="current-question__text">{currentQuestion.text}</p>
+                {currentQuestion.text_translated && (
+                  <p className="current-question__translation">{currentQuestion.text_translated}</p>
+                )}
+              </div>
+            )}
+
             <div className="turns">
               {transcript.map((turn) => (
                 <article key={`${turn.speaker}-${turn.index}`} className={`turn ${turn.speaker}`}>
@@ -774,7 +793,9 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
                     </time>
                   </div>
                   <p>{turn.text}</p>
-                  {showTranslation && turn.speaker === "interviewee" && (turn.text_en || translations[turn.index]) && (
+                  {/* AI 진행자 질문도 번역해서 보여줘야 해외 클라이언트가
+                      지금 무슨 질문인지 알 수 있다. 예전에는 응답자 턴만 번역했다. */}
+                  {showTranslation && (turn.text_en || translations[turn.index]) && (
                     <p className="turn-translation">{turn.text_en || translations[turn.index]}</p>
                   )}
                   {/* AI 판단 근거는 참관자에게만 보인다 (C5) */}

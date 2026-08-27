@@ -35,6 +35,7 @@ from app.schemas.session import (
 )
 from app.services.ai import timekeeper
 from app.services.ai.llm import GeneratedQuestion, get_question_generator
+from app.services.ai.translation import translate_assistant_text
 from app.services.connections import manager
 from app.services.respondent_session_state import (
     build_respondent_session_state,
@@ -264,10 +265,15 @@ async def handle_utterance(
         and await _no_queued_instructions(store, session.id)
     )
 
+    assistant_text = FINAL_CHECK_MESSAGE if final_check_pending else generated.text
+
     assistant_turn = Turn(
         index=index + 1,
         speaker="assistant",
-        text=FINAL_CHECK_MESSAGE if final_check_pending else generated.text,
+        text=assistant_text,
+        # 참관자(특히 해외 클라이언트)는 지금 무슨 질문을 하는지 알아야 한다.
+        # 기록 열람·다운로드에도 그대로 함께 나간다.
+        text_en=await translate_assistant_text(session, assistant_text),
         rationale=(
             f"[FINAL-CHECK] 마무리 전 참관자 추가 지시를 "
             f"{get_settings().final_instruction_window_seconds}초간 기다립니다."
@@ -629,6 +635,36 @@ async def _ask_final_instruction(
     )
 
 
+async def record_assistant_intro(
+    session: Session,
+    text: str,
+) -> None:
+    """응답자 화면이 발화한 오프닝 인사를 AI 진행자 턴으로 기록한다.
+
+    오프닝 인사는 응답자 화면이 자체적으로 만들어 아바타로 말한다. 그래서
+    백엔드를 거치지 않았고, 참관자 대시보드에는 인터뷰가 아무 말 없이 시작한
+    것처럼 보였다. 기록·리포트에도 남지 않았다.
+
+    같은 인사가 두 번 들어와도(재연결 등) 중복 기록하지 않는다.
+    """
+
+    if session.status == "ended":
+        return
+
+    store = get_store()
+    transcript = await store.get_transcript(session.id)
+
+    if any(turn.speaker == "assistant" for turn in transcript):
+        # 이미 AI 발화가 있으면 오프닝 단계가 아니다.
+        return
+
+    await _dispatch_assistant_message(
+        session,
+        text,
+        rationale="[INTRO] 인터뷰 시작 오프닝 인사 및 자기소개 요청",
+    )
+
+
 async def _dispatch_assistant_message(
     session: Session,
     text: str,
@@ -644,6 +680,7 @@ async def _dispatch_assistant_message(
         index=await store.next_turn_index(session.id),
         speaker="assistant",
         text=text,
+        text_en=await translate_assistant_text(session, text),
         rationale=rationale,
         instruction_id=instruction_id,
     )
