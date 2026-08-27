@@ -11,6 +11,7 @@ import QuestionPromptBox from "./components/QuestionPromptBox";
 import VideoPublisher from "./components/VideoPublisher";
 import { fetchRtcToken } from "./config";
 import { useAvatarWebRTC } from "./hooks/useAvatarWebRTC";
+import { useLocalRecording } from "./hooks/useLocalRecording";
 
 type Status = "idle" | "connecting" | "connected" | "closed" | "error";
 type SessionStatus = "created" | "running" | "ended";
@@ -101,6 +102,34 @@ export default function App() {
       hasActuallySpokenRef.current = true;
     }
   }, [isRecording, isVoiceDetected]);
+
+  const { isRecording: isLocalRecording, startRecording, stopAndUploadRecording } = useLocalRecording();
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (entryStep === "running" && !isLocalRecording) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+          .then(stream => {
+            mediaStreamRef.current = stream;
+            startRecording(stream);
+          })
+          .catch(err => console.error("로컬 녹화 스트림 확보 실패:", err));
+      } else {
+        console.error("이 브라우저 환경(HTTP 등)에서는 카메라/마이크 접근이 제한되어 로컬 녹화를 시작할 수 없습니다.");
+      }
+    }
+  }, [entryStep, isLocalRecording, startRecording]);
+
+  useEffect(() => {
+    // 세션이 완전히 끝나면 녹화를 멈추고 서버로 업로드
+    if (entryStep === "ended") {
+      stopAndUploadRecording(sessionId).catch(err => console.error("업로드 에러:", err));
+      if (mediaStreamRef.current) {
+        mediaStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+    }
+  }, [entryStep, sessionId, stopAndUploadRecording]);
 
   // Azure Avatar WebRTC 훅 연동 (Lisa 아바타 & 다국어 음성)
   const avatar = useAvatarWebRTC({

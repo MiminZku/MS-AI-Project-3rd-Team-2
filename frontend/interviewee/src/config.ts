@@ -28,3 +28,34 @@ export async function fetchRtcToken(sessionId: string): Promise<{ user_id: strin
   }
   return response.json();
 }
+
+export interface RecordingUploadResponse {
+  session_id: string;
+  video_recording_url: string;
+  size_bytes: number;
+  status: "uploaded";
+  storage?: string;
+  warning?: string | null;
+}
+
+export async function uploadRecording(sessionId: string, recording: Blob): Promise<RecordingUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", recording, `session_${sessionId}.webm`);
+  
+  // X-Admin-Token is not available on interviewee side, so we send it directly
+  const response = await fetch(`${API_BASE_URL}/api/sessions/${sessionId}/recording`, {
+    method: "POST",
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    let detail = "";
+    try {
+      detail = (await response.json())?.detail ?? "";
+    } catch {
+      detail = "";
+    }
+    throw new Error(detail || `녹화 업로드 실패 (${response.status})`);
+  }
+  return response.json();
+}

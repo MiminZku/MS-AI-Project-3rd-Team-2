@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Role } from "../App";
 import { startSession, endSession, observerSocketUrl, fetchRtcToken, getProject, uploadGuideFile } from "../api";
 import { DEMO_INSTRUCTIONS, DEMO_REPORT, DEMO_SESSION, DEMO_SESSION_ID, DEMO_TRANSCRIPT } from "../demoData";
-import { useRemoteRecording } from "../hooks/useRemoteRecording";
 import VideoSubscriber from "./VideoSubscriber";
 import type { Instruction, Report, ServerMessage, Session, Turn } from "../types";
 
@@ -102,8 +101,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
   const [reportJsonOpen, setReportJsonOpen] = useState(false);
   const [starting, setStarting] = useState(false);
   const [ending, setEnding] = useState(false);
-  const [recordingRequested, setRecordingRequested] = useState(false);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [projectSaveState, setProjectSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
 
@@ -119,9 +116,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadingGuide, setUploadingGuide] = useState(false);
   const [drawerPinned, setDrawerPinned] = useState(false);
-  const { isRecording, recordingError, startRecording, stopAndUploadRecording } = useRemoteRecording();
-  /** 종료 시 녹화 업로드를 한 번만 수행하기 위한 가드 */
-  const endedUploadRef = useRef(false);
   const socketRef = useRef<WebSocket | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const reportRef = useRef<HTMLDivElement | null>(null);
@@ -271,27 +265,12 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
     return () => clearInterval(timer);
   }, [session?.status, session?.started_at]);
 
+  // AI가 마무리해 서버가 세션을 자동 종료한 경우에도 리포트 등을 처리할 수 있음.
+  // 로컬 녹화 저장은 인터뷰이 쪽에서 알아서 수행합니다.
   useEffect(() => {
-    if (!recordingRequested || session?.status !== "running" || !remoteStream) return;
-    startRecording(remoteStream);
-  }, [recordingRequested, remoteStream, session?.status, startRecording]);
-
-  // AI가 마무리해 서버가 세션을 자동 종료한 경우에도 녹화를 저장해야 한다.
-  // 참관자가 종료 버튼을 누른 경로는 handleEndSession이 이미 처리하며,
-  // stopAndUploadRecording은 두 번 불려도 두 번째는 아무 일도 하지 않는다.
-  useEffect(() => {
-    if (session?.status !== "ended" || endedUploadRef.current) return;
-    endedUploadRef.current = true;
-    setRecordingRequested(false);
-    stopAndUploadRecording(sessionId).catch((error) => {
-      console.error("Failed to upload interview recording", error);
-      setActionError(
-        error instanceof Error
-          ? `녹화 저장 실패: ${error.message}`
-          : "녹화 파일 업로드에 실패했습니다.",
-      );
-    });
-  }, [session?.status, sessionId, stopAndUploadRecording]);
+    if (session?.status !== "ended") return;
+    // 필요한 추가 처리가 있다면 이곳에
+  }, [session?.status, sessionId]);
 
   useEffect(() => {
     if (!drawerPinned) return;
@@ -327,9 +306,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
 
   const handleStartSession = useCallback(async () => {
     setStarting(true);
-    // 인터뷰 시작과 동시에 응답자 화면 녹화를 요청한다.
-    // 실제 recorder는 ACS 원격 스트림이 붙는 시점에 아래 effect에서 시작된다.
-    setRecordingRequested(true);
+    // 인터뷰 시작과 동시에 인터뷰이 프론트엔드가 자체적으로 로컬 녹화를 시작합니다.
     if (sessionId === DEMO_SESSION_ID) {
       const startedAt = new Date().toISOString();
       setSession((prev) => (prev ? { ...prev, status: "running", started_at: startedAt } : prev));
@@ -342,7 +319,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
 
     const handleEndSession = useCallback(async () => {
     setEnding(true);
-    setRecordingRequested(false);
     setActionError(null);
     // transcript는 발화마다 저장되어 있으며, 종료 요청은 세션 완료 정보를
     // 프로젝트(study_id)별 개인 인터뷰 레코드에 확정 저장한 뒤에만 성공한다.
@@ -353,16 +329,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
       setSession((prev) => (prev ? { ...prev, status: "ended", ended_at: endedAt } : prev));
       setTimeout(() => setReport(DEMO_REPORT), 1500);
     } else {
-      try {
-        await stopAndUploadRecording(sessionId);
-      } catch (error) {
-        console.error("Failed to upload interview recording", error);
-        setActionError(
-          error instanceof Error
-            ? `녹화 저장 실패: ${error.message}`
-            : "녹화 파일 업로드에 실패했습니다. 인터뷰는 종료합니다.",
-        );
-      }
             try {
         setSession(await endSession(sessionId));
         setProjectSaveState("saved");
@@ -375,7 +341,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
     if (sessionId === DEMO_SESSION_ID) setProjectSaveState("saved");
     setEnding(false);
 
-  }, [sessionId, stopAndUploadRecording]);
+  }, [sessionId]);
 
   const handleOpenReport = useCallback(() => {
     reportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -644,16 +610,6 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
               <span className="muted small">
                 통역 {LANGUAGE_LABELS[session?.interpretation_language ?? ""] ?? session?.interpretation_language ?? "-"}
               </span>
-              {isRecording && (
-                <span className="rec-chip" title="응답자 화면을 녹화 중입니다">
-                  <span className="rec-dot" />REC
-                </span>
-              )}
-              {recordingError && (
-                <span className="error-text" style={{ color: "#f59e0b", fontSize: "12px" }}>
-                  {recordingError}
-                </span>
-              )}
               {role === "client" && <span className="role-chip">참관 전용</span>}
                             {projectSaveState === "saving" && <span className="muted small">프로젝트 개인 인터뷰 DB 저장 중…</span>}
               {projectSaveState === "saved" && <span className="connected small">프로젝트 개인 인터뷰 DB 저장 완료</span>}
@@ -692,7 +648,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
                 }}
               >
                 {rtcCreds ? (
-                  <VideoSubscriber token={rtcCreds.token} groupId={rtcCreds.group_id} onStreamReady={setRemoteStream} />
+                  <VideoSubscriber token={rtcCreds.token} groupId={rtcCreds.group_id} />
                 ) : (
                   <svg viewBox="0 0 200 240" fill="none">
                     <ellipse cx="100" cy="74" rx="44" ry="48" fill="rgba(120,220,180,.2)" />

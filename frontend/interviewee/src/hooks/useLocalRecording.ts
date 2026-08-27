@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { uploadRecording } from "../api";
+import { uploadRecording } from "../config";
 
 const PREFERRED_MIME_TYPES = ["video/webm;codecs=vp9,opus", "video/webm"];
 
@@ -7,7 +7,7 @@ function supportedMimeType(): string | undefined {
   return PREFERRED_MIME_TYPES.find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
 }
 
-export function useRemoteRecording() {
+export function useLocalRecording() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -19,8 +19,8 @@ export function useRemoteRecording() {
       setRecordingError("이 브라우저는 영상 녹화를 지원하지 않습니다.");
       return false;
     }
-    if (stream.getVideoTracks().length === 0) {
-      setRecordingError("녹화할 인터뷰이 영상이 아직 준비되지 않았습니다.");
+    if (stream.getVideoTracks().length === 0 || stream.getAudioTracks().length === 0) {
+      setRecordingError("카메라 또는 마이크 권한이 준비되지 않았습니다.");
       return false;
     }
 
@@ -31,15 +31,15 @@ export function useRemoteRecording() {
       recorder.ondataavailable = (event) => {
         if (event.data.size > 0) chunksRef.current.push(event.data);
       };
-      recorder.onerror = () => setRecordingError("인터뷰 영상 녹화 중 오류가 발생했습니다.");
+      recorder.onerror = () => setRecordingError("면접 영상 녹화 중 오류가 발생했습니다.");
       recorder.start(1000);
       recorderRef.current = recorder;
       setRecordingError(null);
       setIsRecording(true);
       return true;
     } catch (error) {
-      console.error("Failed to start remote recording", error);
-      setRecordingError("인터뷰 영상 녹화를 시작하지 못했습니다.");
+      console.error("Failed to start local recording", error);
+      setRecordingError("면접 영상 녹화를 시작하지 못했습니다.");
       return false;
     }
   }, []);
@@ -53,7 +53,7 @@ export function useRemoteRecording() {
         const mimeType = recorder.mimeType || "video/webm";
         resolve(new Blob(chunksRef.current, { type: mimeType }));
       };
-      recorder.onerror = () => reject(new Error("인터뷰 영상 녹화 중 오류가 발생했습니다."));
+      recorder.onerror = () => reject(new Error("면접 영상 녹화 중 오류가 발생했습니다."));
       recorder.stop();
     });
 
@@ -62,7 +62,6 @@ export function useRemoteRecording() {
     if (videoBlob.size === 0) throw new Error("업로드할 녹화 영상이 없습니다.");
 
     const result = await uploadRecording(sessionId, videoBlob);
-    // Blob 저장이 안 돼 서버에 임시 저장된 경우 참관자에게 알려야 한다.
     if (result.warning) setRecordingError(result.warning);
     return result;
   }, []);
