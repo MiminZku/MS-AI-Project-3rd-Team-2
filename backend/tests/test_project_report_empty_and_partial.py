@@ -179,6 +179,45 @@ def test_종합_리포트_스키마는_strict_강제가_가능하다():
     assert problems == [], f"strict 모드로 강제할 수 없는 지점: {problems[:5]}"
 
 
+def test_스키마에_선택_필드를_추가하면_안_된다():
+    """실측 회귀: data_sufficiency_notice 를 기본값 있는 선택 필드로 추가했더니
+    리포트 생성이 통째로 실패했다.
+
+    pydantic은 기본값이 있는 필드를 required에서 뺀다. 그러면 Azure Structured
+    Outputs(strict)가 "모든 속성은 required여야 한다"며 요청을 400으로 거부하고,
+    그 400은 폴백 로직상 "json_schema 미지원"으로 해석돼 스키마를 강제하지 않는
+    json_object 모드로 내려간다. 결국 모델이 섹션 일부만 만든 응답을 내놓아
+    "8 validation errors ... Field required"가 났다.
+
+    새 필드가 필요하면 기본값 없이(required) 추가하고, 값이 없을 수 있으면
+    타입을 `X | None` 으로 두어 모델이 null 을 채우게 해야 한다.
+    """
+    schema = StudyReportAnalysis.model_json_schema()
+
+    properties = set(schema["properties"].keys())
+    required = set(schema.get("required", []))
+
+    assert properties - required == set(), (
+        "다음 필드가 required 에서 빠져 strict 강제가 깨집니다: "
+        f"{sorted(properties - required)}"
+    )
+
+
+def test_생성된_리포트_샘플이_스키마를_만족한다():
+    """테스트들이 기대는 전제(고정 샘플이 유효하다)가 깨지면 바로 알 수 있게 한다."""
+    import json
+    from pathlib import Path
+
+    fixture = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "ai-interview-report" / "study_report.json"
+    )
+
+    assert StudyReportAnalysis.model_validate(
+        json.loads(fixture.read_text(encoding="utf-8"))
+    )
+
+
 @pytest.mark.parametrize(
     "missing_field",
     ["themes", "key_drivers", "pain_points", "needs", "evidence"],

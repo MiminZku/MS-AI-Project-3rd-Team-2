@@ -390,5 +390,6 @@
       "quote": "배송 단계가 실시간으로 갱신되고 예상 도착 시간이 바뀔 때 바로 알림을 보내주면 좋겠습니다.",
       "question_id": null
     }
-  ]
+  ],
+  "data_sufficiency_notice": null
 }

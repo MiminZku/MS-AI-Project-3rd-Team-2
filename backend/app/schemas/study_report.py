@@ -383,4 +383,10 @@ class StudyReportAnalysis(StrictModel):
         StudyEvidenceReference
     ]
 
-    data_sufficiency_notice: str | None = None
+    # 기본값을 주면 pydantic이 required에서 빼버리고, 그러면 Azure Structured
+    # Outputs(strict)가 "모든 속성은 required여야 한다"며 요청을 400으로 거부한다.
+    # 그 400은 폴백 로직상 "json_schema 미지원"으로 해석돼 스키마를 강제하지 않는
+    # json_object 모드로 내려가고, 결국 모델이 섹션 일부만 만든 응답을 내놓아
+    # "8 validation errors ... Field required"로 리포트 생성이 통째로 실패했다.
+    # 값이 없을 때는 모델이 null을 채우도록 required로 유지한다.
+    data_sufficiency_notice: str | None
