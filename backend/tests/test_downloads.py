@@ -158,6 +158,21 @@ def test_리포트를_생성하면_문서로_받을_수_있다(client):
     assert "spreadsheetml.sheet" in bi_response.headers["content-type"]
     assert len(bi_response.content) > 0
 
+    import io, zipfile, xml.etree.ElementTree as ET
+    with zipfile.ZipFile(io.BytesIO(bi_response.content)) as z:
+        table_files = [f for f in z.namelist() if f.startswith("xl/tables/")]
+        assert len(table_files) == 11
+        table_names = {
+            ET.fromstring(z.read(f)).attrib.get("name")
+            for f in table_files
+        }
+        assert "tblStudies" in table_names
+        assert "tblParticipants" in table_names
+        assert "tblCoverage" in table_names
+        assert "tblInsights" in table_names
+        assert "tblSegments" in table_names
+        assert "tblEvidence" in table_names
+
     # JSON 데이터 다운로드
     json_response = client.get(
         f"/api/projects/{project['id']}/aggregate-report/download?format=json"

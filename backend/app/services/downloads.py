@@ -257,35 +257,102 @@ XLSX_MEDIA_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.s
 JSON_MEDIA_TYPE = "application/json; charset=utf-8"
 
 
-def _write_fallback_powerbi_sheets(workbook, study: ResearchStudy, report: ProjectAggregateReport) -> None:
-    ws = workbook.add_worksheet("Overview")
-    ws.write(0, 0, "study_id")
-    ws.write(0, 1, "title")
-    ws.write(0, 2, "respondent_count")
-    ws.write(1, 0, study.id)
-    ws.write(1, 1, study.title)
-    ws.write(1, 2, report.respondent_count)
+def _build_fallback_powerbi_tables(
+    study: ResearchStudy,
+    report: ProjectAggregateReport,
+) -> dict[str, list[dict[str, Any]]]:
+    from app.export_study_report_bi import EXCEL_TABLE_NAMES
 
     content = report.content if isinstance(report.content, dict) else {}
-    sessions = content.get("sessions") or []
-    ws_sess = workbook.add_worksheet("Sessions")
-    ws_sess.write(0, 0, "session_id")
-    ws_sess.write(0, 1, "respondent_id")
-    for r_idx, sess in enumerate(sessions, start=1):
-        if isinstance(sess, dict):
-            ws_sess.write(r_idx, 0, str(sess.get("session_id", "")))
-            ws_sess.write(r_idx, 1, str(sess.get("respondent_id", "")))
+    overview_data = content.get("overview") if isinstance(content.get("overview"), dict) else {}
+    sessions_data = content.get("sessions") if isinstance(content.get("sessions"), list) else []
+    evidence_data = content.get("evidence") if isinstance(content.get("evidence"), list) else []
 
-    evidence = content.get("evidence") or []
-    ws_ev = workbook.add_worksheet("Evidence")
-    ws_ev.write(0, 0, "session_id")
-    ws_ev.write(0, 1, "respondent_id")
-    ws_ev.write(0, 2, "quote")
-    for r_idx, ev in enumerate(evidence, start=1):
+    # 1. studies
+    studies = [
+        {
+            "study_id": study.id,
+            "research_title": overview_data.get("research_title", study.title),
+            "research_purpose": overview_data.get("research_purpose", study.research_purpose),
+            "core_insight": overview_data.get("core_insight", ""),
+            "executive_summary": overview_data.get("executive_summary", ""),
+            "participant_count": overview_data.get("participant_count", report.respondent_count),
+            "completed_session_count": overview_data.get("completed_session_count", report.respondent_count),
+            "question_count": overview_data.get("question_count", len(study.questions)),
+        }
+    ]
+
+    # 2. participants
+    participants: list[dict[str, Any]] = []
+    for idx, sess in enumerate(sessions_data, start=1):
+        if isinstance(sess, dict):
+            p_id = sess.get("respondent_id") or f"P{idx:02d}"
+            participants.append(
+                {
+                    "study_id": study.id,
+                    "participant_key": f"{study.id}_{p_id}",
+                    "participant_id": p_id,
+                    "session_id": sess.get("session_id", ""),
+                    "quote_count": sess.get("turn_count", 0),
+                }
+            )
+    if not participants:
+        for idx, s_id in enumerate(report.included_session_ids or [], start=1):
+            p_id = f"P{idx:02d}"
+            participants.append(
+                {
+                    "study_id": study.id,
+                    "participant_key": f"{study.id}_{p_id}",
+                    "participant_id": p_id,
+                    "session_id": s_id,
+                    "quote_count": 0,
+                }
+            )
+
+    # 3. coverage
+    coverage: list[dict[str, Any]] = []
+    for q_idx, q in enumerate(study.questions or [], start=1):
+        q_text = q.text if hasattr(q, "text") else str(q)
+        q_id = q.id if hasattr(q, "id") else f"Q{q_idx:02d}"
+        coverage.append(
+            {
+                "study_id": study.id,
+                "coverage_id": f"COV{q_idx:02d}",
+                "question_id": q_id,
+                "question": q_text,
+                "coverage": "not_covered",
+                "participant_count": report.respondent_count,
+                "covered_participant_count": 0,
+                "coverage_rate": 0.0,
+                "reason": "",
+                "missing_information": "",
+            }
+        )
+
+    # 4. evidence
+    evidence: list[dict[str, Any]] = []
+    for e_idx, ev in enumerate(evidence_data, start=1):
         if isinstance(ev, dict):
-            ws_ev.write(r_idx, 0, str(ev.get("session_id", "")))
-            ws_ev.write(r_idx, 1, str(ev.get("respondent_id", "")))
-            ws_ev.write(r_idx, 2, str(ev.get("quote", "")))
+            p_id = ev.get("respondent_id") or "P01"
+            evidence.append(
+                {
+                    "study_id": study.id,
+                    "evidence_key": f"{study.id}_EV{e_idx:03d}",
+                    "evidence_id": f"EV{e_idx:03d}",
+                    "participant_key": f"{study.id}_{p_id}",
+                    "participant_id": p_id,
+                    "session_id": ev.get("session_id", ""),
+                    "question_id": ev.get("question_id", ""),
+                    "quote": ev.get("quote", ""),
+                }
+            )
+
+    tables: dict[str, list[dict[str, Any]]] = {k: [] for k in EXCEL_TABLE_NAMES.keys()}
+    tables["studies"] = studies
+    tables["participants"] = participants
+    tables["coverage"] = coverage
+    tables["evidence"] = evidence
+    return tables
 
 
 def build_powerbi_excel_document(
@@ -293,7 +360,7 @@ def build_powerbi_excel_document(
     report: ProjectAggregateReport,
 ) -> tuple[bytes, str, str]:
     """Power BI 분석을 위한 정규화된 다중 시트 Excel(.xlsx) 파일을 생성한다."""
-    import xlsxwriter
+    from app.export_study_report_bi import export_powerbi_excel
 
     base_name = f"study_report_powerbi_{safe_filename_part(study.title, fallback=study.id)}"
     buffer = io.BytesIO()
@@ -304,22 +371,20 @@ def build_powerbi_excel_document(
             from app.schemas.study_report import StudyReportAnalysis
             from app.services.report.bi_transformer import get_study_report_bi_transformer
 
-            analysis = StudyReportAnalysis.model_validate(report.content)
+            clean_content = {
+                k: v for k, v in report.content.items()
+                if k in StudyReportAnalysis.model_fields
+            }
+            analysis = StudyReportAnalysis.model_validate(clean_content)
             transformer = get_study_report_bi_transformer()
             tables = transformer.transform(analysis)
         except Exception:
             logger.exception("Power BI 테이블 변환 실패, 기본 세션/근거 테이블로 폴백")
 
-    if tables:
-        from app.export_study_report_bi import export_powerbi_excel
-        export_powerbi_excel(tables, buffer)
-    else:
-        workbook = xlsxwriter.Workbook(buffer, {"in_memory": True})
-        try:
-            _write_fallback_powerbi_sheets(workbook, study, report)
-        finally:
-            workbook.close()
+    if not tables:
+        tables = _build_fallback_powerbi_tables(study, report)
 
+    export_powerbi_excel(tables, buffer)
     return buffer.getvalue(), f"{base_name}.xlsx", XLSX_MEDIA_TYPE
 
 

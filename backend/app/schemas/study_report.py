@@ -382,3 +382,5 @@ class StudyReportAnalysis(StrictModel):
     evidence: list[
         StudyEvidenceReference
     ]
+
+    data_sufficiency_notice: str | None = None
