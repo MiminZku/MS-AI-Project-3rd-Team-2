@@ -647,7 +647,7 @@ export default function Monitor({ sessionId, intervieweeUrl, role, clientToken, 
                   position: "relative"
                 }}
               >
-                {rtcCreds ? (
+                {rtcCreds && phase !== "end" ? (
                   <VideoSubscriber token={rtcCreds.token} groupId={rtcCreds.group_id} />
                 ) : (
                   <svg viewBox="0 0 200 240" fill="none">

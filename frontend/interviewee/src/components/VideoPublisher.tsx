@@ -45,7 +45,11 @@ export default function VideoPublisher({ token, groupId }: VideoPublisherProps) 
 
     return () => {
       if (callAgent) {
-        callAgent.dispose();
+        try {
+          callAgent.dispose();
+        } catch (e) {
+          console.warn("Error disposing callAgent in VideoPublisher:", e);
+        }
       }
     };
   }, [token, groupId]);
