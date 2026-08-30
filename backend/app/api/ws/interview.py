@@ -92,7 +92,7 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
         )
     )
 
-    # 재접속 또는 첫 접속 시, 이미 진행 중인 질문이 있다면 즉시 인터뷰이 화면에 복원 전달
+    # 재접속 시, 이미 진행 중인 본 질문이 있다면 즉시 인터뷰이 화면에 복원 전달 (단, 인트로는 첫 입장 시 1회만 발화하므로 제외)
     if session.status == "running":
         try:
             transcript = await store.get_transcript(session_id)
@@ -100,7 +100,7 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                 (t for t in reversed(transcript) if t.speaker == "assistant"),
                 None,
             )
-            if last_assistant_turn:
+            if last_assistant_turn and "[INTRO]" not in (last_assistant_turn.rationale or ""):
                 await websocket.send_json(
                     server_message(
                         "assistant.question",

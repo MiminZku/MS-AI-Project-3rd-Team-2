@@ -62,6 +62,10 @@ export default function App() {
   const isDirectAvatarTest = new URLSearchParams(window.location.search).get("test") === "avatar";
   const [entryStep, setEntryStep] = useState<EntryStep>(isDirectAvatarTest ? "running" : "gromit");
   const [sessionStatus, setSessionStatus] = useState<SessionStatus>(isDirectAvatarTest ? "running" : "created");
+  const sessionStatusRef = useRef<SessionStatus>(sessionStatus);
+  useEffect(() => {
+    sessionStatusRef.current = sessionStatus;
+  }, [sessionStatus]);
   const [rtcCreds, setRtcCreds] = useState<{ token: string; group_id: string } | null>(null);
 
   // Flow states
@@ -84,8 +88,6 @@ export default function App() {
   useEffect(() => {
     speechSpeedRef.current = speechSpeed;
   }, [speechSpeed]);
-  const [reconnectTrigger, setReconnectTrigger] = useState<number>(0);
-  const isUnmountedRef = useRef<boolean>(false);
   const [history, setHistory] = useState<Turn[]>([]);
   const [isWaitingForAdditional, setIsWaitingForAdditional] = useState(false);
   // 세션이 종료됐지만 아바타의 작별 인사가 아직 재생 중인 상태
@@ -200,124 +202,152 @@ export default function App() {
       .catch(err => console.error("ACS token fetch failed", err));
   }, [sessionId]);
 
-  // 2. WebSocket Connection: Connect immediately if sessionId is available
+  // 2. WebSocket Connection: Connect once per sessionId
   useEffect(() => {
     if (!sessionId) return;
 
-    setStatus("connecting");
-    isUnmountedRef.current = false;
+    let isDisposed = false;
     let pingInterval: ReturnType<typeof setInterval> | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const socket = new WebSocket(`${WS_BASE_URL}/ws/interview/${sessionId}`);
-    socketRef.current = socket;
+    function connectWs() {
+      if (isDisposed) return;
+      setStatus("connecting");
 
-    socket.onopen = () => {
-      setStatus("connected");
-      // 15초마다 핑(하트비트)을 전송하여 클라우드/컨테이너 프록시(Envoy) 유휴 소켓 끊김 완벽 방지
-      pingInterval = setInterval(() => {
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.send(JSON.stringify({ type: "ping" }));
-        }
-      }, 15000);
-    };
+      const socket = new WebSocket(`${WS_BASE_URL}/ws/interview/${sessionId}`);
+      socketRef.current = socket;
 
-    socket.onclose = () => {
-      setStatus("closed");
-      if (pingInterval) clearInterval(pingInterval);
-      // 세션 진행 중 비정상 종료 시 2초 후 자동 복구 재접속
-      if (!isUnmountedRef.current && sessionStatus !== "ended") {
-        console.log("WebSocket disconnected unexpectedly. Reconnecting in 2s...");
-        reconnectTimeout = setTimeout(() => {
-          setReconnectTrigger((prev) => prev + 1);
-        }, 2000);
-      }
-    };
-
-    socket.onerror = () => setStatus("error");
-
-    socket.onmessage = (event) => {
-      try {
-        const message: ServerMessage = JSON.parse(event.data);
-        if (message.type === "pong") {
+      socket.onopen = () => {
+        if (isDisposed) {
+          socket.close();
           return;
         }
+        setStatus("connected");
+        // 15초마다 핑(하트비트)을 전송하여 클라우드/컨테이너 프록시(Envoy) 유휴 소켓 끊김 완벽 방지
+        if (pingInterval) clearInterval(pingInterval);
+        pingInterval = setInterval(() => {
+          if (socket.readyState === WebSocket.OPEN) {
+            socket.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 15000);
+      };
 
-        if (message.type === "session.state") {
-          setProjectTitle(message.session.project_title?.trim() || message.session.title?.trim() || "");
-          if (message.session.status === "ended") {
-            // 백엔드는 AI 작별 인사를 보낸 직후 세션을 자동 종료한다. 여기서 곧바로 종료 화면으로
-            // 갈아치우면 아바타가 인사를 말하는 도중에 잘리므로, 발화가 끝난 뒤에 전환한다.
-            setIsPendingEnd(true);
-          } else {
-            setSessionStatus(message.session.status);
-          }
-          if (message.session.duration_minutes) {
-            setDurationMinutes(message.session.duration_minutes);
-          }
-          if (message.session.interpretation_language) {
-            setInterpretationLanguage(message.session.interpretation_language);
-          }
-          if (message.session.questions && message.session.questions.length > 0) {
-            setSessionQuestions(message.session.questions);
-          }
-        } else if (message.type === "assistant.question") {
-          // 실제 백엔드 LLM이 생성한 다음 질문 수신 -> 아바타 음성 및 자막 실시간 발화!
-          const questionText = message.turn.text;
-          if (wrapUpTimerRef.current) {
-            clearTimeout(wrapUpTimerRef.current);
-            wrapUpTimerRef.current = null;
-          }
+      socket.onclose = () => {
+        if (isDisposed) return;
+        setStatus("closed");
+        if (pingInterval) clearInterval(pingInterval);
 
-          // 실시간 지시 등으로 다음 질문이 수신되면 대기 배너 즉시 해제
-          setIsWaitingForAdditional(false);
+        // 의도적 종료가 아니고 세션이 종료되지 않았으면 3초 후 안전 재연결
+        if (sessionStatusRef.current !== "ended") {
+          console.log("WebSocket disconnected. Reconnecting in 3s...");
+          reconnectTimeout = setTimeout(() => {
+            connectWs();
+          }, 3000);
+        }
+      };
 
-          // 이미 종료 멘트를 발화한 상태라면 중복 발화 차단
-          if (questionText.includes("인터뷰를 모두 마치겠습니다") && hasSpokenEndRef.current) {
+      socket.onerror = () => {
+        if (!isDisposed) setStatus("error");
+      };
+
+      socket.onmessage = (event) => {
+        try {
+          const message: ServerMessage = JSON.parse(event.data);
+          if (message.type === "pong") {
             return;
           }
-          if (questionText.includes("인터뷰를 모두 마치겠습니다")) {
-            hasSpokenEndRef.current = true;
-          }
 
-          setQuestion(questionText);
-          setHistory((prev) => [...prev, message.turn]);
-          setOrbState("speaking");
-
-          speakWithCurrentSpeed(questionText);
-
-          // 랩업 또는 종료 상태 감지
-          if (questionText.includes("리서치팀에서 추가로 확인") || questionText.includes("잠시 확인해 보겠습니다")) {
-            setIsWaitingForAdditional(true);
-          } else if (questionText.includes("인터뷰를 모두 마치겠습니다") || questionText.includes("종료되었습니다")) {
-            setIsWaitingForAdditional(false);
-          }
-
-          // 아바타 발화 시간 후 리스닝 상태로 전환 (질문 문장 길이에 비례해 적응형 지연 적용)
-          const listenDelay = Math.min(Math.max(questionText.length * 160, 3500), 9000);
-          setTimeout(() => {
-            if (!questionText.includes("인터뷰를 모두 마치겠습니다")) {
-              setOrbState("listening");
+          if (message.type === "session.state") {
+            setProjectTitle(message.session.project_title?.trim() || message.session.title?.trim() || "");
+            if (message.session.status === "ended") {
+              // 백엔드는 AI 작별 인사를 보낸 직후 세션을 자동 종료한다. 여기서 곧바로 종료 화면으로
+              // 갈아치우면 아바타가 인사를 말하는 도중에 잘리므로, 발화가 끝난 뒤에 전환한다.
+              setIsPendingEnd(true);
             } else {
-              setOrbState("idle");
+              setSessionStatus(message.session.status);
             }
-          }, listenDelay);
-        } else if (message.type === "error") {
-          setQuestion(`오류: ${message.message}`);
-          setOrbState("idle");
+            if (message.session.duration_minutes) {
+              setDurationMinutes(message.session.duration_minutes);
+            }
+            if (message.session.interpretation_language) {
+              setInterpretationLanguage(message.session.interpretation_language);
+            }
+            if (message.session.questions && message.session.questions.length > 0) {
+              setSessionQuestions(message.session.questions);
+            }
+          } else if (message.type === "assistant.question") {
+            // 실제 백엔드 LLM이 생성한 다음 질문 수신 -> 아바타 음성 및 자막 실시간 발화!
+            const questionText = message.turn.text;
+            if (wrapUpTimerRef.current) {
+              clearTimeout(wrapUpTimerRef.current);
+              wrapUpTimerRef.current = null;
+            }
+
+            // 실시간 지시 등으로 다음 질문이 수신되면 대기 배너 즉시 해제
+            setIsWaitingForAdditional(false);
+
+            // 오프닝 인사는 1회만 발화하도록 중복 차단
+            const isIntro =
+              questionText.includes("본격적인 질문에 앞서") ||
+              questionText.includes("AI 모더레이터입니다") ||
+              questionText.includes("간단한 자기소개를 부탁");
+            if (isIntro && hasSpokenIntroRef.current) {
+              console.log("오프닝 인사는 이미 발화되었으므로 중복 발화를 차단합니다.");
+              return;
+            }
+            if (isIntro) {
+              hasSpokenIntroRef.current = true;
+            }
+
+            // 이미 종료 멘트를 발화한 상태라면 중복 발화 차단
+            if (questionText.includes("인터뷰를 모두 마치겠습니다") && hasSpokenEndRef.current) {
+              return;
+            }
+            if (questionText.includes("인터뷰를 모두 마치겠습니다")) {
+              hasSpokenEndRef.current = true;
+            }
+
+            setQuestion(questionText);
+            setHistory((prev) => [...prev, message.turn]);
+            setOrbState("speaking");
+
+            speakWithCurrentSpeed(questionText);
+
+            // 랩업 또는 종료 상태 감지
+            if (questionText.includes("리서치팀에서 추가로 확인") || questionText.includes("잠시 확인해 보겠습니다")) {
+              setIsWaitingForAdditional(true);
+            } else if (questionText.includes("인터뷰를 모두 마치겠습니다") || questionText.includes("종료되었습니다")) {
+              setIsWaitingForAdditional(false);
+            }
+
+            // 아바타 발화 시간 후 리스닝 상태로 전환 (질문 문장 길이에 비례해 적응형 지연 적용)
+            const listenDelay = Math.min(Math.max(questionText.length * 160, 3500), 9000);
+            setTimeout(() => {
+              if (!questionText.includes("인터뷰를 모두 마치겠습니다")) {
+                setOrbState("listening");
+              } else {
+                setOrbState("idle");
+              }
+            }, listenDelay);
+          } else if (message.type === "error") {
+            setQuestion(`오류: ${message.message}`);
+            setOrbState("idle");
+          }
+        } catch (err) {
+          console.error("소켓 메시지 파싱/처리 예외 발생:", err);
         }
-      } catch (err) {
-        console.error("소켓 메시지 파싱/처리 예외 발생:", err);
-      }
-    };
+      };
+    }
+
+    connectWs();
 
     return () => {
-      isUnmountedRef.current = true;
+      isDisposed = true;
       if (pingInterval) clearInterval(pingInterval);
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      socket.close();
+      if (socketRef.current) socketRef.current.close();
     };
-  }, [sessionId, reconnectTrigger, sessionStatus]);
+  }, [sessionId]);
 
   // 3. Handle transition to 'running' room when waiting and session is running
   useEffect(() => {
