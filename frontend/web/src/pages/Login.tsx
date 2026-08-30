@@ -4,17 +4,15 @@ import { ArrowUpRight, ChartDonut, ShieldCheck, UsersThree } from "@phosphor-ico
 import { useRole, type UserRole } from "../auth/RoleContext";
 import Button from "../components/Button";
 
-const roleCopy: Record<UserRole, { description: string; notice: string; emailLabel: string; passwordLabel: string; submitLabel: string }> = {
+const roleCopy: Record<UserRole, { description: string; emailLabel: string; passwordLabel: string; submitLabel: string }> = {
   pm: {
     description: "프로젝트 관리 대시보드 및 현장 운영을 위해 접속합니다.",
-    notice: "실습 환경 안내 · 데모 기간엔 로그인이 되지 않아도 이용할 수 있음",
     emailLabel: "이메일",
     passwordLabel: "비밀번호",
     submitLabel: "PM 대시보드 입장",
   },
   client: {
     description: "PM이 전달한 Project Access ID로 하나의 조사 결과만 확인합니다.",
-    notice: "Client는 프로젝트 목록이나 관리 메뉴에 접근하지 않습니다.",
     emailLabel: "회사 이메일",
     passwordLabel: "접근 비밀번호",
     submitLabel: "Project Access ID 입력",
@@ -59,7 +57,6 @@ export default function Login() {
             </header>
 
             <form onSubmit={handleSubmit} className="login-form login-card">
-              <p className="login-demo-notice" role="note">{selectedRole.notice}</p>
               <div className="login-tab-container" aria-label="워크스페이스 역할 선택">
                 <button
                   aria-pressed={activeRole === "pm"}
