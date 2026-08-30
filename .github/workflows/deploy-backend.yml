@@ -44,13 +44,14 @@ jobs:
             --file backend/Dockerfile \
             backend
 
-      - name: Container Apps 배포 (최신 이미지로 업데이트)
+      - name: Container Apps 배포 (최신 이미지 업데이트 및 최소 복제본 1개 유지)
         run: |
           az config set extension.use_dynamic_install=yes_without_prompt
           az containerapp update \
             --name "${{ env.CONTAINER_APP_NAME }}" \
             --resource-group "${{ env.AZURE_RESOURCE_GROUP }}" \
-            --image "${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${GITHUB_SHA}"
+            --image "${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${GITHUB_SHA}" \
+            --min-replicas 1
 
       - name: 배포 상태 확인 (Health Check)
         run: |
