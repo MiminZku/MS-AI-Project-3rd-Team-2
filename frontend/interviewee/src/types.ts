@@ -33,4 +33,5 @@ export interface SessionBrief {
 export type ServerMessage =
   | { type: "session.state"; session: SessionBrief }
   | { type: "assistant.question"; turn: Turn }
+  | { type: "pong" }
   | { type: "error"; message: string };

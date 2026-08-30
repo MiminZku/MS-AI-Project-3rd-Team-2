@@ -91,6 +91,25 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
             session=await build_respondent_session_state(session),
         )
     )
+
+    # 재접속 또는 첫 접속 시, 이미 진행 중인 질문이 있다면 즉시 인터뷰이 화면에 복원 전달
+    if session.status == "running":
+        try:
+            transcript = await store.get_transcript(session_id)
+            last_assistant_turn = next(
+                (t for t in reversed(transcript) if t.speaker == "assistant"),
+                None,
+            )
+            if last_assistant_turn:
+                await websocket.send_json(
+                    server_message(
+                        "assistant.question",
+                        turn=orchestrator._turn_payload(last_assistant_turn, for_observer=False),
+                    )
+                )
+        except Exception as e:
+            logger.warning("재접속 시 최신 질문 복원 실패 session=%s: %s", session_id, e)
+
     await manager.broadcast_to_observers(
         session_id, server_message("interviewee.connected", session_id=session_id)
     )
@@ -278,6 +297,8 @@ async def interview_ws(websocket: WebSocket, session_id: str) -> None:
                 if current is None:
                     break
                 await orchestrator.handle_utterance(current, text)
+            elif msg_type == "ping":
+                await websocket.send_json({"type": "pong"})
             else:
                 await websocket.send_json(
                     server_message("error", message=f"알 수 없는 메시지 타입: {msg_type}")

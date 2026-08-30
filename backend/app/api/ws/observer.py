@@ -146,6 +146,8 @@ async def observer_ws(
                     server_message("instruction.deleted", instruction_id=instruction_id),
                 )
 
+            elif msg_type == "ping":
+                await websocket.send_json({"type": "pong"})
             else:
                 await websocket.send_json(
                     server_message("error", message=f"알 수 없는 메시지 타입: {msg_type}")

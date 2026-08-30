@@ -16,16 +16,14 @@ interface UseAvatarWebRTCOptions {
   transparentBackground?: boolean;
 }
 
-function htmlEncode(text: string): string {
-  const entityMap: Record<string, string> = {
-    "&": "&amp;",
-    "<": "&lt;",
-    ">": "&gt;",
-    '"': "&quot;",
-    "'": "&#39;",
-    "/": "&#x2F;",
-  };
-  return text.replace(/[&<>"'/]/g, (match) => entityMap[match]);
+function encodeSSML(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 export function useAvatarWebRTC({
@@ -208,14 +206,27 @@ export function useAvatarWebRTC({
         const ratePercent = Math.round((speedRate - 1) * 100);
         const rateStr = ratePercent >= 0 ? `+${ratePercent}%` : `${ratePercent}%`;
 
-        const spokenSsml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${activeVoice}'><mstts:leadingsilence-exact value='0'/><prosody rate='${rateStr}'>${htmlEncode(text)}</prosody></voice></speak>`;
+        const cleanText = encodeSSML(text);
+        const spokenSsml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xmlns:mstts='http://www.w3.org/2001/mstts' xml:lang='en-US'><voice name='${activeVoice}'><mstts:leadingsilence-exact value='0'/><prosody rate='${rateStr}'>${cleanText}</prosody></voice></speak>`;
 
         console.log(`Avatar speak start (${speedRate}x, rate=${rateStr}):`, text);
-        const result = await synthesizer.speakSsmlAsync(spokenSsml);
-        if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
+        
+        // 15초 타임아웃 가드: SSML 합성이 무한 대기에 빠져 아바타 상태가 speaking에 멈추는 것 방지
+        const speakPromise = synthesizer.speakSsmlAsync(spokenSsml);
+        const timeoutPromise = new Promise<any>((resolve) =>
+          setTimeout(() => resolve({ reason: "timeout" }), 15000)
+        );
+
+        const result = await Promise.race([speakPromise, timeoutPromise]);
+        if (result && result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
           console.log("Avatar speak completed.");
+        } else if (result && result.reason === "timeout") {
+          console.warn("Avatar speak timed out after 15s - recovering status to connected.");
+        } else if (result && result.reason === SpeechSDK.ResultReason.Canceled) {
+          const cancellation = SpeechSDK.CancellationDetails.fromResult(result as any);
+          console.error("Avatar speak canceled:", cancellation.reason, cancellation.errorDetails);
         } else {
-          console.warn("Avatar speak result reason:", result.reason);
+          console.warn("Avatar speak result reason:", result?.reason);
         }
         setStatus("connected");
       } catch (err: any) {
@@ -237,14 +248,9 @@ export function useAvatarWebRTC({
 
   const stopSpeaking = useCallback(async () => {
     try {
-      if (videoRef.current) {
-        videoRef.current.muted = true;
-      }
       setStatus("connected");
-      if (avatarSynthesizerRef.current) {
-        // 빈 SSML로 즉시 발화 인터럽트
-        await avatarSynthesizerRef.current.speakTextAsync(" ").catch(() => {});
-      }
+      // videoRef.current.muted 강제 변경 및 speakTextAsync(' ')를 배제하여
+      // 브라우저 오디오 정책 차단 및 아바타 합성기 상태 오염을 방지
     } catch (e) {
       console.warn("Error stopping avatar speaking:", e);
     }

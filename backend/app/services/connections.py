@@ -53,11 +53,16 @@ class ConnectionManager:
     async def send_to_interviewee(self, session_id: str, message: dict[str, Any]) -> None:
         bucket = self._sessions.get(session_id)
         if not bucket or bucket.interviewee is None:
+            logger.warning(
+                "인터뷰이 소켓 없음 (전송 생략) session=%s msg_type=%s",
+                session_id,
+                message.get("type"),
+            )
             return
         try:
             await bucket.interviewee.send_json(message)
-        except Exception:  # 소켓이 이미 끊긴 경우
-            logger.warning("인터뷰이 전송 실패 session=%s", session_id)
+        except Exception as e:  # 소켓이 이미 끊긴 경우
+            logger.warning("인터뷰이 전송 실패 session=%s error=%s", session_id, e)
             bucket.interviewee = None
 
     async def broadcast_to_observers(self, session_id: str, message: dict[str, Any]) -> None:
