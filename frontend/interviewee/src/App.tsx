@@ -151,37 +151,54 @@ export default function App() {
     avatar.speak(text, undefined, speechSpeedRef.current);
   };
 
-  // 0. 메인룸 입장 시 아바타가 먼저 인사 및 AI 인터뷰 공지 발화 (동적 오프닝 멘트 자동 발화)
+  // 0. 메인룸 입장 시 아바타 오프닝 멘트 발화 (동적 오프닝 멘트 1회 즉시 자동 발화)
   useEffect(() => {
-    if (entryStep === "running" && avatar.status === "connected" && !hasSpokenIntroRef.current) {
+    if (entryStep !== "running" || hasSpokenIntroRef.current) return;
+
+    let fallbackTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const triggerIntroSpeech = () => {
+      if (hasSpokenIntroRef.current) return;
       hasSpokenIntroRef.current = true;
       setOrbState("speaking");
 
-      // 0.8초 후 오프닝 멘트를 백엔드에 전달 (백엔드에서 assistant.question으로 내려주어 발화)
-      const timer = setTimeout(() => {
-        const fullIntroSpeech = buildOpeningSpeech({
-          projectTitle,
-          durationMinutes,
-        });
+      const fullIntroSpeech = buildOpeningSpeech({
+        projectTitle,
+        durationMinutes,
+      });
 
-        if (socketRef.current?.readyState === WebSocket.OPEN) {
-          // 백엔드로 전송하면 백엔드에서 'assistant.question' 이벤트를 통해 똑같은 멘트를 내려줍니다.
-          // 프론트는 그걸 받아서 발화하므로, 여기서 직접 발화(speak)하면 이중 발화가 됩니다.
-          socketRef.current.send(
-            JSON.stringify({ type: "intro.spoken", text: fullIntroSpeech }),
-          );
-        } else {
-          // 오프라인(더미) 모드일 때만 직접 발화
-          setQuestion(fullIntroSpeech);
-          speakWithCurrentSpeed(fullIntroSpeech);
-          setTimeout(() => {
-            setOrbState("listening");
-          }, 12000);
-        }
-      }, 800);
+      // 1. 하단 자막 박스에 오프닝 멘트 즉시 설정
+      setQuestion(fullIntroSpeech);
 
-      return () => clearTimeout(timer);
+      // 2. 아바타 음성 즉시 발화
+      speakWithCurrentSpeed(fullIntroSpeech);
+
+      // 3. 백엔드 및 참관자 대시보드에 오프닝 인사 기록 1회 동기화 전송
+      if (socketRef.current?.readyState === WebSocket.OPEN) {
+        socketRef.current.send(
+          JSON.stringify({ type: "intro.spoken", text: fullIntroSpeech }),
+        );
+      }
+
+      // 4. 오프닝 멘트 완료 후 리스닝 상태 전환 (오프닝 길이 약 12~14초)
+      const introDelay = Math.min(Math.max(fullIntroSpeech.length * 130, 10000), 16000);
+      setTimeout(() => {
+        setOrbState("listening");
+      }, introDelay);
+    };
+
+    if (avatar.status === "connected") {
+      triggerIntroSpeech();
+    } else {
+      // 아바타 WebRTC 연결 진행 중 최대 3.5초 대기 후 강제 발화 보장
+      fallbackTimer = setTimeout(() => {
+        triggerIntroSpeech();
+      }, 3500);
     }
+
+    return () => {
+      if (fallbackTimer) clearTimeout(fallbackTimer);
+    };
   }, [entryStep, avatar.status, projectTitle, durationMinutes]);
 
   // 1. Splash screen timer: Transition from 'gromit' to 'welcome' after 3s (단독 테스트 모드가 아닐 때만)
@@ -286,17 +303,18 @@ export default function App() {
             // 실시간 지시 등으로 다음 질문이 수신되면 대기 배너 즉시 해제
             setIsWaitingForAdditional(false);
 
-            // 오프닝 인사는 1회만 발화하도록 중복 차단
+            // 오프닝 인사는 메인룸 입장 시 프론트엔드가 이미 직접 발화하였으므로
+            // 백엔드의 에코 응답은 턴 기록(History)만 동기화하고 중복 음성 합성은 건너뜁니다.
             const isIntro =
               questionText.includes("본격적인 질문에 앞서") ||
               questionText.includes("AI 모더레이터입니다") ||
               questionText.includes("간단한 자기소개를 부탁");
-            if (isIntro && hasSpokenIntroRef.current) {
-              console.log("오프닝 인사는 이미 발화되었으므로 중복 발화를 차단합니다.");
-              return;
-            }
             if (isIntro) {
-              hasSpokenIntroRef.current = true;
+              setHistory((prev) => {
+                if (prev.some((t) => t.index === message.turn.index)) return prev;
+                return [...prev, message.turn];
+              });
+              return;
             }
 
             // 이미 종료 멘트를 발화한 상태라면 중복 발화 차단
