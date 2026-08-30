@@ -465,6 +465,7 @@ export function NewSessionView({
                 인터뷰 시간
                 <p className="desc">종료 예정 시각 계산에 사용됩니다</p>
                 <select value={duration} onChange={(event) => setDuration(Number(event.target.value))}>
+                  <option value={5}>5분</option>
                   <option value={10}>10분</option>
                   <option value={30}>30분</option>
                   <option value={60}>60분</option>
